@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-dynamic
+  namespace: malware-analysis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker-dynamic
+  template:
+    metadata:
+      labels:
+        app: worker-dynamic
+    spec:
+      containers:
+        - name: worker-dynamic
+          image: your-registry/malware-worker-dynamic:latest
+          env:
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: SANDBOX_URL
+              value: "http://sandbox-controller:9000"
+            - name: RESULTS_PATH
+              value: "/data/results"
+          volumeMounts:
+            - name: results
+              mountPath: /data/results
+      volumes:
+        - name: results
+          persistentVolumeClaim:
+            claimName: results-pvc

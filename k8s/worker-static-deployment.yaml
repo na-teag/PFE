@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-static
+  namespace: malware-analysis
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: worker-static
+  template:
+    metadata:
+      labels:
+        app: worker-static
+    spec:
+      containers:
+        - name: worker-static
+          image: your-registry/malware-worker-static:latest
+          env:
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: VIRUSTOTAL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: vt-credentials
+                  key: api-key
+            - name: RESULTS_PATH
+              value: "/data/results"
+            - name: YARA_RULES_PATH
+              value: "/yara-rules"
+          volumeMounts:
+            - name: results
+              mountPath: /data/results
+            - name: yara-rules
+              mountPath: /yara-rules
+      volumes:
+        - name: results
+          persistentVolumeClaim:
+            claimName: results-pvc
+        - name: yara-rules
+          emptyDir: {}
