@@ -1,0 +1,21 @@
+#cloud-config
+hostname: k3s-master
+ssh_pwauth: True
+chpasswd:
+  list: |
+    root:root
+  expire: False
+packages:
+  - curl
+  - sudo
+
+runcmd:
+  # Installer k3s (single-node)
+  - curl -sfL https://get.k3s.io | sh -
+  # Attendre que k3s démarre
+  - sleep 15
+  # Installer ArgoCD dans le cluster
+  - kubectl create namespace argocd || true
+  - kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+  # Supprimer le taint master pour pouvoir déployer des pods dessus
+  - kubectl taint nodes --all node-role.kubernetes.io/master-
