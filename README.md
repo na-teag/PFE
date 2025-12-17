@@ -28,3 +28,8 @@ sudo apt install -y qemu-kvm libvirt-daemon-system virtinst
 sudo systemctl enable --now libvirtd 
 ```
 Vérifier que le programme fonctionne correctement : `virsh list`
+
+## Utile
+
+Pour effacer tout ce qui a été créé par terraform avant de relancer une config : `terraform destroy` <br>
+supprimer une ressource spécifique : `terraform destroy -target=libvirt_domain.k3s_master`
