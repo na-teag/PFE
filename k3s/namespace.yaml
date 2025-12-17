@@ -4,9 +4,3 @@ metadata:
   name: malware-analysis
   labels:
     app: malware-analysis
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: malware-analysis
-  labels:
-    app: malware-analysis
