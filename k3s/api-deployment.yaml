@@ -30,8 +30,8 @@ spec:
     spec:
       containers:
         - name: api
-          image: your-registry/malware-api:latest
-          imagePullPolicy: IfNotPresent
+          image: jteam0/malware-api:latest
+          imagePullPolicy: Always
           env:
             - name: REDIS_URL
               value: "redis://redis:6379"

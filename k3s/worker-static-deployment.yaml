@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: worker-static
-          image: your-registry/malware-worker-static:latest
+          image: jteam0/malware-worker-static:latest
           env:
             - name: REDIS_URL
               value: "redis://redis:6379"

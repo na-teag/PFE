@@ -30,7 +30,7 @@ spec:
       hostPID: true   # pour parler à l’hyperviseur de la machine hôte
       containers:
         - name: sandbox-controller
-          image: your-registry/malware-sandbox-controller:latest
+          image: jteam0/malware-sandbox-controller:latest
           env:
             - name: HYPERVISOR_DRIVER
               value: "kvm"
