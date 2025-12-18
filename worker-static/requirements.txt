@@ -1,2 +1,8 @@
 redis
 requests
+hashlib
+dotenv
+pathlib
+os
+json
+time
