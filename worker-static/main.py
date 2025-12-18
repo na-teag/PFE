@@ -1,8 +1,10 @@
 import os, json, time, hashlib
+from dotenv import load_dotenv
 from pathlib import Path
 from redis import Redis
 import requests
 
+load_dotenv()
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379")
 VT_KEY = os.getenv("VIRUSTOTAL_API_KEY", "")
 RESULTS_PATH = Path(os.getenv("RESULTS_PATH", "/data/results"))
@@ -12,14 +14,18 @@ redis_client = Redis.from_url(REDIS_URL, decode_responses=True)
 
 
 def vt_analyze(path: Path) -> dict:
-  # simplifié: Hash lookup
-  h = hashlib.sha256(path.read_bytes()).hexdigest()
-  headers = {"x-apikey": VT_KEY}
-  url = f"https://www.virustotal.com/api/v3/files/{h}"
+  file_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+  headers = {
+    "accept": "application/json",
+    "x-apikey": VT_KEY
+  }
+  url = f"https://www.virustotal.com/api/v3/files/{file_hash}"
   r = requests.get(url, headers=headers)
   if r.status_code == 200:
     return r.json()
-  return {"error": f"VT status {r.status_code}"}
+  elif r.status_code == 404 and "NotFoundError" in r.json().get("error", {}).get("code", ""):
+    return {"error": "unknown file"}
+  return {"error": f"VirusTotal error {r.status_code}"}
 
 
 def main():
