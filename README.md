@@ -34,6 +34,8 @@ Vérifier que le programme fonctionne correctement : `virsh list`
 Pour effacer tout ce qui a été créé par terraform avant de relancer une config : `terraform destroy` <br>
 supprimer une ressource spécifique : `terraform destroy -target=libvirt_domain.k3s_master`
 
+appliquer la config avec kubectl : `kubectl apply -k k3s/`
+
 ## Docker Images
 Build des images Docker
 
@@ -75,6 +77,12 @@ kubectl get pods -n malware-analysis
 
 # Voir les services
 kubectl get svc -n malware-analysis 
+
+# Appliquer les constantes du .env pour les services :
+```bash
+kubectl -n malware-analysis create secret generic vt-credentials \
+  --from-env-file=.env \
+  --dry-run=client -o yaml | kubectl apply -f -
 ```
 
 ## Tests 
@@ -94,3 +102,6 @@ Vérifier Redis en live (adapter le nom du pod)
 kubectl -n malware-analysis exec -it redis-xxx -- redis-cli
 ```
 
+### info
+
+Ce projet utilise des règles yara sous licence GPL-2.0 : [rules](https://github.com/Yara-Rules/rules)

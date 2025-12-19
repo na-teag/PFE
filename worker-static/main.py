@@ -1,20 +1,21 @@
-import os, json, time, hashlib
+import os, json, time
 from dotenv import load_dotenv
 from pathlib import Path
 from redis import Redis
 import requests
+import yara
 
 load_dotenv()
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379")
 VT_KEY = os.getenv("VIRUSTOTAL_API_KEY", "")
 RESULTS_PATH = Path(os.getenv("RESULTS_PATH", "/data/results"))
-YARA_RULES_PATH = Path(os.getenv("YARA_RULES_PATH", "/yara-rules"))
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+YARA_DIR_PATH = Path(str(PROJECT_ROOT) + os.getenv("YARA_DIR_PATH", "/yara-rules"))
 
 redis_client = Redis.from_url(REDIS_URL, decode_responses=True)
 
 
-def vt_analyze(path: Path) -> dict:
-  file_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+def vt_analyze(file_hash: str) -> dict:
   headers = {
     "accept": "application/json",
     "x-apikey": VT_KEY
@@ -24,8 +25,20 @@ def vt_analyze(path: Path) -> dict:
   if r.status_code == 200:
     return r.json()
   elif r.status_code == 404 and "NotFoundError" in r.json().get("error", {}).get("code", ""):
-    return {"error": "unknown file"}
+    return {"message": "unknown file"}
   return {"error": f"VirusTotal error {r.status_code}"}
+
+
+def load_rules(rules_dir: Path, index_name: str = "index.yar") -> yara.Rules:
+  index_path = rules_dir / index_name
+  if not index_path.exists():
+    raise FileNotFoundError(f"Index YARA introuvable : {index_path}")
+  return yara.compile(filepath=str(index_path))
+
+def scan_file(rules: yara.Rules, file_path: Path):
+  if not file_path.is_file():
+    raise FileNotFoundError(file_path)
+  return rules.match(filepath=str(file_path))
 
 
 def main():
@@ -36,13 +49,16 @@ def main():
     _, payload = job
     meta = json.loads(payload)
     job_id = meta["job_id"]
+    file_hash = meta["file_hash"]
     path = Path(meta["file_path"])
+    rules = load_rules(YARA_DIR_PATH, index_name="index.yar")
+    matches = scan_file(rules, path)
 
     res = {
       "job_id": job_id,
-      "file_hash": meta["file_hash"],
-      "virustotal": vt_analyze(path),
-      "yara_matches": [],
+      "file_hash": file_hash,
+      "virustotal": vt_analyze(file_hash),
+      "yara_matches": matches,
     }
 
     redis_client.set(f"result_static:{job_id}", json.dumps(res), ex=7 * 24 * 3600)
@@ -50,7 +66,6 @@ def main():
     redis_client.set(f"job:{job_id}", json.dumps(meta), ex=7 * 24 * 3600)
 
     time.sleep(1)
-
 
 if __name__ == "__main__":
   main()

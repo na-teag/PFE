@@ -1,4 +1,4 @@
 redis
 requests
-dotenv
 python-dotenv
+yara-python
