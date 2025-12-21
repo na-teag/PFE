@@ -39,19 +39,19 @@ appliquer la config avec kubectl : `kubectl apply -k k3s/`
 ## Docker Images
 Build des images Docker
 
-Se placer dans le dossier du service concerné (api, sandbox-controller, worker-static ou worker-dynamic) :
+Se placer dans le dossier du service concerné (api, sandbox-controller, worker-static ou worker-dynamic), et incrémenter la version de l'image ici et dans le fichier YAML associé :
 ```bash
-docker build -t <dockerhub_username>/malware-<nom_du_service>:latest .
+docker build -t <dockerhub_nom_organisation>/malware-<nom_du_service>:vx.y.z .
 ```
 
 Exemple pour le service api:
 ```bash 
-docker build -t jteam0/malware-api:latest .
+docker build -t dockerhubmalware/malware-api:v1.0.0 .
 ```
 
 Push des images sur Docker Hub
 ```bash
-docker push jteam0/malware-<nom_du_service>:latest
+docker push dockerhubmalware/malware-<nom_du_service>:vx.y.z 
 ```
 
 Rebuild après modification du code
@@ -59,11 +59,12 @@ Rebuild après modification du code
 À chaque modification du code ou du Dockerfile, à la racine de chaque service :
 ```bash
 # rebuild
-docker build -t jteam0/malware-<nom_du_service>:latest .
+docker build -t dockerhubmalware/malware-<nom_du_service>:vx.y.z .
 
 # push
-docker push jteam0/malware-<nom_du_service>:latest
+docker push dockerhubmalware/malware-<nom_du_service>:vx.y.z
 ```
+Ne pas oublier d'incrémenter la version également dans le fichier YAML du déploiement Kubernetes
 
 Puis redémarrer les pods Kubernetes :
 ```bash
@@ -79,7 +80,6 @@ kubectl get pods -n malware-analysis
 kubectl get svc -n malware-analysis 
 
 # Appliquer les constantes du .env pour les services :
-```bash
 kubectl -n malware-analysis create secret generic vt-credentials \
   --from-env-file=.env \
   --dry-run=client -o yaml | kubectl apply -f -

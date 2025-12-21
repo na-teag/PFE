@@ -30,7 +30,7 @@ spec:
     spec:
       containers:
         - name: api
-          image: jteam0/malware-api:latest
+          image: dockerhubmalware/malware-api:v1.0.0
           imagePullPolicy: Always
           env:
             - name: REDIS_URL

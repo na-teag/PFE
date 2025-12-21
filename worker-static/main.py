@@ -42,30 +42,36 @@ def scan_file(rules: yara.Rules, file_path: Path):
 
 
 def main():
-  while True:
-    job = redis_client.brpop("analysis_queue_static", timeout=5)
-    if not job:
-      continue
-    _, payload = job
-    meta = json.loads(payload)
-    job_id = meta["job_id"]
-    file_hash = meta["file_hash"]
-    path = Path(meta["file_path"])
-    rules = load_rules(YARA_DIR_PATH, index_name="index.yar")
-    matches = scan_file(rules, path)
+    print("Worker static démarré")
+    while True:
+        job = redis_client.brpop("analysis_queue_static", timeout=5)
+        if not job:
+            continue
 
-    res = {
-      "job_id": job_id,
-      "file_hash": file_hash,
-      "virustotal": vt_analyze(file_hash),
-      "yara_matches": matches,
-    }
+        _, payload = job
+        meta = json.loads(payload)
+        job_id = meta["job_id"]
 
-    redis_client.set(f"result_static:{job_id}", json.dumps(res), ex=7 * 24 * 3600)
-    meta["status_static"] = "completed"
-    redis_client.set(f"job:{job_id}", json.dumps(meta), ex=7 * 24 * 3600)
+        print(f"[+] Job reçu: {job_id}")
 
-    time.sleep(1)
+        try:
+            rules = load_rules(YARA_DIR_PATH, "index.yar")
+            matches = scan_file(rules, Path(meta["file_path"]))
+        except Exception as e:
+            print(f"[!] Erreur YARA: {e}")
+            matches = []
+
+        res = {
+            "job_id": job_id,
+            "file_hash": meta["file_hash"],
+            "virustotal": vt_analyze(meta["file_hash"]),
+            "yara_matches": matches,
+        }
+
+        redis_client.set(f"result_static:{job_id}", json.dumps(res), ex=604800)
+        meta["status_static"] = "completed"
+        redis_client.set(f"job:{job_id}", json.dumps(meta), ex=604800)
+
 
 if __name__ == "__main__":
   main()

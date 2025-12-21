@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: worker-static
-          image: jteam0/malware-worker-static:latest
+          image: dockerhubmalware/malware-worker-static:v1.0.1
           env:
             - name: REDIS_URL
               value: "redis://redis:6379"
@@ -26,7 +26,7 @@ spec:
                   key: api-key
             - name: RESULTS_PATH
               value: "/data/results"
-            - name: YARA_RULES_PATH
+            - name: YARA_DIR_PATH
               value: "/yara-rules"
           volumeMounts:
             - name: results
