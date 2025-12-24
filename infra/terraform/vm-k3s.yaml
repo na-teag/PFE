@@ -17,5 +17,6 @@ runcmd:
   # Installer ArgoCD dans le cluster
   - kubectl create namespace argocd || true
   - kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+  - kubectl apply -n argocd -f argocd/malware-analysis-app.yaml
   # Supprimer le taint master pour pouvoir déployer des pods dessus
   - kubectl taint nodes --all node-role.kubernetes.io/master-
