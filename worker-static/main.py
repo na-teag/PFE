@@ -26,7 +26,7 @@ def vt_analyze(file_hash: str) -> dict:
     return r.json()
   elif r.status_code == 404 and "NotFoundError" in r.json().get("error", {}).get("code", ""):
     return {"message": "unknown file"}
-  return {"error": f"VirusTotal error {r.status_code}"}
+  raise ConnectionRefusedError(f"VirusTotal error {r.status_code}")
 
 
 def load_rules(rules_dir: Path, index_name: str = "index.yar") -> yara.Rules:
@@ -61,10 +61,17 @@ def main():
             print(f"[!] Erreur YARA: {e}")
             matches = []
 
+        try:
+            VT_result = vt_analyze(meta["file_hash"])
+        except ConnectionRefusedError as e:
+            print(f"[!] Connection refused: {e}")
+            VT_result = {}
+
+
         res = {
             "job_id": job_id,
             "file_hash": meta["file_hash"],
-            "virustotal": vt_analyze(meta["file_hash"]),
+            "virustotal": VT_result,
             "yara_matches": matches,
         }
 
