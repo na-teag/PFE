@@ -1,0 +1,10 @@
+hostname: inetsim
+manage_etc_hosts: true
+
+packages:
+  - inetsim
+  - tcpdump
+
+runcmd:
+  - systemctl enable inetsim
+  - systemctl restart inetsim
