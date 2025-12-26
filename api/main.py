@@ -94,3 +94,30 @@ def result(job_id: str):
     static_result=json.loads(static_raw) if static_raw else None,
     dynamic_result=json.loads(dyn_raw) if dyn_raw else None,
   )
+
+@app.get("/api/jobs")
+def list_jobs():
+    jobs = []
+
+    for key in redis_client.scan_iter("job:*"):
+        raw = redis_client.get(key)
+        if not raw:
+            continue
+
+        meta = json.loads(raw)
+        jobs.append({
+            "job_id": meta.get("job_id"),
+            "file_name": meta.get("file_name"),
+            "file_hash": meta.get("file_hash"),
+            "submitted_at": meta.get("submitted_at"),
+            "status_static": meta.get("status_static"),
+            "status_dynamic": meta.get("status_dynamic"),
+        })
+
+    jobs.sort(key=lambda x: x["submitted_at"], reverse=True)
+
+    return {
+        "count": len(jobs),
+        "jobs": jobs
+    }
+

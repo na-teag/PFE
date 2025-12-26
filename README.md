@@ -77,12 +77,12 @@ Commandes utiles :
 kubectl get pods -n malware-analysis
 
 # Voir les services
-kubectl get svc -n malware-analysis 
+kubectl get svc -n malware-analysis
 
-# Appliquer les constantes du .env pour les services :
-kubectl -n malware-analysis create secret generic vt-credentials \
-  --from-env-file=.env \
-  --dry-run=client -o yaml | kubectl apply -f -
+# Lancer le script setup-env.sh pour créer le fichier .env situé dans le dossier k3s pour initialiser les variables d'environnement
+# Il est également copié à la racine du projet pour les scripts python.
+./setup-env.sh
+# Entrer la clé Virus Total API quand c'est demandé
 ```
 
 ## Tests 
@@ -92,15 +92,38 @@ curl -X POST http://<API_IP>:8000/api/submit \
 -F "file=@sample.exe"
 ```
 
-Vérifier le retour des résultats
+Vérifier le retour des résultats d'un job précis
 ```bash
 curl http://<API_IP>:8000/api/result/<job_id>
 ```
 
+Vérifier la liste de toutes les analyses (jobs)
+```bash
+curl http://<API_IP>:8000/api/jobs
+```
+
+Pour les commandes /api/result/<job_id> et /api/jobs, il est également possible de voir les résultats directement sur l'interface web de l'API.
+
 Vérifier Redis en live (adapter le nom du pod)
 ```bash
 kubectl -n malware-analysis exec -it redis-xxx -- redis-cli
+
+# Gestion des jobs dans Redis
+
+# Pour lister tous les jobs :
+KEYS job:*
+
+# Pour supprimer un job précis : 
+DEL job:<job_id>
+
+# Pour supprimer uniquement l'analyse statique d'un job précis
+DEL result_static:<job_id>
+
+# Pour supprimer uniquement l'analyse dynamique d'un job précis
+DEL result_dynamic:<job_id>
 ```
+
+A noter que les jobs sont supprimés automatiquement au bout de 7 jours.
 
 ### info
 
