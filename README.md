@@ -79,8 +79,8 @@ kubectl get pods -n malware-analysis
 # Voir les services
 kubectl get svc -n malware-analysis
 
-# Lancer le script setup-env.sh pour créer le fichier .env situé dans le dossier k3s pour initialiser les variables d'environnement
-# Il est également copié à la racine du projet pour les scripts python.
+# Lancer le script setup-env.sh pour créer le fichier .env situé à la racine du projet pour initialiser les variables d'environnement
+# Un lien symbolique est également créé dans le dossier k3s pour permettre à Kustomize et aux fichiers YAML d'y accéder.
 ./setup-env.sh
 # Entrer la clé Virus Total API quand c'est demandé
 ```

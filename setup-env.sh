@@ -1,8 +1,8 @@
 # On crée le fichier .env dans k3s et on crée le secret Kubernetes
 
 K3S_DIR="k3s"
-ENV_FILE="$K3S_DIR/.env"
-ENV_FILE_ROOT=".env"
+ENV_FILE=".env"
+SYMLINK_ENV="$K3S_DIR/.env"
 NAMESPACE="malware-analysis"
 SECRET_NAME="vt-credentials"
 
@@ -21,7 +21,8 @@ if [ -f "$ENV_FILE" ]; then
 fi
 
 # On demande la clé VirusTotal à l'utilisateur
-read -p "Entrez votre clé VirusTotal API : " VT_KEY
+read -s -p "Entrez votre clé VirusTotal API : " VT_KEY
+echo
 
 # On crée le fichier .env directement
 cat > "$ENV_FILE" <<EOF
@@ -32,10 +33,15 @@ VIRUSTOTAL_API_KEY=$VT_KEY
 YARA_DIR_PATH=/yara-rules
 EOF
 
-echo "$ENV_FILE créé avec succès dans $(pwd)/$K3S_DIR"
+echo "$ENV_FILE créé avec succès dans $(pwd)"
 
-# On copie du .env à la racine du projet pour les scripts python
-cp "$ENV_FILE" "$ENV_FILE_ROOT"
+
+# On crée le symlink dans le dossier k3s
+if [ -L "$SYMLINK_ENV" ] || [ -f "$SYMLINK_ENV" ]; then
+    rm -f "$SYMLINK_ENV"
+fi
+ln -s "$ENV_FILE" "$SYMLINK_ENV"
+echo "Symlink créé dans le dossier $K3S_DIR du projet : $SYMLINK_ENV -> $ENV_FILE"
 
 # On crée le secret Kubernetes à partir du .env
 kubectl -n "$NAMESPACE" create secret generic "$SECRET_NAME" \
