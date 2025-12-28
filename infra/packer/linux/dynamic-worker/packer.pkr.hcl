@@ -9,7 +9,7 @@ packer {
 
 source "qemu" "malware_target" {
   # Utilisation d'une image Cloud (plus rapide et fiable que l'ISO)
-  iso_url = "https://cloud-images.ubuntu.com/jammy/20220308/jammy-server-cloudimg-amd64.img"
+  iso_url            = "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
   iso_checksum       = "file:https://cloud-images.ubuntu.com/jammy/current/SHA256SUMS"
   disk_image         = true
   disk_size          = "20G"
@@ -33,8 +33,13 @@ source "qemu" "malware_target" {
     ["-cpu", "host"]
   ]
 
+<<<<<<< HEAD
   output_directory   = "output2"
   vm_name            = "packer-malware-target2.qcow2"
+=======
+  output_directory   = "output"
+  vm_name            = "packer-malware-target.qcow2"
+>>>>>>> 71bf263 (feat: add packer file to generate .qco2 file)
 }
 
     build {
@@ -50,6 +55,7 @@ provisioner "shell" {
 
     "sudo systemctl disable apt-daily.timer || true",
     "sudo systemctl disable apt-daily-upgrade.timer || true",
+<<<<<<< HEAD
     "sudo apt-mark hold linux-image-generic linux-headers-generic",
     "uname -r",
     "sudo apt-get install -y linux-image-5.15.0-91-generic linux-headers-5.15.0-91-generic",
@@ -58,6 +64,12 @@ provisioner "shell" {
     "sudo apt-get install -y tcpdump python3-pip curl",
 
 
+=======
+
+    "sudo apt-get update",
+    "sudo apt-get install -y tcpdump python3-pip curl",
+
+>>>>>>> 71bf263 (feat: add packer file to generate .qco2 file)
     "sudo ufw disable || true"
   ]
 }
