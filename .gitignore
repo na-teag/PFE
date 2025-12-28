@@ -9,3 +9,11 @@
 k3s/.env
 helper_script.sh
 cuckoo_api_key.txt
+**/output/
+**/*.qcow2
+**/*.qcow2.convert
+**/*.img
+**/*.iso
+**/packer_cache/
+**/.packer.d/
+**/*.log
