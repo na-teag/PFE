@@ -8,7 +8,9 @@ packer {
 }
 
 source "qemu" "ebpf_sandbox" {
+
   iso_url = "https://cloud-images.ubuntu.com/jammy/20220308/jammy-server-cloudimg-amd64.img"
+
   iso_checksum       = "file:https://cloud-images.ubuntu.com/jammy/current/SHA256SUMS"
   disk_image         = true
   disk_size          = "9G"
@@ -36,6 +38,7 @@ source "qemu" "ebpf_sandbox" {
 
   output_directory   = "ebpf_sandbox"
   vm_name            = "packer-ebpf_sandbox.qcow2"
+
 }
 
 build {
