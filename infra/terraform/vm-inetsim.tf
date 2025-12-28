@@ -1,47 +1,61 @@
 resource "libvirt_volume" "inetsim_disk" {
   name   = "inetsim.qcow2"
   pool   = var.storage_pool
-  source = "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
-  format = "qcow2"
+  type = "qcow2"
+  create = {
+    content = {
+      url = "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
+    }
+  }
 }
 
 data "template_file" "inetsim_cloudinit" {
-  template = file("${path.module}/cloudinit/inetsim.yaml")
+  template = file("${path.module}/vm-inetsim.yaml")
 }
 
 resource "libvirt_cloudinit_disk" "inetsim_init" {
   name      = "inetsim-init.iso"
   user_data = data.template_file.inetsim_cloudinit.rendered
+  meta_data = yamlencode({
+    instance-id    = "vm-inetsim"
+    local-hostname = "inetsim"
+  })
 }
 
 resource "libvirt_domain" "inetsim" {
   name   = "inetsim"
+  type   = "kvm"
   memory = 2048
   vcpu   = 2
 
-  cpu {
+  cpu = {
     mode = "host-passthrough"
   }
 
-  network_interface {
-    network_id = libvirt_network.sandbox.id
-    addresses  = [var.inetsim_ip]
-  }
+  devices = {
 
-  disk {
-    volume_id = libvirt_volume.inetsim_disk.id
-  }
+    disk = {
+      volume_id = libvirt_volume.inetsim_disk.id
+    }
 
-  cloudinit = libvirt_cloudinit_disk.inetsim_init.id
+    interfaces = [{
+      network_id = libvirt_network.sandbox.id
+      addresses  = [var.inetsim_ip]   # IP statique OK
+    }]
 
-  graphics {
-    type        = "vnc"
-    listen_type = "none"
-  }
+    cloudinit = libvirt_cloudinit_disk.inetsim_init.id
 
-  console {
-    type        = "pty"
-    target_type = "serial"
-    target_port = "0"
+    /*
+    graphics = {
+      type        = "vnc"
+      listen_type = "none"
+    }
+
+    console = {
+      type        = "pty"
+      target_type = "serial"
+      target_port = "0"
+    }
+     */
   }
 }
