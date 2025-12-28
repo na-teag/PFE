@@ -6,3 +6,11 @@
 .idea/
 .vscode/
 k3s/.env
+**/output/
+**/*.qcow2
+**/*.qcow2.convert
+**/*.img
+**/*.iso
+**/packer_cache/
+**/.packer.d/
+**/*.log
