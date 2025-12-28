@@ -51,11 +51,7 @@ build {
 
     "sudo systemctl disable apt-daily.timer || true",
     "sudo systemctl disable apt-daily-upgrade.timer || true",
-<<<<<<< HEAD
-    "sudo apt-mark hold linux-image-generic linux-headers-generic",
-    "uname -r",
-    "sudo apt-get install -y linux-image-5.15.0-91-generic linux-headers-5.15.0-91-generic",
-  "sudo apt-mark hold linux-image-5.15.0-91-generic linux-headers-5.15.0-91-generic",
+
     "sudo apt-get update",
     "sudo tee /etc/netplan/01-netcfg.yaml > /dev/null << 'EOF'\nnetwork:\n  version: 2\n  renderer: networkd\n  ethernets:\n    enp1s0:\n      dhcp4: true\nEOF",
     "sudo chmod 600 /etc/netplan/01-netcfg.yaml",
