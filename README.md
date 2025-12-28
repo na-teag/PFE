@@ -111,17 +111,25 @@ curl -X POST http://<API_IP>:8000/api/submit \
 -F "file=@sample.exe"
 ```
 
-Vérifier le retour des résultats d'un job précis
+Vérifier le retour des résultats d'un job précis en format JSON
 ```bash
 curl http://<API_IP>:8000/api/result/<job_id>
+
+# Télécharger le fichier d'analyse en JSON
+curl -O -J http://<API_IP>:8000/api/result/<job_id>/download
 ```
 
-Vérifier la liste de toutes les analyses (jobs)
+Vérifier la liste de toutes les analyses (jobs) avec leurs statuts
 ```bash
 curl http://<API_IP>:8000/api/jobs
 ```
 
-Pour les commandes /api/result/<job_id> et /api/jobs, il est également possible de voir les résultats directement sur l'interface web de l'API.
+Supprimer complètement le job
+```bash
+curl -X DELETE http://<API_IP>:8000/api/jobs/<job_id>
+```
+
+Pour les commandes /api/result/<job_id>, /api/result/<job_id>/download et /api/jobs, il est également possible de voir les résultats directement sur l'interface web de l'API.
 
 Vérifier Redis en live (adapter le nom du pod)
 ```bash
