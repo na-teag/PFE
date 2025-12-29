@@ -9,11 +9,6 @@ variable "sandbox_bridge" {
   default = "virbr-sandbox"
 }
 
-variable "storage_pool" {
-  type    = string
-  default = "default"
-}
-
 # InetSim
 variable "inetsim_ip" {
   type    = string
