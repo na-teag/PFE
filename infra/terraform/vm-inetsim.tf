@@ -1,6 +1,6 @@
 resource "libvirt_volume" "inetsim_disk" {
   name   = "inetsim.qcow2"
-  pool   = var.storage_pool
+  pool   = libvirt_pool.default.name
   type = "qcow2"
   create = {
     content = {

@@ -7,6 +7,4 @@ resource "libvirt_network" "external" {
   domain    = {
     name = "k3s.local"
   }
-
-
 }

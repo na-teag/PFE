@@ -9,6 +9,8 @@ resource "libvirt_network" "sandbox" {
   autostart = true
 
   ips = [{
+    address = "192.168.100.1"
+    prefix = 24
     dhcp = {
       ranges = [{
         start ="192.168.100.10"
@@ -25,6 +27,9 @@ resource "libvirt_network" "sandbox" {
     enabled = true
     host = [{
       ip = var.inetsim_ip
+      hostnames = [{
+        hostname = "inetsim"
+      }]
     }]
   }
 }

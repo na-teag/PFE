@@ -1,6 +1,6 @@
 resource "libvirt_volume" "k3s_master_disk" {
   name   = "k3s-master.qcow2"
-  pool   = "default"
+  pool   = libvirt_pool.default.name
   type = "qcow2"
   capacity   = 10
   capacity_unit = "GB"
