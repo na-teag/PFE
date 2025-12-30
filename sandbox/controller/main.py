@@ -1,50 +1,47 @@
-import os, json, time
-from pathlib import Path
-from redis import Redis
-import requests
+from flask import Flask, request, jsonify
+import subprocess
+import uuid
+import os
 
-REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379")
-SANDBOX_URL = os.getenv("SANDBOX_URL", "http://sandbox-controller:9000")
-RESULTS_PATH = Path(os.getenv("RESULTS_PATH", "/data/results"))
+app = Flask(__name__)
 
-redis_client = Redis.from_url(REDIS_URL, decode_responses=True)
+SANDBOX_IMAGE = "output/packer-malware-target.qcow2"
+RESULT_DIR = "/tmp/sandbox_results"
 
+os.makedirs(RESULT_DIR, exist_ok=True)
 
-def call_sandbox(job_id: str, path: Path) -> dict:
-  r = requests.post(f"{SANDBOX_URL}/sandbox/run", json={
-    "job_id": job_id,
-    "sample_path": str(path),
-    "os": "windows",
-    "timeout": 120,
-  })
-  r.raise_for_status()
-  sjob = r.json()["sandbox_job_id"]
-  while True:
-    r2 = requests.get(f"{SANDBOX_URL}/sandbox/result/{sjob}")
-    r2.raise_for_status()
-    data = r2.json()
-    if data["status"] == "completed":
-      return data
-    time.sleep(5)
+@app.route("/sandbox/run", methods=["POST"])
+def run_sandbox():
+    data = request.json
+    sample_path = data["sample_path"]
 
+    job_id = str(uuid.uuid4())
+    result_file = f"{RESULT_DIR}/{job_id}.json"
 
-def main():
-  while True:
-    job = redis_client.brpop("analysis_queue_dynamic", timeout=5)
-    if not job:
-      continue
-    _, payload = job
-    meta = json.loads(payload)
-    job_id = meta["job_id"]
-    path = Path(meta["file_path"])
+    subprocess.Popen([
+        "./run_analysis.sh",
+        SANDBOX_IMAGE,
+        sample_path,
+        result_file
+    ])
 
-    res = call_sandbox(job_id, path)
-    res["job_id"] = job_id
+    return jsonify({
+        "sandbox_job_id": job_id,
+        "status": "running"
+    })
 
-    redis_client.set(f"result_dynamic:{job_id}", json.dumps(res), ex=7 * 24 * 3600)
-    meta["status_dynamic"] = "completed"
-    redis_client.set(f"job:{job_id}", json.dumps(meta), ex=7 * 24 * 3600)
+@app.route("/sandbox/result/<job_id>")
+def sandbox_result(job_id):
+    result_file = f"{RESULT_DIR}/{job_id}.json"
 
+    if not os.path.exists(result_file):
+        return jsonify({"status": "running"})
+
+    with open(result_file) as f:
+        return jsonify({
+            "status": "completed",
+            "result": f.read()
+        })
 
 if __name__ == "__main__":
-  main()
+    app.run(host="0.0.0.0", port=8081)
