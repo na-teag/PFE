@@ -48,7 +48,7 @@ Windows 10:
 
 Création de "golden image" pour Windows10
 
-modifier le output_directory dans worker-dynamic/win10_22h2.pkr.hcl pour un espace de au moins 35GB
+modifier le output_directory dans infra/packer/packer-windows/win10_22h2.pkr.hcl pour un espace de au moins 35GB
 
 ```bash
 packer init win10_22h2.pkr.hcl
