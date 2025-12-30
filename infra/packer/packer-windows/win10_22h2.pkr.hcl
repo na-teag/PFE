@@ -95,7 +95,7 @@ build {
     remote_path     = "c:/Windows/Temp/script.bat"
     scripts         = ["./scripts/70-install-misc.bat", "./scripts/80-compile-dotnet-assemblies.bat"]
   }
-f
+
   # Reboot after doing our first stages
   # This is to give the windows-update provisioner a chance
   # As it will seemingly hang on TiWorker.exe siting around idling
