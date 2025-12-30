@@ -101,6 +101,26 @@ kubectl get svc -n malware-analysis
 ```
 
 ## Tests 
+Les services de l’infrastructure (API, sandbox, workers) tournent dans le cluster Kubernetes et ne sont pas exposés sur localhost par défaut.
+
+Vérifier la sandbox-controller
+```bash
+# Trouver l'adresse IP de la sandbox
+kubectl get svc -n malware-analysis sandbox-controller
+
+# Vérifier son statut
+curl http://<SANDBOX-IP>:9000/health 
+```
+
+Vérifier l'API
+```bash
+# Trouver l'adresse IP de l'api
+kubectl get svc -n malware-analysis api
+
+# Vérifier son statut
+curl http://<API-IP>:8000/health
+```
+
 Envoi d'un fichier à analyser
 ```bash
 curl -X POST http://<API_IP>:8000/api/submit \
@@ -125,7 +145,7 @@ Supprimer complètement le job
 curl -X DELETE http://<API_IP>:8000/api/jobs/<job_id>
 ```
 
-Pour les commandes /api/result/<job_id>, /api/result/<job_id>/download et /api/jobs, il est également possible de voir les résultats directement sur l'interface web de l'API.
+Pour les commandes /health, /api/result/<job_id>, /api/result/<job_id>/download et /api/jobs, il est également possible de voir les résultats directement sur l'interface web de l'API.
 
 Vérifier Redis en live (adapter le nom du pod)
 ```bash
