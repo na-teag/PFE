@@ -1,7 +1,7 @@
 resource "libvirt_volume" "inetsim_disk" {
   name   = "inetsim.qcow2"
   pool   = libvirt_pool.default.name
-  type = "qcow2"
+  type = "file"
   create = {
     content = {
       url = "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
@@ -32,6 +32,11 @@ resource "libvirt_domain" "inetsim" {
     mode = "host-passthrough"
   }
 
+  os = {
+    type = "hvm"
+    type_arch = "x86_64"
+  }
+
   devices = {
 
     disk = {
@@ -45,17 +50,11 @@ resource "libvirt_domain" "inetsim" {
 
     cloudinit = libvirt_cloudinit_disk.inetsim_init.id
 
-    /*
-    graphics = {
-      type        = "vnc"
-      listen_type = "none"
-    }
 
     console = {
       type        = "pty"
       target_type = "serial"
       target_port = "0"
     }
-     */
   }
 }

@@ -5,18 +5,44 @@ chpasswd:
   list: |
     root:root
   expire: False
+network:
+  version: 2
+  ethernets:
+    eth0:
+      addresses:
+        - 192.168.122.2/24
+      gateway4: 192.168.122.1
+      nameservers:
+        addresses: [8.8.8.8]
+users:
+  - name: k3s
+    groups: sudo
+    shell: /bin/bash
+    passwd: "$6$8HnNkXiciaai5RDJ$6sEe5zHc.uMcs3S62tamFUWDPY/Foey/krrTxPqRsLf6.WgE9IY/bs0fd2wEiw39z4qWzcgTetNVBr3VRiq8n."
 packages:
   - curl
   - sudo
+  - git
 
 runcmd:
   # Installer k3s (single-node)
   - curl -sfL https://get.k3s.io | sh -
-  # Attendre que k3s démarre
-  - sleep 15
+  # Installer kubectl
+  - curl -LO https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl
+  - chmod +x ./kubectl
+  - mv ./kubectl /usr/local/bin/kubectl
+  - mkdir -p /home/k3s/.kube
+  - cp /etc/rancher/k3s/k3s.yaml /home/k3s/.kube/config
+  - chown k3s:k3s /home/k3s/.kube/config
+  # Attendre que tout démarre
+  - sleep 10
+  - until kubectl get nodes; do sleep 5; done
   # Installer ArgoCD dans le cluster
   - kubectl create namespace argocd || true
   - kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-  - kubectl apply -n argocd -f argocd/malware-analysis-app.yaml
+  - usermod -aG libvirt k3s
+  - cd /home/k3s
+  - git clone https://github.com/na-teag/projet-analyse-malware.git
+  - kubectl apply -n argocd -f projet-analyse-malware/infra/argocd/malware-analysis-app.yaml
   # Supprimer le taint master pour pouvoir déployer des pods dessus
   - kubectl taint nodes --all node-role.kubernetes.io/master-

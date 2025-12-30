@@ -27,14 +27,29 @@ Installer KVM :
 sudo apt install -y qemu-kvm libvirt-daemon-system virtinst
 sudo systemctl enable --now libvirtd 
 ```
-Vérifier que le programme fonctionne correctement : `virsh list`
 
 ## Utile
-`terraform apply` <br>
+utiliser terraform sans `sudo` : `sudo usermod -aG libvirt $USER` et redémarrer<br>
+tester la config terraform sans l'appliquer : `terraform plan` <br>
+appliquer la config terraform : `terraform apply` <br>
 Pour effacer tout ce qui a été créé par terraform avant de relancer une config : `terraform destroy` <br>
 supprimer une ressource spécifique : `terraform destroy -target=libvirt_domain.k3s_master`
 
 appliquer la config avec kubectl : `kubectl apply -k k3s/`
+<br>
+
+démarrer une VM : `virsh start k3s-master` <br>
+se connecter à la console : `virsh console k3s-master` <br>
+vérifier l'état des VMs : `virsh list --all ` et `virsh dominfo k3s-master`<br>
+arreter une VM : `virsh shutdown k3s-master` <br>
+redémarrer une VM : `virsh reboot k3s-master` <br>
+forcer l'arret : `virsh destroy k3s-master` <br>
+afficher les disques attachés : `virsh domblklist k3s-master` <br>
+
+
+faire un snapshot : `virsh snapshot-create-as k3s-master snapshot1 "snapshot avant test"`
+restaurer un snapshot : `virsh snapshot-revert k3s-master snapshot1`
+supprimer un snapshot : `virsh snapshot-delete k3s-master snapshot1`
 
 ## Docker Images
 Build des images Docker

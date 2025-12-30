@@ -1,10 +1,26 @@
 resource "libvirt_network" "external" {
   name      = "external-net"
+  domain    = {
+    name = "k3s.local"
+  }
   bridge    = {
     name = var.k3s_bridge
   }
   autostart = true
-  domain    = {
-    name = "k3s.local"
-  }
+  /*
+  ips = [{
+    address = "192.168.122.1"
+    prefix = 24
+    dhcp = {
+      ranges = [{
+        start ="192.168.122.10"
+        end = "192.168.122.200"
+      }]
+      hosts = [{
+        ip = var.k3s_ip
+        name = "k3s-master"
+      }]
+    }
+  }]
+  */
 }
