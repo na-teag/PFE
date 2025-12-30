@@ -7,35 +7,41 @@ from pydantic import BaseModel
 from typing import Dict, Optional, List
 from datetime import datetime
 import uuid
+import os
 
-app = FastAPI(title="Sandbox Controller", version="1.0.0")
+app = Flask(__name__)
 
-# --- Cuckoo3 configuration ---
+SANDBOX_IMAGE = "output/packer-malware-target.qcow2"
+RESULT_DIR = "/tmp/sandbox_results"
 
 CUCKOO_SUBMIT_URL = os.getenv("CUCKOO_SUBMIT_URL", "http://192.168.122.1:8080")
 CUCKOO_API_TOKEN = os.getenv("CUCKOO_API_KEY", "").strip()
 CUCKOO_HEADERS = {"Authorization": f"token {CUCKOO_API_TOKEN}"} if CUCKOO_API_TOKEN else {}
 
-class RunRequest(BaseModel):
-    job_id: str                     # job global (API principale)
-    sample_path: str                # ex: /shared/jobs/<job_id>/sample.exe
-    os: str = "windows"             # windows ou linux
-    timeout: int = 120              # seconds
+    subprocess.Popen([
+        "./run_analysis.sh",
+        SANDBOX_IMAGE,
+        sample_path,
+        result_file
+    ])
 
+    return jsonify({
+        "sandbox_job_id": job_id,
+        "status": "running"
+    })
 
-class RunResponse(BaseModel):
-    sandbox_job_id: str
-    job_id: str
-    status: str
-    started_at: str
+@app.route("/sandbox/result/<job_id>")
+def sandbox_result(job_id):
+    result_file = f"{RESULT_DIR}/{job_id}.json"
 
+    if not os.path.exists(result_file):
+        return jsonify({"status": "running"})
 
-class StatusResponse(BaseModel):
-    sandbox_job_id: str
-    job_id: str
-    status: str                     # queued | running | completed | failed
-    started_at: str
-    finished_at: Optional[str] = None
+    with open(result_file) as f:
+        return jsonify({
+            "status": "completed",
+            "result": f.read()
+        })
 
 
 class SandboxAnalysis(BaseModel):
