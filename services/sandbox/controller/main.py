@@ -1,46 +1,49 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from typing import Dict, Optional, List
-from datetime import datetime
+from flask import Flask, request, jsonify
+import subprocess
 import uuid
+import os
 
-app = FastAPI(title="Sandbox Controller", version="1.0.0")
+app = Flask(__name__)
 
-# --- Cuckoo3 configuration ---
+SANDBOX_IMAGE = "output/packer-malware-target.qcow2"
+RESULT_DIR = "/tmp/sandbox_results"
 
-CUCKOO_API_URL = os.getenv("CUCKOO_API_URL", "http://127.0.0.1:8080")
-# Automatically load token
-PROJECT_ROOT = Path(__file__).resolve().parents[2]   # services/sandbox-controller/ -> project root
-TOKEN_PATH = PROJECT_ROOT / "cuckoo_api_key.txt"
+os.makedirs(RESULT_DIR, exist_ok=True)
 
-try:
-    CUCKOO_API_TOKEN = TOKEN_PATH.read_text().strip()
-except FileNotFoundError:
-    CUCKOO_API_TOKEN = ""
+@app.route("/sandbox/run", methods=["POST"])
+def run_sandbox():
+    data = request.json
+    sample_path = data["sample_path"]
 
-CUCKOO_HEADERS = {"Authorization": f"token {CUCKOO_API_TOKEN}"} if CUCKOO_API_TOKEN else {}
+    job_id = str(uuid.uuid4())
+    result_file = f"{RESULT_DIR}/{job_id}.json"
 
-class RunRequest(BaseModel):
-    job_id: str                     # job global (API principale)
-    sample_path: str                # ex: /shared/jobs/<job_id>/sample.exe
-    os: str = "windows"             # windows ou linux
-    timeout: int = 120              # seconds
+    subprocess.Popen([
+        "./run_analysis.sh",
+        SANDBOX_IMAGE,
+        sample_path,
+        result_file
+    ])
 
+    return jsonify({
+        "sandbox_job_id": job_id,
+        "status": "running"
+    })
 
-class RunResponse(BaseModel):
-    sandbox_job_id: str
-    job_id: str
-    status: str
-    started_at: str
+@app.route("/sandbox/result/<job_id>")
+def sandbox_result(job_id):
+    result_file = f"{RESULT_DIR}/{job_id}.json"
 
+    if not os.path.exists(result_file):
+        return jsonify({"status": "running"})
 
-class StatusResponse(BaseModel):
-    sandbox_job_id: str
-    job_id: str
-    status: str                     # queued | running | completed | failed
-    started_at: str
-    finished_at: Optional[str] = None
+    with open(result_file) as f:
+        return jsonify({
+            "status": "completed",
+            "result": f.read()
+        })
 
+<<<<<<< HEAD
 
 class SandboxAnalysis(BaseModel):
     process_tree: List[dict]
@@ -270,3 +273,7 @@ def health():
         "status": "ok",
         "sandbox_jobs": len(SANDBOX_JOBS)
     }
+=======
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8081)
+>>>>>>> f0c2dcf (feat: add dragvuf test)
