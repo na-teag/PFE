@@ -29,12 +29,31 @@ sudo systemctl enable --now libvirtd
 ```
 Vérifier que le programme fonctionne correctement : `virsh list`
 
+
+Installer packer :
+```bash
+sudo snap install packer --classic
+```
+
 ## Utile
 `terraform apply` <br>
 Pour effacer tout ce qui a été créé par terraform avant de relancer une config : `terraform destroy` <br>
 supprimer une ressource spécifique : `terraform destroy -target=libvirt_domain.k3s_master`
 
 appliquer la config avec kubectl : `kubectl apply -k k3s/`
+
+## Packer Images
+
+Windows 10:
+
+Création de "golden image" pour Windows10
+
+modifier le output_directory dans worker-dynamic/win10_22h2.pkr.hcl pour un espace de au moins 35GB
+
+```bash
+packer init win10_22h2.pkr.hcl
+packer build win10_22h2.pkr.hcl
+```
 
 ## Docker Images
 Build des images Docker
@@ -124,6 +143,7 @@ DEL result_dynamic:<job_id>
 ```
 
 A noter que les jobs sont supprimés automatiquement au bout de 7 jours.
+
 
 ### info
 
