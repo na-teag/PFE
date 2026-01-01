@@ -42,6 +42,10 @@ flowchart TD
     worker3 --> redis2[redis]
     USER <-->|curl http://API_IP:8000/api/result/JOB_ID| redis2
     click VT "https://virustotal.com" "VirusTotal" _blank
+    click drakvuf "https://drakvuf.com/" "drakvuf" _blank
+    click redis " https://redis.io/" "redis" _blank
+    click redis2 " https://redis.io/" "redis" _blank
+   
 ```
 <br>
 <hr>
