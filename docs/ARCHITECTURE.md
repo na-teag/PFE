@@ -28,7 +28,7 @@ end
 
 ```mermaid
 flowchart TD    
-    USER-->|curl -X POST http://<API_IP>:8000/api/submit -F ''file=@sample.exe''|API
+    USER-->|curl -X POST http://API_IP:8000/api/submit -F ''file=@sample.exe''|API
     API --> redis
     redis --> worker1[worker static]
     redis --> worker2[worker dynamic]
@@ -40,7 +40,7 @@ flowchart TD
     drakvuf --> worker3
     worker1 --> redis2
     worker3 --> redis2[redis]
-    USER <-->|curl http://<API_IP>:8000/api/result/job_id| redis2
+    USER <-->|curl http://API_IP:8000/api/result/JOB_ID| redis2
     click VT "https://virustotal.com" "VirusTotal" _blank
 ```
 <br>
@@ -53,15 +53,15 @@ flowchart TD
     USER --> setup[setup.sh]
     setup --> Drakvuf
     setup --> Terraform
-    Terraform --> A[networks]
     Terraform --> VMs
-    subgraph VMs
-        Inetsim
-        k3s
+    Terraform --> networks
+    subgraph networks
+        subgraph VMs
+            Inetsim
+            k3s
+        end
     end
-    A --> VMs
-    VMs --> Argocd[Argo CD]
-    VMs --> Inetsim[INetSim]
+    k3s --> Argocd[Argo CD]
     subgraph services
         API
         worker1[worker static]
