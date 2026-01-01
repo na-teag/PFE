@@ -118,7 +118,8 @@ flowchart TD
 │      └── worker-static-deployment.yaml <br>
 ├── README.md <br>
 ├── script <br>
-│      └── sandbox-firewall.sh <br>
+│      ├── sandbox-firewall.sh <br>
+│      └──  setup-env.sh <br>
 ├── services <br>
 │      ├── api <br>
 │      │      ├── Dockerfile <br>
@@ -138,7 +139,6 @@ flowchart TD
 │           ├── main.py <br>
 │           └── requirements.txt <br>
 ├── setup.sh <br>
-├── setup-env.sh <br>
 ├── .env.example <br>
 ├── .gitignore <br>
 └── yara-rules <br>
