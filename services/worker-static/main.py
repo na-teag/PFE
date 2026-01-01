@@ -16,6 +16,7 @@ redis_client = Redis.from_url(REDIS_URL, decode_responses=True)
 
 
 def vt_analyze(file_hash: str) -> dict:
+  # TODO retarder l'envoie à virustotal si on dépasse la limite de 4 requetes/min et envoyer erreur si on dépasse 500/jour
   headers = {
     "accept": "application/json",
     "x-apikey": VT_KEY

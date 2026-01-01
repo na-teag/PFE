@@ -1,8 +1,9 @@
+#!/bin/bash
 # On crée le fichier .env dans k3s et on crée le secret Kubernetes
 
 K3S_DIR="k3s"
 ENV_FILE=".env"
-SYMLINK_ENV="$K3S_DIR/.env"
+SYMLINK_ENV="../$ENV_FILE"
 NAMESPACE="malware-analysis"
 SECRET_NAME="vt-credentials"
 
@@ -37,11 +38,12 @@ echo "$ENV_FILE créé avec succès dans $(pwd)"
 
 
 # On crée le symlink dans le dossier k3s
-if [ -L "$SYMLINK_ENV" ] || [ -f "$SYMLINK_ENV" ]; then
-    rm -f "$SYMLINK_ENV"
+if [ -L "$K3S_DIR/$ENV_FILE" ] || [ -f "$K3S_DIR/$ENV_FILE" ]; then
+    rm -f "$K3S_DIR/$ENV_FILE"
 fi
-ln -s "$ENV_FILE" "$SYMLINK_ENV"
-echo "Symlink créé dans le dossier $K3S_DIR du projet : $SYMLINK_ENV -> $ENV_FILE"
+cd $K3S_DIR
+ln -s "$SYMLINK_ENV" "$ENV_FILE"
+echo "Symlink créé dans le dossier $K3S_DIR du projet : $ENV_FILE -> $SYMLINK_ENV"
 
 # On crée le secret Kubernetes à partir du .env
 kubectl -n "$NAMESPACE" create secret generic "$SECRET_NAME" \

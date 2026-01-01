@@ -47,8 +47,8 @@ forcer l'arret : `virsh destroy k3s-master` <br>
 afficher les disques attachés : `virsh domblklist k3s-master` <br>
 
 
-faire un snapshot : `virsh snapshot-create-as k3s-master snapshot1 "snapshot avant test"`
-restaurer un snapshot : `virsh snapshot-revert k3s-master snapshot1`
+faire un snapshot : `virsh snapshot-create-as k3s-master snapshot1 "snapshot avant test"` <br>
+restaurer un snapshot : `virsh snapshot-revert k3s-master snapshot1` <br>
 supprimer un snapshot : `virsh snapshot-delete k3s-master snapshot1`
 
 ## Docker Images
@@ -94,9 +94,9 @@ kubectl get pods -n malware-analysis
 # Voir les services
 kubectl get svc -n malware-analysis
 
-# Lancer le script setup-env.sh pour créer le fichier .env situé à la racine du projet pour initialiser les variables d'environnement
+# Lancer le script setup.sh pour créer le fichier .env situé à la racine du projet pour initialiser les variables d'environnement
 # Un lien symbolique est également créé dans le dossier k3s pour permettre à Kustomize et aux fichiers YAML d'y accéder.
-./setup-env.sh
+./setup.sh
 # Entrer la clé Virus Total API quand c'est demandé
 ```
 

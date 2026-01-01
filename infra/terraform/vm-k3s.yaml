@@ -41,8 +41,7 @@ runcmd:
   - kubectl create namespace argocd || true
   - kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
   - usermod -aG libvirt k3s
-  - cd /home/k3s
-  - git clone https://github.com/na-teag/projet-analyse-malware.git
-  - kubectl apply -n argocd -f projet-analyse-malware/infra/argocd/malware-analysis-app.yaml
+  - cd /home/k3s$
+  - kubectl apply -n argocd -f https://raw.githubusercontent.com/na-teag/projet-analyse-malware/refs/heads/main/infra/agocd/malware-analysis-app.yaml
   # Supprimer le taint master pour pouvoir déployer des pods dessus
   - kubectl taint nodes --all node-role.kubernetes.io/master-
