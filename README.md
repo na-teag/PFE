@@ -135,6 +135,21 @@ curl http://<API_IP>:8000/api/result/<job_id>
 curl -O -J http://<API_IP>:8000/api/result/<job_id>/download
 ```
 
+Obtenir le rapport d'un job précis en format JSON
+```bash
+curl http://<API_IP>:8000/api/report/<job_id>
+
+# Télécharger le rapport d'analyse en JSON
+curl -O -J http://<API_IP>:8000/api/report/<job_id>/download
+```
+
+A noter que le rapport est un résumé du résultat d'un job.
+
+Télécharger le rapport d'un job précis en format pdf
+```bash
+curl -O -J http://<API_IP>:8000/api/report/<job_id>/pdf
+```
+
 Vérifier la liste de toutes les analyses (jobs) avec leurs statuts
 ```bash
 curl http://<API_IP>:8000/api/jobs
@@ -145,7 +160,7 @@ Supprimer complètement le job
 curl -X DELETE http://<API_IP>:8000/api/jobs/<job_id>
 ```
 
-Pour les commandes /health, /api/result/<job_id>, /api/result/<job_id>/download et /api/jobs, il est également possible de voir les résultats directement sur l'interface web de l'API.
+Pour les commandes /health, /api/result/<job_id>, /api/result/<job_id>/download, /api/report/<job_id>, /api/result/<job_id>/download et /api/report/<job_id>/pdf et /api/jobs, il est également possible de voir les résultats directement sur l'interface web de l'API.
 
 Vérifier Redis en live (adapter le nom du pod)
 ```bash

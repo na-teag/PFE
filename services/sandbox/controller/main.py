@@ -101,16 +101,78 @@ def result(sandbox_job_id: str):
         job["status"] = "completed"
         job["finished_at"] = datetime.utcnow().isoformat()
         job["analysis"] = {
-            "process_tree": [],
-            "file_system_changes": [],
-            "network_iocs": [],
-            "registry_changes": [],
-            "summary": {
-                "malicious": True,
-                "score": 85,
-                "engine": "mock-sandbox",
+        "process_tree": [
+            {
+                "pid": 3120,
+                "ppid": 1024,
+                "name": "sample.exe",
+                "cmdline": "C:\\Users\\User\\Downloads\\sample.exe"
             },
+            {
+                "pid": 4188,
+                "ppid": 3120,
+                "name": "cmd.exe",
+                "cmdline": "cmd.exe /c whoami"
+            },
+            {
+                "pid": 4250,
+                "ppid": 3120,
+                "name": "powershell.exe",
+                "cmdline": "powershell -enc SQBFAFgA..."
+            }
+        ],
+
+        "file_system_changes": [
+            {
+                "path": "C:\\Users\\User\\AppData\\Roaming\\evil.dll",
+                "operation": "created"
+            },
+            {
+                "path": "C:\\Users\\User\\AppData\\Roaming\\config.json",
+                "operation": "modified"
+            }
+        ],
+
+        "network_iocs": [
+            {
+                "type": "ip",
+                "value": "192.168.56.101",
+                "port": 4444,
+                "protocol": "tcp"
+            },
+            {
+                "type": "ip",
+                "value": "8.8.8.8",
+                "port": 53,
+                "protocol": "udp"
+            },
+            {
+                "type": "domain",
+                "value": "malicious-example.com"
+            },
+            {
+                "type": "url",
+                "value": "http://malicious-example.com/c2/checkin"
+            },
+            {
+                "type": "user-agent",
+                "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+            }
+        ],
+
+        "registry_changes": [
+            {
+                "key": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\evil",
+                "operation": "set"
+            }
+        ],
+
+        "summary": {
+            "malicious": True,
+            "score": 85,
+            "engine": "mock-sandbox"
         }
+    }
 
     return ResultResponse(
         sandbox_job_id=job["sandbox_job_id"],

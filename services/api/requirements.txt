@@ -4,3 +4,4 @@ redis
 pydantic
 python-multipart
 python-dotenv
+reportlab
