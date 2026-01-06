@@ -1,15 +1,13 @@
-import os, json, time
-from dotenv import load_dotenv
+import os, json
 from pathlib import Path
 from redis import Redis
 import requests
 import yara
 
-load_dotenv()
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379")
 VT_KEY = os.getenv("VIRUSTOTAL_API_KEY", "")
 RESULTS_PATH = Path(os.getenv("RESULTS_PATH", "/data/results"))
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 YARA_DIR_PATH = Path(str(PROJECT_ROOT) + os.getenv("YARA_DIR_PATH", "/yara-rules"))
 
 redis_client = Redis.from_url(REDIS_URL, decode_responses=True)
@@ -60,13 +58,13 @@ def main():
             matches = scan_file(rules, Path(meta["file_path"]))
         except Exception as e:
             print(f"[!] Erreur YARA: {e}")
-            matches = []
+            matches = [f"[!] Erreur YARA: {e}"]
 
         try:
             VT_result = vt_analyze(meta["file_hash"])
         except ConnectionRefusedError as e:
             print(f"[!] Connection refused: {e}")
-            VT_result = {}
+            VT_result = {"[!] Connection refused": e}
 
 
         res = {
