@@ -43,6 +43,4 @@ runcmd:
   - usermod -aG libvirt k3s
   - cd /home/k3s
   - kubectl apply -n argocd -f https://raw.githubusercontent.com/na-teag/projet-analyse-malware/refs/heads/main/infra/agocd/malware-analysis-app.yaml
-  # Supprimer le taint master pour pouvoir déployer des pods dessus
-  - kubectl taint nodes --all node-role.kubernetes.io/master-
   - kubectl patch svc argocd-server -n argocd -p '{"spec": {"type": "LoadBalancer"}}'

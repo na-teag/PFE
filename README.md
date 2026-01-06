@@ -65,6 +65,7 @@ supprimer un snapshot : `virsh snapshot-delete k3s-master snapshot1`
 Pour obtenir les informations permettant d'accéder à l'interface ArgoCD, depuis l'hôte taper la commande :
 ```bash
 ssh k3s@192.168.122.2 'echo "service ArgoCD : https://$(hostname -I | awk "{print \$1}"):$(kubectl get svc argocd-server -n argocd -o jsonpath="{.spec.ports[?(@.port==443)].nodePort}")"; echo "id : admin"; echo "pwd : $(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)"'
+```
 
 ## Packer Images
 
@@ -84,7 +85,7 @@ Build des images Docker
 
 Se placer dans le dossier du service concerné (api, sandbox-controller, worker-static ou worker-dynamic), et incrémenter la version de l'image ici et dans le fichier YAML associé :
 ```bash
-docker build -t <dockerhub_nom_organisation>/malware-<nom_du_service>:vx.y.z .
+docker build -t dockerhubmalware/malware-<nom_du_service>:vx.y.z .
 ```
 
 Exemple pour le service api:
@@ -126,6 +127,16 @@ kubectl get svc -n malware-analysis
 # Un lien symbolique est également créé dans le dossier k3s pour permettre à Kustomize et aux fichiers YAML d'y accéder.
 ./setup.sh
 # Entrer la clé Virus Total API quand c'est demandé
+```
+
+### Mettre à jour la clé VirusTotal
+
+```bash
+ssh k3s@192.168.122.2 "kubectl patch secret vt-credentials -n malware-analysis \
+  --type='merge' \.exe"
+  -p='{\"stringData\":{\"VIRUSTOTAL_API_KEY\":\"1589d12970645df64d3f625df84a3e032694f57c7e6553bc34740f87c3176508\"}}' \
+  && kubectl delete pod -n malware-analysis -l app=worker-static \
+  && echo ok"
 ```
 
 ## Tests 
