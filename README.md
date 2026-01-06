@@ -28,6 +28,12 @@ sudo apt install -y qemu-kvm libvirt-daemon-system virtinst
 sudo systemctl enable --now libvirtd 
 ```
 
+
+Installer packer :
+```bash
+sudo snap install packer --classic
+```
+
 ## Utile
 utiliser terraform sans `sudo` : `sudo usermod -aG libvirt $USER` et redémarrer<br>
 tester la config terraform sans l'appliquer : `terraform plan` <br>
@@ -36,6 +42,7 @@ Pour effacer tout ce qui a été créé par terraform avant de relancer une conf
 supprimer une ressource spécifique : `terraform destroy -target=libvirt_domain.k3s_master`
 
 appliquer la config avec kubectl : `kubectl apply -k k3s/`
+
 
 ### Controle des VMs
 
@@ -58,6 +65,18 @@ supprimer un snapshot : `virsh snapshot-delete k3s-master snapshot1`
 Pour obtenir les informations permettant d'accéder à l'interface ArgoCD, depuis l'hôte taper la commande :
 ```bash
 ssh k3s@192.168.122.2 'echo "service ArgoCD : https://$(hostname -I | awk "{print \$1}"):$(kubectl get svc argocd-server -n argocd -o jsonpath="{.spec.ports[?(@.port==443)].nodePort}")"; echo "id : admin"; echo "pwd : $(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)"'
+
+## Packer Images
+
+Windows 10:
+
+Création de "golden image" pour Windows10
+
+modifier le output_directory dans infra/packer/packer-windows/win10_22h2.pkr.hcl pour un espace de au moins 35GB
+
+```bash
+packer init win10_22h2.pkr.hcl
+packer build win10_22h2.pkr.hcl
 ```
 
 ## Docker Images
@@ -191,6 +210,7 @@ DEL result_dynamic:<job_id>
 ```
 
 A noter que les jobs sont supprimés automatiquement au bout de 7 jours.
+
 
 ### info
 
