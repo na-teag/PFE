@@ -5,6 +5,8 @@
 .idea/
 .vscode/
 **/output/
+**/output2/
+**/logs/
 **/*.qcow2
 **/*.qcow2.convert
 **/*.img
