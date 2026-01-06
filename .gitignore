@@ -7,6 +7,8 @@
 .vscode/
 k3s/.env
 **/output/
+**/output2/
+**/logs/
 **/*.qcow2
 **/*.qcow2.convert
 **/*.img
