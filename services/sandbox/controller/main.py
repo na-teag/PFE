@@ -19,11 +19,11 @@ def run_sandbox():
     result_file = f"{RESULT_DIR}/{job_id}.json"
 
     subprocess.Popen([
-        "./run_analysis.sh",
-        SANDBOX_IMAGE,
-        sample_path,
-        result_file
+    "./run_analysis.sh",
+    sample_path,
+    result_file
     ])
+
 
     return jsonify({
         "sandbox_job_id": job_id,
