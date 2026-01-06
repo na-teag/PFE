@@ -14,5 +14,5 @@ resources:
 secretGenerator:
   - name: vt-credentials
     envs:
-      - ../.env.example
+      - .env.example
     type: Opaque
