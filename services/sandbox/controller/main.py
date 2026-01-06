@@ -19,11 +19,11 @@ CUCKOO_API_TOKEN = os.getenv("CUCKOO_API_KEY", "").strip()
 CUCKOO_HEADERS = {"Authorization": f"token {CUCKOO_API_TOKEN}"} if CUCKOO_API_TOKEN else {}
 
     subprocess.Popen([
-        "./run_analysis.sh",
-        SANDBOX_IMAGE,
-        sample_path,
-        result_file
+    "./run_analysis.sh",
+    sample_path,
+    result_file
     ])
+
 
     return jsonify({
         "sandbox_job_id": job_id,
