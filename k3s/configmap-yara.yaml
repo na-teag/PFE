@@ -1,7 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: yara-config
-  namespace: malware-analysis
-data:
-  YARA_RULES_REPO: "https://github.com/Yara-Rules/rules.git"

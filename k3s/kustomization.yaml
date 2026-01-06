@@ -3,7 +3,6 @@ kind: Kustomization
 namespace: malware-analysis
 resources:
   - namespace.yaml
-  - configmap-yara.yaml
   - secrets.yaml
   - pvc.yaml
   - redis.yaml

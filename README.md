@@ -36,8 +36,10 @@ Pour effacer tout ce qui a été créé par terraform avant de relancer une conf
 supprimer une ressource spécifique : `terraform destroy -target=libvirt_domain.k3s_master`
 
 appliquer la config avec kubectl : `kubectl apply -k k3s/`
-<br>
 
+### Controle des VMs
+
+<br>
 démarrer une VM : `virsh start k3s-master` <br>
 se connecter à la console : `virsh console k3s-master` <br>
 vérifier l'état des VMs : `virsh list --all ` et `virsh dominfo k3s-master`<br>
@@ -50,6 +52,13 @@ afficher les disques attachés : `virsh domblklist k3s-master` <br>
 faire un snapshot : `virsh snapshot-create-as k3s-master snapshot1 "snapshot avant test"` <br>
 restaurer un snapshot : `virsh snapshot-revert k3s-master snapshot1` <br>
 supprimer un snapshot : `virsh snapshot-delete k3s-master snapshot1`
+
+### ArgoCD
+
+Pour obtenir les informations permettant d'accéder à l'interface ArgoCD, depuis l'hôte taper la commande :
+```bash
+ssh k3s@192.168.122.2 'echo "service ArgoCD : https://$(hostname -I | awk "{print \$1}"):$(kubectl get svc argocd-server -n argocd -o jsonpath="{.spec.ports[?(@.port==443)].nodePort}")"; echo "id : admin"; echo "pwd : $(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)"'
+```
 
 ## Docker Images
 Build des images Docker
