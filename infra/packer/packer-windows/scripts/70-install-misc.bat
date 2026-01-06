@@ -44,7 +44,7 @@ call refreshenv
 
 REM Install Cuckoo3 agent
 if not exist C:\cuckoo3 (
-  git clone https://github.com/cuckoosandbox/cuckoo3.git C:\cuckoo3
+  "C:\Program Files\Git\bin\git.exe" clone --depth 1 https://github.com/cert-ee/cuckoo3.git C:\cuckoo3
 )
 
 pushd C:\cuckoo3\agent
