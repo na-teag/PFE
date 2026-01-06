@@ -4,6 +4,7 @@ namespace: malware-analysis
 
 resources:
   - namespace.yaml
+  - secrets.yaml
   - pvc.yaml
   - redis.yaml
   - api-deployment.yaml
@@ -11,8 +12,8 @@ resources:
   - worker-dynamic-deployment.yaml
   - sandbox-controller-deployment.yaml
 
-secretGenerator:
-  - name: vt-credentials
-    envs:
-      - .env.example
-    type: Opaque
+#secretGenerator:
+#  - name: vt-credentials
+#    envs:
+#      - .env.example
+#    type: Opaque
