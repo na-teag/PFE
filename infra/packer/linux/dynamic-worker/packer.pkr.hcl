@@ -50,9 +50,13 @@ provisioner "shell" {
 
     "sudo systemctl disable apt-daily.timer || true",
     "sudo systemctl disable apt-daily-upgrade.timer || true",
-
+    "sudo apt-mark hold linux-image-generic linux-headers-generic",
+    "uname -r",
+    "sudo apt-get install -y linux-image-5.15.0-91-generic linux-headers-5.15.0-91-generic",
+  "sudo apt-mark hold linux-image-5.15.0-91-generic linux-headers-5.15.0-91-generic",
     "sudo apt-get update",
     "sudo apt-get install -y tcpdump python3-pip curl",
+
 
     "sudo ufw disable || true"
   ]

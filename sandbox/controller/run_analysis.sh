@@ -1,41 +1,79 @@
 #!/bin/bash
-set -eux
+set -euo pipefail
 
-VM_IMAGE="$1"
-SAMPLE_PATH="$2"
-RESULT_FILE="$3"
-
-MEMORY=2048
-CPUS=2
+########################
+# CONFIGURATION
+########################
 VM_NAME="sandbox-test"
+VM_USER="analyst"
 
-WORKDIR=$(mktemp -d)
-echo "[+] Workdir: $WORKDIR"
+SSH_KEY="$HOME/.ssh/sandbox_key"
+SSH_OPTS="-i $SSH_KEY -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
-# 1️⃣ Copier le malware dans un dossier accessible à la VM
-cp "$SAMPLE_PATH" "$WORKDIR/sample.bin"
+PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+LOGS_DIR="$PROJECT_DIR/logs"
 
-# 2️⃣ Lancer la VM
-qemu-system-x86_64 \
-  -name "$VM_NAME" \
-  -m "$MEMORY" \
-  -smp "$CPUS" \
-  -drive file="$VM_IMAGE",if=virtio,format=qcow2,snapshot=on \
-  -enable-kvm \
-  -netdev user,id=net0 \
-  -device virtio-net,netdev=net0 \
-  -daemonize
+SAMPLE="$1"
+TIMESTAMP="$(date +"%Y-%m-%d_%H-%M-%S")"
+OUT_DIR="$LOGS_DIR/$TIMESTAMP"
 
-sleep 15
+REMOTE_SAMPLE="/tmp/$(basename "$SAMPLE")"
+REMOTE_LOG="/tmp/ebpf.log"
 
-# 3️⃣ Lancer Drakvuf
-# Exemple minimal (à adapter selon ton setup Xen/KVM)
-drakvuf \
-  -r "$VM_IMAGE" \
-  -o json \
-  > "$RESULT_FILE"
+########################
+# CHECKS
+########################
+if [[ -z "${SAMPLE:-}" || ! -f "$SAMPLE" ]]; then
+  echo "Usage: $0 <sample.sh>"
+  exit 1
+fi
 
-# 4️⃣ Stopper la VM
-pkill -f "qemu-system-x86_64.*$VM_NAME" || true
+mkdir -p "$OUT_DIR"
 
-echo "[+] Analyse terminée"
+########################
+# GET VM IP
+########################
+VM_IP=$(virsh domifaddr "$VM_NAME" | awk '/ipv4/ {print $4}' | cut -d/ -f1)
+
+if [[ -z "$VM_IP" ]]; then
+  echo "[-] Unable to get VM IP"
+  exit 1
+fi
+
+echo "[+] VM IP: $VM_IP"
+echo "[+] Output dir: $OUT_DIR"
+
+########################
+# COPY SAMPLE
+########################
+echo "[+] Copying sample to VM"
+scp $SSH_OPTS "$SAMPLE" "$VM_USER@$VM_IP:$REMOTE_SAMPLE"
+
+########################
+# RUN SAMPLE UNDER eBPF
+########################
+echo "[+] Running sample under eBPF"
+ssh $SSH_OPTS "$VM_USER@$VM_IP" "
+  sudo bpftrace /opt/ebpf/ebpf_collector.bt \
+    -c '/bin/bash $REMOTE_SAMPLE' \
+    > $REMOTE_LOG
+"
+
+########################
+# FETCH LOGS
+########################
+echo "[+] Fetching eBPF logs"
+scp $SSH_OPTS "$VM_USER@$VM_IP:$REMOTE_LOG" "$OUT_DIR/ebpf.log"
+
+########################
+# ANALYSIS
+########################
+echo "[+] Running analysis"
+python3 analysis/build_report.py "$OUT_DIR/ebpf.log" > "$OUT_DIR/report.json"
+
+########################
+# DONE
+########################
+echo "[+] Analysis complete"
+echo "[+] Logs     : $OUT_DIR/ebpf.log"
+echo "[+] Report   : $OUT_DIR/report.json"
