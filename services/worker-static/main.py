@@ -56,9 +56,11 @@ def main():
         try:
             rules = load_rules(YARA_DIR_PATH, "index.yar")
             matches = scan_file(rules, Path(meta["file_path"]))
+            matches = matches or []
+            rules_matches = [m.rule for m in matches]
         except Exception as e:
             print(f"[!] Erreur YARA: {e}")
-            matches = [f"[!] Erreur YARA: {e}"]
+            rules_matches = [f"[!] Erreur YARA: {e}"]
 
         try:
             VT_result = vt_analyze(meta["file_hash"])
@@ -71,7 +73,7 @@ def main():
             "job_id": job_id,
             "file_hash": meta["file_hash"],
             "virustotal": VT_result,
-            "yara_matches": matches,
+            "yara_matches": rules_matches,
         }
 
         redis_client.set(f"result_static:{job_id}", json.dumps(res), ex=604800)
