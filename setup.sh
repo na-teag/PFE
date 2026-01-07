@@ -12,9 +12,10 @@ else
 fi
 
 
-# Installer Drakvuf
-
+# Installation rt mise en route de Cuckoo3 et service WEB/API
+./script/install_cuckoo.sh
 
 
 # lancer le fichier de création du .env et de son symlink
 ./script/setup-env.sh
+

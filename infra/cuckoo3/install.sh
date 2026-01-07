@@ -526,7 +526,7 @@ EOT
 ##### Run Cuckoo #####
 ######################
 
-generate_section_header "Running cuckoo in debug mode"
-run_as_cuckoo "$username" "$(run_cuckoo_for "$username")"
+#generate_section_header "Running cuckoo in debug mode"
+#run_as_cuckoo "$username" "$(run_cuckoo_for "$username")"
 
 # End of script
