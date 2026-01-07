@@ -146,7 +146,7 @@ async function submitFile() {
     if (!f) return alert("Select a file");
     const fd = new FormData();
     fd.append("file", f);
-    fd.append("os", os);
+    fd.append("sandbox_os", os);
     const r = await fetch("/api/submit", { method: "POST", body: fd });
     const data = await r.json();
     if (!r.ok) {
