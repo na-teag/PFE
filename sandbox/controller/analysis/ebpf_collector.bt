@@ -1,0 +1,38 @@
+tracepoint:syscalls:sys_enter_openat
+/ args->filename != 0 &&
+  strncmp(str(args->filename), "/tmp", 4) == 0 /
+{
+  printf("{\"type\":\"open\",\"file\":\"%s\"}\n", str(args->filename));
+}
+
+tracepoint:syscalls:sys_enter_utimensat
+/ args->filename != 0 &&
+  strncmp(str(args->filename), "/tmp", 4) == 0 /
+{
+  printf("{\"type\":\"utime\",\"file\":\"%s\"}\n", str(args->filename));
+}
+
+tracepoint:syscalls:sys_enter_execve
+/ args->filename != 0 && strncmp(str(args->filename), "/usr", 4) != 0 /
+{
+  $file = str(args->filename);
+  $arg1 = str(args->argv[1]);
+  $arg2 = str(args->argv[2]);
+
+  printf(
+    "{\"type\":\"exec\",\"file\":\"%s\",\"arg1\":\"%s\",\"arg2\":\"%s\"}\n",
+    $file, $arg1, $arg2
+  );
+  }
+tracepoint:syscalls:sys_enter_execve
+/ args->filename != 0 && strncmp(str(args->filename), "/usr/bin/curl", 13) == 0 /
+{
+  $file = str(args->filename);
+  $arg1 = str(args->argv[1]);
+  $arg2 = str(args->argv[2]);
+
+  printf(
+    "{\"type\":\"exec\",\"file\":\"%s\",\"arg1\":\"%s\",\"arg2\":\"%s\"}\n",
+    $file, $arg1, $arg2
+  );
+}
