@@ -1,0 +1,40 @@
+{
+  "summary": {
+    "verdict": "malicious",
+    "score": 11,
+    "reasons": [
+      "Bash executed script: /tmp/sample.sh",
+      "File dropped in /tmp: /tmp/evil.txt",
+      "File dropped in /tmp: /tmp/payload.sh",
+      "File dropped in /tmp: /tmp/stage.bin",
+      "Outbound network access via curl"
+    ]
+  },
+  "files": [
+    "/tmp/evil.txt",
+    "/tmp/payload.sh",
+    "/tmp/stage.bin"
+  ],
+  "executions": [
+    {
+      "binary": "/bin/bash",
+      "arg1": "/tmp/sample.sh",
+      "arg2": ""
+    },
+    {
+      "binary": "/usr/bin/curl",
+      "arg1": "http://example.com",
+      "arg2": ""
+    },
+    {
+      "binary": "/usr/bin/curl",
+      "arg1": "http://example.com",
+      "arg2": "-o"
+    }
+  ],
+  "network": {
+    "urls": [
+      "http://example.com"
+    ]
+  }
+}
