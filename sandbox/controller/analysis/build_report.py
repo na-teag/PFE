@@ -7,9 +7,15 @@ log_file = Path(sys.argv[1])
 
 score = 0
 reasons = set()
-
+urls = set()
+executed_scripts = set()
 files = set()
 execs = set()
+
+seen_tmp_drop = False
+seen_network_tool = False
+executions = []
+
 
 SYSTEM_WHITELIST = (
     "/etc/ld.so.cache",
@@ -18,6 +24,7 @@ SYSTEM_WHITELIST = (
     "/lib/",
     "/proc/self",
     "/proc/sys",
+    "/tmp/sample.sh"
 )
 
 def is_whitelisted(path):
@@ -38,7 +45,10 @@ with log_file.open() as f:
             files.add(path)
 
             if path.startswith("/tmp/"):
+                files.add(path)
+                score += 1
                 reasons.add(f"File dropped in /tmp: {path}")
+                seen_tmp_drop = True
 
             elif path.startswith("/etc/"):
                 score += 2
@@ -49,23 +59,39 @@ with log_file.open() as f:
                 reasons.add("Process introspection via /proc")
 
         elif event["type"] == "exec":
-            cmd = event.get("comm", "")
-            if not cmd:
-                continue
+            binary = event.get("file", "")
+            arg1 = event.get("arg1", "")
+            arg2 = event.get("arg2", "")
 
-            execs.add(cmd)
+            executions.append({
+                "binary": binary,
+                "arg1": arg1,
+                "arg2": arg2
+            })
 
-            if cmd in ("curl", "wget"):
-                score += 3
-                reasons.add("Outbound network tool execution")
-
-            if cmd in ("bash", "sh"):
+            # Bash qui exécute un script
+            if binary.endswith("/bash") and arg1.startswith("/"):
+                executed_scripts.add(arg1)
                 score += 1
-                reasons.add("Shell execution")
+                reasons.add(f"Bash executed script: {arg1}")
+
+            # Curl / Wget → URL
+            if binary.endswith("/curl") and arg1.startswith("http"):
+                urls.add(arg1)
+                score += 3
+                reasons.add("Outbound network access via curl")
 
 # /tmp drop score (once)
-if any(p.startswith("/tmp/") for p in files):
-    score += 1
+#if any(p.startswith("/tmp/") for p in files):
+#    score += 1
+for f in files:
+    if f in executed_scripts:
+        score += 2
+        reasons.add(f"Executed dropped file: {f}")
+
+if seen_tmp_drop and seen_network_tool:
+    score += 5
+    reasons.add("Downloaded or staged payload executed from /tmp")
 
 # Verdict
 if score >= 6:
@@ -79,10 +105,13 @@ report = {
     "summary": {
         "verdict": verdict,
         "score": score,
-        "reasons": sorted(reasons),
+        "reasons": sorted(reasons)
     },
     "files": sorted(files),
-    "executions": sorted(execs),
+    "executions": executions,
+    "network": {
+        "urls": sorted(urls)
+    }
 }
 
 print(json.dumps(report, indent=2))
