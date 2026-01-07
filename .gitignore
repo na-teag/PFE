@@ -1,9 +1,11 @@
 *.terraform/
+*.terraform.lock*
 *.tfstate
 *.tfstate.backup
 .env
 .idea/
 .vscode/
+k3s/.env
 **/output/
 **/output2/
 **/logs/

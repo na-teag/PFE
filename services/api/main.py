@@ -7,6 +7,8 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from redis import Redis
+from fastapi.responses import StreamingResponse
+import io
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379")
 RESULTS_PATH = Path(os.getenv("RESULTS_PATH", "/data/results"))
@@ -94,3 +96,87 @@ def result(job_id: str):
     static_result=json.loads(static_raw) if static_raw else None,
     dynamic_result=json.loads(dyn_raw) if dyn_raw else None,
   )
+
+@app.get("/api/jobs")
+def list_jobs():
+    jobs = []
+
+    for key in redis_client.scan_iter("job:*"):
+        raw = redis_client.get(key)
+        if not raw:
+            continue
+
+        meta = json.loads(raw)
+        jobs.append({
+            "job_id": meta.get("job_id"),
+            "file_name": meta.get("file_name"),
+            "file_hash": meta.get("file_hash"),
+            "submitted_at": meta.get("submitted_at"),
+            "status_static": meta.get("status_static"),
+            "status_dynamic": meta.get("status_dynamic"),
+        })
+
+    jobs.sort(key=lambda x: x["submitted_at"], reverse=True)
+
+    return {
+        "count": len(jobs),
+        "jobs": jobs
+    }
+
+@app.delete("/api/jobs/{job_id}")
+def delete_job(job_id: str):
+    job_key = f"job:{job_id}"
+
+    job_raw = redis_client.get(job_key)
+    if not job_raw:
+        raise HTTPException(404, "job not found")
+
+    meta = json.loads(job_raw)
+
+    file_path = meta.get("file_path")
+    if file_path:
+        try:
+            path = Path(file_path)
+            if path.exists():
+                path.unlink()
+        except Exception as e:
+            raise HTTPException(500, f"failed to delete file: {e}")
+
+    redis_client.delete(
+        job_key,
+        f"result_static:{job_id}",
+        f"result_dynamic:{job_id}",
+    )
+
+    return {"status": "deleted", "job_id": job_id}
+
+@app.get("/api/result/{job_id}/download")
+def download_result(job_id: str):
+    job_raw = redis_client.get(f"job:{job_id}")
+    if not job_raw:
+        raise HTTPException(status_code=404, detail="job not found")
+
+    meta = json.loads(job_raw)
+
+    static_raw = redis_client.get(f"result_static:{job_id}")
+    dynamic_raw = redis_client.get(f"result_dynamic:{job_id}")
+
+    result = {
+        "job_id": job_id,
+        "status_static": meta.get("status_static", "unknown"),
+        "status_dynamic": meta.get("status_dynamic", "unknown"),
+        "static_result": json.loads(static_raw) if static_raw else None,
+        "dynamic_result": json.loads(dynamic_raw) if dynamic_raw else None,
+    }
+
+    json_bytes = json.dumps(result, indent=2).encode("utf-8")
+
+    filename = f"analysis_{job_id}.json"
+
+    return StreamingResponse(
+        io.BytesIO(json_bytes),
+        media_type="application/json",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        }
+    )

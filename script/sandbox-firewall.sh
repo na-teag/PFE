@@ -5,6 +5,11 @@ SANDBOX_BRIDGE=$(terraform output -raw sandbox_bridge)
 SANDBOX_NETWORK=$(terraform output -raw sandbox_network_cidr)
 INETSIM_IP=$(terraform output -raw inetsim_ip)
 
+if [[ $SANDBOX_BRIDGE =~ "Warning" || $SANDBOX_NETWORK =~ "Warning" || $INETSIM_IP =~ "Warning"  ]]; then
+    echo "Warning detected, please check if the terraform config is applied"
+    exit 1
+fi
+
 # Supprimer et recréer la chaîne
 iptables -F SANDBOX_FORWARD 2>/dev/null || true
 iptables -X SANDBOX_FORWARD 2>/dev/null || true

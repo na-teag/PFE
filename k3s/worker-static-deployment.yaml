@@ -16,18 +16,10 @@ spec:
       containers:
         - name: worker-static
           image: dockerhubmalware/malware-worker-static:v1.0.1
-          env:
-            - name: REDIS_URL
-              value: "redis://redis:6379"
-            - name: VIRUSTOTAL_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: vt-credentials
-                  key: api-key
-            - name: RESULTS_PATH
-              value: "/data/results"
-            - name: YARA_DIR_PATH
-              value: "/yara-rules"
+          # Injection de toutes les variables d'environnement depuis le secret
+          envFrom:
+            - secretRef:
+                name: vt-credentials
           volumeMounts:
             - name: results
               mountPath: /data/results

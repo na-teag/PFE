@@ -30,18 +30,12 @@ spec:
     spec:
       containers:
         - name: api
-          image: dockerhubmalware/malware-api:v1.0.0
+          image: dockerhubmalware/malware-api:v1.1.1
           imagePullPolicy: Always
-          env:
-            - name: REDIS_URL
-              value: "redis://redis:6379"
-            - name: VIRUSTOTAL_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: vt-credentials
-                  key: api-key
-            - name: RESULTS_PATH
-              value: "/data/results"
+          # Injection de toutes les variables d'environnement depuis le secret
+          envFrom:
+            - secretRef:
+                name: vt-credentials
           volumeMounts:
             - name: results
               mountPath: /data/results

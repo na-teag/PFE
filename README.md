@@ -30,7 +30,7 @@ sudo systemctl enable --now libvirtd
 Vérifier que le programme fonctionne correctement : `virsh list`
 
 ## Utile
-`terraform apply`
+`terraform apply` <br>
 Pour effacer tout ce qui a été créé par terraform avant de relancer une config : `terraform destroy` <br>
 supprimer une ressource spécifique : `terraform destroy -target=libvirt_domain.k3s_master`
 
@@ -77,12 +77,12 @@ Commandes utiles :
 kubectl get pods -n malware-analysis
 
 # Voir les services
-kubectl get svc -n malware-analysis 
+kubectl get svc -n malware-analysis
 
-# Appliquer les constantes du .env pour les services :
-kubectl -n malware-analysis create secret generic vt-credentials \
-  --from-env-file=.env \
-  --dry-run=client -o yaml | kubectl apply -f -
+# Lancer le script setup-env.sh pour créer le fichier .env situé à la racine du projet pour initialiser les variables d'environnement
+# Un lien symbolique est également créé dans le dossier k3s pour permettre à Kustomize et aux fichiers YAML d'y accéder.
+./setup-env.sh
+# Entrer la clé Virus Total API quand c'est demandé
 ```
 
 ## Tests 
@@ -92,15 +92,46 @@ curl -X POST http://<API_IP>:8000/api/submit \
 -F "file=@sample.exe"
 ```
 
-Vérifier le retour des résultats
+Vérifier le retour des résultats d'un job précis en format JSON
 ```bash
 curl http://<API_IP>:8000/api/result/<job_id>
+
+# Télécharger le fichier d'analyse en JSON
+curl -O -J http://<API_IP>:8000/api/result/<job_id>/download
 ```
+
+Vérifier la liste de toutes les analyses (jobs) avec leurs statuts
+```bash
+curl http://<API_IP>:8000/api/jobs
+```
+
+Supprimer complètement le job
+```bash
+curl -X DELETE http://<API_IP>:8000/api/jobs/<job_id>
+```
+
+Pour les commandes /api/result/<job_id>, /api/result/<job_id>/download et /api/jobs, il est également possible de voir les résultats directement sur l'interface web de l'API.
 
 Vérifier Redis en live (adapter le nom du pod)
 ```bash
 kubectl -n malware-analysis exec -it redis-xxx -- redis-cli
+
+# Gestion des jobs dans Redis
+
+# Pour lister tous les jobs :
+KEYS job:*
+
+# Pour supprimer un job précis : 
+DEL job:<job_id>
+
+# Pour supprimer uniquement l'analyse statique d'un job précis
+DEL result_static:<job_id>
+
+# Pour supprimer uniquement l'analyse dynamique d'un job précis
+DEL result_dynamic:<job_id>
 ```
+
+A noter que les jobs sont supprimés automatiquement au bout de 7 jours.
 
 ### info
 
