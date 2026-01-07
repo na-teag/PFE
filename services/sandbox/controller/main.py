@@ -115,19 +115,6 @@ def run(req: RunRequest):
         "backend_id": backend_id,
     }
 
-    # TODO
-    # - lancement VM (KVM)
-    # - injection sample
-    # - lancement Drakvuf / Cuckoo
-    match req.os:
-        case "w10":
-            pass
-        case "w11":
-            pass
-        case "linux":
-            pass
-        case _:
-            raise HTTPException(400, f'Invalid os value: {req.os}, should be "w10", "w11" or "linux"')
 
     return RunResponse(
         sandbox_job_id=sandbox_job_id,
@@ -165,8 +152,12 @@ def result(sandbox_job_id: str):
         raise HTTPException(500, f"Unknown engine: {job['engine']}")
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     # TODO Pour l'instant c'est un mock : on force un résultat terminé
 =======
+=======
+
+>>>>>>> 7b6e722 (chore: gitignore and env)
     job["status"] = status
     if status == "completed" and not job["finished_at"]:
         job["finished_at"] = datetime.utcnow().isoformat()
@@ -181,7 +172,12 @@ def result(sandbox_job_id: str):
     job["analysis"] = analysis
 
     """# Pour l'instant c'est un mock : on force un résultat terminé
+<<<<<<< HEAD
 >>>>>>> 3f4530e (feat: Cuckoo3 endpoints)
+=======
+    # TODO Pour l'instant c'est un mock : on force un résultat terminé
+
+>>>>>>> 7b6e722 (chore: gitignore and env)
     if job["status"] != "completed":
         job["status"] = "completed"
         job["finished_at"] = datetime.utcnow().isoformat()
