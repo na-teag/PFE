@@ -17,5 +17,12 @@ fi
 
 
 # lancer le fichier de création du .env et de son symlink
-./script/setup-env.sh
+#./script/setup-env.sh
 
+# lancer le service sandbox controller
+if ! command -v python3 >/dev/null 2>&1; then
+  sudo apt update && sudo apt install -y python3 python3-pip
+fi
+
+pip install -r services/sandbox/controller/requirements.txt
+uvicorn main:app --app-dir services/sandbox/controller --host 0.0.0.0 --port 9000 --log-level critical --no-access-log &

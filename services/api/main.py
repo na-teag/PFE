@@ -3,7 +3,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from redis import Redis
@@ -12,9 +12,8 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 import io
 from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
 from reportlab.lib import colors
-from reportlab.platypus import Table, TableStyle, SimpleDocTemplate, Paragraph, Spacer, PageBreak
+from reportlab.platypus import Table, TableStyle, SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfgen import canvas as pdf_canvas
 from reportlab.platypus import KeepTogether
@@ -70,10 +69,13 @@ def health():
 
 
 @app.post("/api/submit", response_model=SubmissionResponse)
-async def submit(file: UploadFile = File(...)):
+async def submit(file: UploadFile = File(...), sandbox_os: str = Form(...)):
   data = await file.read()
   if len(data) > MAX_SIZE:
     raise HTTPException(413, "File too large")
+  valid = {"w10", "w11", "linux"}
+  if sandbox_os not in valid:
+    raise HTTPException(400, f"Invalid os value: {sandbox_os}, should be in {valid}")
   h = hashlib.sha256(data).hexdigest()
   job_id = str(uuid.uuid4())
 
@@ -86,13 +88,14 @@ async def submit(file: UploadFile = File(...)):
     "file_hash": h,
     "file_name": file.filename,
     "file_path": str(path),
+    "os": sandbox_os,
     "submitted_at": format_ts(datetime.utcnow().isoformat()),
     "status_static": "queued",
     "status_dynamic": "queued",
   }
-  redis_client.set(f"job:{job_id}", json.dumps(meta), ex=7 * 24 * 3600)
-  redis_client.lpush("analysis_queue_static", json.dumps(meta))
-  redis_client.lpush("analysis_queue_dynamic", json.dumps(meta))
+  await redis_client.set(f"job:{job_id}", json.dumps(meta), ex=7 * 24 * 3600)
+  await redis_client.lpush("analysis_queue_static", json.dumps(meta))
+  await redis_client.lpush("analysis_queue_dynamic", json.dumps(meta))
 
   return SubmissionResponse(
     job_id=job_id,
@@ -218,7 +221,20 @@ def build_unified_report(job_id: str, meta: dict, static_raw: str | None, dynami
     score = dynamic.get("analysis", {}).get("summary", {}).get("score", 0)
     malicious_dynamic = dynamic.get("analysis", {}).get("summary", {}).get("malicious", False)
 
+    popular_threat_classification = vt.get("data", {}).get("attributes", {}).get("popular_threat_classification", {})
+    
+    last_analysis_results = vt.get("data", {}).get("attributes", {}).get("last_analysis_results", {})
+
     verdict_malicious = malicious_dynamic or malicious_count > 0
+
+    filtered_last_analysis_results = {
+        engine_name: {
+            "engine_name": engine_info.get("engine_name"),
+            "result": engine_info.get("result")
+        }
+        for engine_name, engine_info in last_analysis_results.items()
+        if engine_info.get("result") is not None
+    }
 
     ips = set()
     domains = set()
@@ -273,6 +289,8 @@ def build_unified_report(job_id: str, meta: dict, static_raw: str | None, dynami
             "detections": malicious_count,
             "total_engines": total_engines,
             "tags": vt.get("data", {}).get("attributes", {}).get("tags", []),
+            "popular_threat_classification": popular_threat_classification,
+            "last_analysis_results": filtered_last_analysis_results,
             "yara_matches": static.get("yara_matches", []),
         },
         "dynamic_analysis": {
@@ -462,13 +480,62 @@ def download_report_pdf(job_id: str):
     ))
     elements.append(Spacer(1, 16))
 
+    popular_threat_classification = static.get("popular_threat_classification", {})
+    elements.append(Paragraph("Popular Threat Classification", styles["SectionTitle"]))
+    elements.append(Spacer(1, 12))
+
+    if popular_threat_classification:
+        popular_names = popular_threat_classification.get("popular_threat_name", [])
+        if popular_names:
+            threat_names = ", ".join([f"{item['value']} ({item['count']})" for item in popular_names])
+            elements.append(Paragraph(f"Popular Threat Names: {threat_names}", styles["Normal"]))
+            elements.append(Spacer(1, 12))
+        
+        suggested_label = popular_threat_classification.get('suggested_threat_label', 'None')
+        elements.append(Paragraph(f"Suggested Threat Label: {suggested_label}", styles["Normal"]))
+    else:
+        elements.append(Paragraph("No popular threat classification found", styles["Normal"]))
+    
+    elements.append(Spacer(1, 16))
+
+    elements.append(Paragraph("Last Analysis Results", styles["SectionTitle"]))
+    elements.append(Spacer(1, 12))
+
+    last_analysis_results = static.get("last_analysis_results", {})
+    if last_analysis_results:
+        rows = []
+        for engine_name, engine_info in last_analysis_results.items():
+            result = engine_info.get('result', 'Unknown')
+            row = [f"Engine Name: {engine_name}", f"Result: {result}"]
+            rows.append(row)
+        
+        table = Table(rows, colWidths=[250, 250])
+        table.setStyle(TableStyle([
+            ('GRID', (0, 0), (-1, -1), 0, colors.white),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSize', (0, 0), (-1, -1), 10),
+            ('TOPPADDING', (0, 0), (-1, -1), 1),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+            ('LEFTPADDING', (0, 0), (-1, -1), 1),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 1),
+        ]))
+        elements.append(table)
+    else:
+        elements.append(Paragraph("No analysis results found", styles["Normal"]))
+    
+    elements.append(Spacer(1, 16))
+
+    # =========================
+    # Yara Matches
+    # =========================
     elements.append(Paragraph("Yara Matches", styles["SectionTitle"]))
     elements.append(Spacer(1, 8))
     for y in static.get("yara_matches", []) or ["None"]:
         elements.append(Paragraph(f"- {y}", styles["Normal"]))
 
     elements.append(Spacer(1, 16))
-
+    
     # =========================
     # Dynamic Analysis
     # =========================

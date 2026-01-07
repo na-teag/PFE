@@ -10,7 +10,6 @@ resources:
   - api-deployment.yaml
   - worker-static-deployment.yaml
   - worker-dynamic-deployment.yaml
-  - sandbox-controller-deployment.yaml
 
 #secretGenerator:
 #  - name: vt-credentials

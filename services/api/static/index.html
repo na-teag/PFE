@@ -1,233 +1,277 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<title>Malware Analysis Platform</title>
-<style>
-body {
-  font-family: Arial, sans-serif;
-  background: #f4f6f8;
-  margin: 0;
-  padding: 20px;
-}
-h1 {
-  color: #2F5597;
-}
-section {
-  background: #fff;
-  padding: 16px;
-  margin-bottom: 20px;
-  border-radius: 6px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-}
-button {
-  background: #2F5597;
-  color: white;
-  border: none;
-  padding: 8px 12px;
-  cursor: pointer;
-  border-radius: 4px;
-}
-button.danger {
-  background: #c0392b;
-}
-button.secondary {
-  background: #555;
-}
-input[type="file"], input[type="text"] {
-  margin: 8px 0;
-}
-pre {
-  background: #0f172a;
-  color: #e5e7eb;
-  padding: 12px;
-  overflow-x: auto;
-  border-radius: 6px;
-  font-size: 13px;
-  line-height: 1.4;
-}
-
-.json-key { color: #60a5fa; }
-.json-string { color: #34d399; }
-.json-number { color: #fbbf24; }
-.json-boolean { color: #f472b6; }
-.json-null { color: #9ca3af; }
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-th, td {
-  border-bottom: 1px solid #ddd;
-  padding: 8px;
-  text-align: left;
-}
-th {
-  background: #E9EFF7;
-}
-.actions button {
-  margin-right: 6px;
-}
-.badge {
-  padding: 3px 8px;
-  border-radius: 12px;
-  font-size: 12px;
-  color: white;
-  background: #374151;
-}
-.badge.queued { background: #6b7280; }
-.badge.completed { background: #16a34a; }
-.badge.failed { background: #dc2626; }
-</style>
+    <meta charset="UTF-8" />
+    <title>Malware Analysis Platform</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #2F5597;
+        }
+        section {
+            background: #fff;
+            padding: 16px;
+            margin-bottom: 20px;
+            border-radius: 6px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        }
+        button {
+            background: #2F5597;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        button.danger {
+            background: #c0392b;
+        }
+        button.secondary {
+            background: #555;
+        }
+        input[type="file"], input[type="text"] {
+            margin: 8px 0;
+        }
+        pre {
+            background: #0f172a;
+            color: #e5e7eb;
+            padding: 12px;
+            overflow-x: auto;
+            border-radius: 6px;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border-bottom: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background: #E9EFF7;
+        }
+        .actions button {
+            margin-right: 6px;
+        }
+        .badge {
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            color: white;
+            background: #374151;
+        }
+        .badge.queued { background: #6b7280; }
+        .badge.completed { background: #16a34a; }
+        .badge.failed { background: #dc2626; }
+        .selected {
+            background-color: #a5b4fc;
+        }
+        .error {
+            color: #e91f08;
+        }
+    </style>
 </head>
 <body>
 
 <h1>Malware Analysis Platform</h1>
 
 <section>
-<h2>Health</h2>
-<button onclick="checkHealth()">Check API Health</button>
-<pre id="health"></pre>
+    <h2>Health</h2>
+    <button onclick="checkHealth()">Check API Health</button>
+    <pre id="health"></pre>
 </section>
 
 <section>
-<h2>Submit File</h2>
-<input type="file" id="fileInput" />
-<br/>
-<button onclick="submitFile()">Submit</button>
-<pre id="submitResult"></pre>
+    <h2>Submit File</h2>
+    <input type="file" id="fileInput" />
+    <br/>
+    <label for="osSelect">Target OS:</label>
+    <select id="osSelect">
+        <option value="w10">Windows 10</option>
+        <option value="w11">Windows 11</option>
+        <option value="linux">Linux</option>
+    </select>
+    <br/>
+    <button onclick="submitFile()">Submit</button>
+    <pre id="submitResult"></pre>
 </section>
 
 <section>
-<h2>Jobs</h2>
-<button onclick="loadJobs()">Refresh Jobs</button>
-<table>
-<thead>
-<tr>
-<th>Job ID</th>
-<th>File</th>
-<th>Static</th>
-<th>Dynamic</th>
-<th>Actions</th>
-</tr>
-</thead>
-<tbody id="jobs"></tbody>
-</table>
+    <h2>Jobs</h2>
+    <button onclick="loadJobs()">Refresh Jobs</button>
+    <table>
+        <thead>
+        <tr>
+            <th>Job ID</th>
+            <th>File</th>
+            <th>Static</th>
+            <th>Dynamic</th>
+            <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody id="jobs"></tbody>
+    </table>
 </section>
 
 <section>
-<h2>Result / Report Viewer</h2>
-<input type="text" id="jobIdInput" placeholder="Job ID" size="50"/>
-<br/><br/>
-<button onclick="getResult()">Result JSON</button>
-<button onclick="getReport()">Report JSON</button>
-<button onclick="downloadResult()">Download Result</button>
-<button onclick="downloadPDF()">Download PDF</button>
-<button class="danger" onclick="deleteJob()">Delete Job</button>
-<pre id="output"></pre>
+    <h2>Result / Report Viewer</h2>
+    <input type="text" id="jobIdInput" placeholder="Job ID" size="50"/>
+    <br/><br/>
+    <button onclick="getResult()">Print JSON Result</button>
+    <button onclick="getReport()">Print JSON Report</button>
+    <button onclick="downloadResult()">Download JSON Result</button>
+    <button onclick="downloadPDF()">Download PDF Report</button>
+    <button class="danger" onclick="deleteJob()">Delete Job</button>
+    <pre id="output"></pre>
 </section>
 
 <script>
 async function checkHealth() {
-  const r = await fetch("/health");
-  const data = await r.json();
-  document.getElementById("health").innerHTML = syntaxHighlight(data);
+    const r = await fetch("/health");
+    const data = await r.json();
+    document.getElementById("health").innerHTML = syntaxHighlight(data);
 }
 
 async function submitFile() {
-  const f = document.getElementById("fileInput").files[0];
-  if (!f) return alert("Select a file");
-  const fd = new FormData();
-  fd.append("file", f);
-  const r = await fetch("/api/submit", { method: "POST", body: fd });
-  const data = await r.json();
-  document.getElementById("submitResult").innerHTML = syntaxHighlight(data);
-  loadJobs();
+    const f = document.getElementById("fileInput").files[0];
+    const os = document.getElementById("osSelect").value;
+    if (!f) return alert("Select a file");
+    const fd = new FormData();
+    fd.append("file", f);
+    fd.append("sandbox_os", os);
+    const r = await fetch("/api/submit", { method: "POST", body: fd });
+    const data = await r.json();
+    if (!r.ok) {
+        document.getElementById("submitResult").innerHTML = `<div class="error">Error: ${data.detail}</div>`;
+        return;
+    }
+    document.getElementById("submitResult").innerHTML = syntaxHighlight(data);
+    loadJobs();
 }
+
 
 async function loadJobs() {
-  const r = await fetch("/api/jobs");
-  const data = await r.json();
-  const tbody = document.getElementById("jobs");
-  tbody.innerHTML = "";
-  data.jobs.forEach(j => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${j.job_id}</td>
-      <td>${j.file_name}</td>
-      <td><span class="badge ${j.status_static}">${j.status_static}</span></td>
-      <td><span class="badge ${j.status_dynamic}">${j.status_dynamic}</span></td>
-      <td class="actions">
-        <button onclick="setJob('${j.job_id}')">Select</button>
-      </td>
-    `;
-    tbody.appendChild(tr);
-  });
+    const r = await fetch("/api/jobs");
+    const data = await r.json();
+    const tbody = document.getElementById("jobs");
+    tbody.innerHTML = "";
+    data.jobs.forEach(j => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+  <td>${j.job_id}</td>
+  <td>${j.file_name}</td>
+  <td><span class="badge ${j.status_static}">${j.status_static}</span></td>
+  <td><span class="badge ${j.status_dynamic}">${j.status_dynamic}</span></td>
+  <td class="actions">
+    <button onclick="setJob('${j.job_id}', this)">Select</button>
+  </td>
+`;
+        tbody.appendChild(tr);
+    });
 }
 
-function setJob(id) {
-  document.getElementById("jobIdInput").value = id;
+function resetSelectedButton() {
+    const selectedButton = document.querySelector(".actions button.selected");
+    if (selectedButton) {
+        selectedButton.classList.remove("selected");
+    }
 }
+
+function setJob(id, btn) {
+    const jobIdInput = document.getElementById("jobIdInput");
+    if (jobIdInput.value !== id) {
+        jobIdInput.value = id;
+    }
+    resetSelectedButton();
+    btn.classList.add("selected");
+}
+
+document.getElementById("jobIdInput").addEventListener("input", function() {
+    resetSelectedButton();
+});
 
 async function getResult() {
-  const id = document.getElementById("jobIdInput").value;
-  const r = await fetch(`/api/result/${id}`);
-  const data = await r.json();
-  document.getElementById("output").innerHTML = syntaxHighlight(data);
+    const id = document.getElementById("jobIdInput").value;
+    if (!id) return alert("Please select a job");
+    const r = await fetch(`/api/result/${id}`);
+    const data = await r.json();
+    if (!r.ok) {
+        document.getElementById("output").innerHTML = `<div class="error">Error: ${data.detail}`;
+        return;
+    }
+    document.getElementById("output").innerHTML = syntaxHighlight(data);
 }
 
 async function getReport() {
-  const id = document.getElementById("jobIdInput").value;
-  const r = await fetch(`/api/report/${id}`);
-  const data = await r.json();
-  document.getElementById("output").innerHTML = syntaxHighlight(data);
+    const id = document.getElementById("jobIdInput").value;
+    if (!id) return alert("Please select a job");
+    const r = await fetch(`/api/report/${id}`);
+    const data = await r.json();
+    if (!r.ok) {
+        document.getElementById("output").innerHTML = `<div class="error">Error: ${data.detail}`;
+        return;
+    }
+    document.getElementById("output").innerHTML = syntaxHighlight(data);
 }
 
 function downloadResult() {
-  const id = document.getElementById("jobIdInput").value;
-  window.open(`/api/result/${id}/download`);
+    const id = document.getElementById("jobIdInput").value;
+    if (!id) return alert("Please select a job");
+    window.open(`/api/result/${id}/download`);
 }
 
 function downloadPDF() {
-  const id = document.getElementById("jobIdInput").value;
-  window.open(`/api/report/${id}/pdf`);
+    const id = document.getElementById("jobIdInput").value;
+    if (!id) return alert("Please select a job");
+    window.open(`/api/report/${id}/pdf`);
 }
 
 async function deleteJob() {
-  const id = document.getElementById("jobIdInput").value;
-  if (!confirm("Delete job ?")) return;
-  const r = await fetch(`/api/jobs/${id}`, { method: "DELETE" });
-  const data = await r.json();
-  document.getElementById("output").innerHTML = syntaxHighlight(data);
-  loadJobs();
+    const id = document.getElementById("jobIdInput").value;
+    if (!id) return alert("Please select a job");
+    if (!confirm("Delete job?")) return;
+    const r = await fetch(`/api/jobs/${id}`, { method: "DELETE" });
+    const data = await r.json();
+    if (!r.ok) {
+        document.getElementById("output").innerHTML = `<div class="error">Error: ${data.detail}`;
+        return;
+    }
+    document.getElementById("output").innerHTML = syntaxHighlight(data);
+    loadJobs();
 }
 
 loadJobs();
 
 function syntaxHighlight(json) {
-  if (typeof json !== "string") {
-    json = JSON.stringify(json, null, 2);
-  }
-
-  json = json
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-
-  return json.replace(
-    /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(\.\d+)?([eE][+\-]?\d+)?)/g,
-    match => {
-      let cls = "json-number";
-      if (/^"/.test(match)) {
-        cls = /:$/.test(match) ? "json-key" : "json-string";
-      } else if (/true|false/.test(match)) {
-        cls = "json-boolean";
-      } else if (/null/.test(match)) {
-        cls = "json-null";
-      }
-      return `<span class="${cls}">${match}</span>`;
+    if (typeof json !== "string") {
+        json = JSON.stringify(json, null, 2);
     }
-  );
+    json = json
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    return json.replace(
+        /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(\.\d+)?([eE][+\-]?\d+)?)/g,
+        match => {
+            let cls = "json-number";
+            if (/^"/.test(match)) {
+                cls = /:$/.test(match) ? "json-key" : "json-string";
+            } else if (/true|false/.test(match)) {
+                cls = "json-boolean";
+            } else if (/null/.test(match)) {
+                cls = "json-null";
+            }
+            return `<span class="${cls}">${match}</span>`;
+        }
+    );
 }
 </script>
 
