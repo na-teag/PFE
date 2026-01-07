@@ -460,13 +460,11 @@ API_KEY=$(su - "$username" -c '
 cd ~/cuckoo3
 source venv/bin/activate
 
-# Créer le token sandbox-api s il n existe pas déjà
 EXISTING=$(cuckoo api token --list 2>/dev/null | grep "sandbox-api" || true)
 if [ -z "$EXISTING" ]; then
     cuckoo api token --create sandbox-api >/dev/null 2>&1
 fi
 
-# Récupérer la clé (colonne "API Key")
 cuckoo api token --list 2>/dev/null | awk -F"|" '\''/sandbox-api/ {gsub(/^[ \t]+|[ \t]+$/, "", $6); print $6}'\''
 ')
 
@@ -475,6 +473,37 @@ echo "Cuckoo API key: $API_KEY"
 echo "$API_KEY" > "$(pwd)/cuckoo_api_key.txt"
 echo "API key written to $(pwd)/cuckoo_api_key.txt"
 
+############################
+##### Cuckoo3 API svc #####
+############################
+
+generate_section_header "Setting up Cuckoo3 API service"
+
+echo -e "\n### Creating Cuckoo API service ###"
+
+sudo cat <<EOF > /etc/systemd/system/cuckoo-api.service
+[Unit]
+Description=Cuckoo3 API (Django dev server)
+After=network.target
+
+[Service]
+User=$username
+Group=$username
+WorkingDirectory=/home/$username/cuckoo3
+ExecStart=/home/$username/cuckoo3/venv/bin/cuckoo api --host 0.0.0.0 --port 8080
+Environment=CUCKOO_APP=api
+Environment=CUCKOO_CWD=/home/$username/.cuckoocwd
+Environment=CUCKOO_LOGLEVEL=DEBUG
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+echo -e "\n### Enabling and starting Cuckoo API service ###"
+sudo systemctl daemon-reload
+sudo systemctl enable cuckoo-api.service
+sudo systemctl start cuckoo-api.service
 
 
 #################################
