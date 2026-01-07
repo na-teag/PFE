@@ -19,6 +19,7 @@ OUT_DIR="$LOGS_DIR/$TIMESTAMP"
 
 REMOTE_SAMPLE="/tmp/$(basename "$SAMPLE")"
 REMOTE_LOG="/tmp/ebpf.log"
+REMOTE_COLLECTOR="/opt/ebpf/ebpf_collector.bt"
 
 ########################
 # CHECKS
@@ -42,6 +43,12 @@ fi
 
 echo "[+] VM IP: $VM_IP"
 echo "[+] Output dir: $OUT_DIR"
+
+#######################
+# COPY COLLECTOR
+#######################
+echo "[+] Copying collector to VM"
+scp $SSH_OPTS "ebpf_collector.bt" "$VM_USER@$VM_IP:$REMOTE_COLLECTOR"
 
 ########################
 # COPY SAMPLE
@@ -69,7 +76,7 @@ scp $SSH_OPTS "$VM_USER@$VM_IP:$REMOTE_LOG" "$OUT_DIR/ebpf.log"
 # ANALYSIS
 ########################
 echo "[+] Running analysis"
-python3 analysis/build_report.py "$OUT_DIR/ebpf.log" > "$OUT_DIR/report.json"
+python3 build_report.py "$OUT_DIR/ebpf.log" > "$OUT_DIR/report.json"
 
 ########################
 # DONE
