@@ -9,11 +9,11 @@ SANDBOX_URL = os.getenv("SANDBOX_URL", "http://192.168.122.1:9000")
 redis_client = Redis.from_url(REDIS_URL, decode_responses=True)
 
 
-def call_sandbox(job_id: str, path: Path) -> dict:
+def call_sandbox(job_id: str, path: Path, sandbox_os: str) -> dict:
   r = requests.post(f"{SANDBOX_URL}/sandbox/run", json={
     "job_id": job_id,
     "sample_path": str(path),
-    "os": "windows",
+    "os": sandbox_os,
     "timeout": 120,
   })
   r.raise_for_status()
@@ -35,9 +35,10 @@ def main():
     _, payload = job
     meta = json.loads(payload)
     job_id = meta["job_id"]
+    sandbox_os = meta["os"]
     path = Path(meta["file_path"])
 
-    res = call_sandbox(job_id, path)
+    res = call_sandbox(job_id, path, sandbox_os)
     res["job_id"] = job_id
 
     redis_client.set(f"result_dynamic:{job_id}", json.dumps(res), ex=7 * 24 * 3600)

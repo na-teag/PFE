@@ -62,10 +62,19 @@ def run(req: RunRequest):
         "analysis": None,
     }
 
-    # TODO:
+    # TODO
     # - lancement VM (KVM)
     # - injection sample
     # - lancement Drakvuf / Cuckoo
+    match req.os:
+        case "w10":
+            pass
+        case "w11":
+            pass
+        case "linux":
+            pass
+        case _:
+            raise HTTPException(400, f'Invalid os value: {req.os}, should be "w10", "w11" or "linux"')
 
     return RunResponse(
         sandbox_job_id=sandbox_job_id,
@@ -96,7 +105,7 @@ def result(sandbox_job_id: str):
     if not job:
         raise HTTPException(404, "sandbox job not found")
 
-    # Pour l'instant c'est un mock : on force un résultat terminé
+    # TODO Pour l'instant c'est un mock : on force un résultat terminé
     if job["status"] != "completed":
         job["status"] = "completed"
         job["finished_at"] = datetime.utcnow().isoformat()

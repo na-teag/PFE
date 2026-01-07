@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: worker-dynamic
-          image: dockerhubmalware/malware-worker-dynamic:v1.0.2
+          image: dockerhubmalware/malware-worker-dynamic:v1.0.3
           # Injection de toutes les variables d'environnement depuis le secret
           envFrom:
             - secretRef:

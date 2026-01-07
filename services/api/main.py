@@ -3,7 +3,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from redis import Redis
@@ -12,9 +12,8 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 import io
 from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
 from reportlab.lib import colors
-from reportlab.platypus import Table, TableStyle, SimpleDocTemplate, Paragraph, Spacer, PageBreak
+from reportlab.platypus import Table, TableStyle, SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfgen import canvas as pdf_canvas
 from reportlab.platypus import KeepTogether
@@ -70,10 +69,13 @@ def health():
 
 
 @app.post("/api/submit", response_model=SubmissionResponse)
-async def submit(file: UploadFile = File(...)):
+async def submit(file: UploadFile = File(...), sandbox_os: str = Form(...)):
   data = await file.read()
   if len(data) > MAX_SIZE:
     raise HTTPException(413, "File too large")
+  valid = {"w10", "w11", "linux"}
+  if sandbox_os not in valid:
+    raise HTTPException(400, f"Invalid os value: {sandbox_os}, should be in {valid}")
   h = hashlib.sha256(data).hexdigest()
   job_id = str(uuid.uuid4())
 
@@ -86,13 +88,14 @@ async def submit(file: UploadFile = File(...)):
     "file_hash": h,
     "file_name": file.filename,
     "file_path": str(path),
+    "os": sandbox_os,
     "submitted_at": format_ts(datetime.utcnow().isoformat()),
     "status_static": "queued",
     "status_dynamic": "queued",
   }
-  redis_client.set(f"job:{job_id}", json.dumps(meta), ex=7 * 24 * 3600)
-  redis_client.lpush("analysis_queue_static", json.dumps(meta))
-  redis_client.lpush("analysis_queue_dynamic", json.dumps(meta))
+  await redis_client.set(f"job:{job_id}", json.dumps(meta), ex=7 * 24 * 3600)
+  await redis_client.lpush("analysis_queue_static", json.dumps(meta))
+  await redis_client.lpush("analysis_queue_dynamic", json.dumps(meta))
 
   return SubmissionResponse(
     job_id=job_id,
