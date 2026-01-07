@@ -4,8 +4,7 @@ from redis import Redis
 import requests
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379")
-SANDBOX_URL = os.getenv("SANDBOX_URL", "http://sandbox-controller:9000")
-RESULTS_PATH = Path(os.getenv("RESULTS_PATH", "/data/results"))
+SANDBOX_URL = os.getenv("SANDBOX_URL", "http://192.168.122.1:9000")
 
 redis_client = Redis.from_url(REDIS_URL, decode_responses=True)
 
