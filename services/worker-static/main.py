@@ -66,7 +66,7 @@ def main():
             VT_result = vt_analyze(meta["file_hash"])
         except ConnectionRefusedError as e:
             print(f"[!] Connection refused: {e}")
-            VT_result = {"[!] Connection refused": e}
+            VT_result = {"[!] Connection refused": str(e)}
 
 
         res = {

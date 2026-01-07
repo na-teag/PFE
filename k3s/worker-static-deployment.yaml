@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: worker-static
-          image: dockerhubmalware/malware-worker-static:v1.0.5
+          image: dockerhubmalware/malware-worker-static:v1.0.6
           # Injection de toutes les variables d'environnement depuis le secret
           envFrom:
             - secretRef:
