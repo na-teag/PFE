@@ -7,7 +7,7 @@ import yara
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379")
 VT_KEY = os.getenv("VIRUSTOTAL_API_KEY", "")
 RESULTS_PATH = Path(os.getenv("RESULTS_PATH", "/data/results"))
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = Path(__file__).resolve().parent
 YARA_DIR_PATH = Path(str(PROJECT_ROOT) + os.getenv("YARA_DIR_PATH", "/yara-rules"))
 
 redis_client = Redis.from_url(REDIS_URL, decode_responses=True)
