@@ -25,5 +25,4 @@ if ! command -v python3 >/dev/null 2>&1; then
 fi
 
 pip install -r services/sandbox/controller/requirements.txt
-uvicorn main:app --app-dir services/sandbox/controller --host 0.0.0.0 --port 9000 &
-
+uvicorn main:app --app-dir services/sandbox/controller --host 0.0.0.0 --port 9000 --log-level critical --no-access-log &
