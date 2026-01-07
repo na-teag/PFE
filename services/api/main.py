@@ -8,6 +8,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from redis import Redis
 from fastapi.responses import StreamingResponse
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 import io
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
@@ -27,6 +29,11 @@ RESULTS_PATH.mkdir(parents=True, exist_ok=True)
 redis_client = Redis.from_url(REDIS_URL, decode_responses=True)
 
 app = FastAPI(title="Malware Analysis API", version="1.0.0")
+BASE_DIR = Path(__file__).parent
+STATIC_DIR = BASE_DIR / "static"
+
+app.mount("/static", StaticFiles(directory=STATIC_DIR, html=True), name="static")
+
 
 HEADER_BLUE = colors.HexColor("#2F5597")
 SECTION_BLUE = colors.HexColor("#E9EFF7")
@@ -48,6 +55,9 @@ class ResultResponse(BaseModel):
   static_result: Optional[dict]
   dynamic_result: Optional[dict]
 
+
+def format_ts(ts: str) -> str:
+    return datetime.fromisoformat(ts).strftime("%Y-%m-%d %H:%M:%S")
 
 @app.get("/health")
 def health():
@@ -76,7 +86,7 @@ async def submit(file: UploadFile = File(...)):
     "file_hash": h,
     "file_name": file.filename,
     "file_path": str(path),
-    "submitted_at": datetime.utcnow().isoformat(),
+    "submitted_at": format_ts(datetime.utcnow().isoformat()),
     "status_static": "queued",
     "status_dynamic": "queued",
   }
@@ -193,9 +203,6 @@ def download_result(job_id: str):
             "Content-Disposition": f'attachment; filename="{filename}"'
         }
     )
-
-def format_ts(ts: str) -> str:
-    return datetime.fromisoformat(ts).strftime("%Y-%m-%d %H:%M:%S")
 
 
 def build_unified_report(job_id: str, meta: dict, static_raw: str | None, dynamic_raw: str | None):
@@ -548,3 +555,13 @@ def download_report_pdf(job_id: str):
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="report_{job_id}.pdf"'}
     )
+
+@app.get("/", response_class=HTMLResponse)
+@app.get("/ui", response_class=HTMLResponse)
+@app.get("/ui/", response_class=HTMLResponse)
+def serve_ui():
+    index_path = STATIC_DIR / "index.html"
+    if not index_path.exists():
+        return HTMLResponse("index.html not found", status_code=404)
+
+    return HTMLResponse(content=index_path.read_text(encoding="utf-8"))

@@ -1,5 +1,19 @@
 # projet-analyse-malware
 
+## Présentation
+
+Ce projet est une plateforme distribuée d’analyse de malwares reposant sur Kubernetes.
+Elle permet de soumettre un fichier, d’effectuer une analyse statique et dynamique, puis de générer un rapport en JSON et en PDF.
+
+### Composants principaux
+- API FastAPI : soumission, orchestration, résultats, UI
+- Workers statiques : analyse VirusTotal / YARA
+- Workers dynamiques : analyse en sandbox Windows
+- Sandbox-controller : gestion des VM d’analyse
+- Redis : file de jobs et stockage des résultats
+- Kubernetes (k3s) : orchestration
+
+
 ## Installation
 
 Installation de k3s : `curl -sfL https://get.k3s.io | sh -`
@@ -141,6 +155,12 @@ ssh k3s@192.168.122.2 "kubectl patch secret vt-credentials -n malware-analysis \
 
 ## Tests 
 Les services de l’infrastructure (API, sandbox, workers) tournent dans le cluster Kubernetes et ne sont pas exposés sur localhost par défaut.
+Ces tests permettent de vérifier :
+- la disponibilité de chaque service
+- la soumission d’un fichier
+- l’exécution des analyses
+- la récupération et la suppression des résultats
+
 
 Vérifier la sandbox-controller
 ```bash
@@ -199,7 +219,8 @@ Supprimer complètement le job
 curl -X DELETE http://<API_IP>:8000/api/jobs/<job_id>
 ```
 
-Pour les commandes /health, /api/result/<job_id>, /api/result/<job_id>/download, /api/report/<job_id>, /api/result/<job_id>/download et /api/report/<job_id>/pdf et /api/jobs, il est également possible de voir les résultats directement sur l'interface web de l'API.
+Pour toutes les commandes précédentes, il est également possible de voir les résultats directement sur l'interface web de l'API depuis cette url : http://<API_IP>:8000/.
+Pour voir la documentation Swagger, il faut la consulter à cette url : http://<API_IP>:8000/docs.
 
 Vérifier Redis en live (adapter le nom du pod)
 ```bash

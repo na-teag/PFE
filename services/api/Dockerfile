@@ -15,8 +15,8 @@ COPY requirements.txt .
 RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copier le code Python
-COPY main.py .
+# Copier le code Python et le dossier static
+COPY main.py . .
 
 # Exposer le port 8000
 EXPOSE 8000
