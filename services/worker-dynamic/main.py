@@ -37,6 +37,7 @@ def main():
     job_id = meta["job_id"]
     sandbox_os = meta["os"]
     path = Path(meta["file_path"])
+    os_name = meta.get("os", "windows")  # default to windows if not set
 
     res = call_sandbox(job_id, path, sandbox_os)
     res["job_id"] = job_id
