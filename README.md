@@ -133,8 +133,8 @@ kubectl get svc -n malware-analysis
 
 ```bash
 ssh k3s@192.168.122.2 "kubectl patch secret vt-credentials -n malware-analysis \
-  --type='merge' \.exe"
-  -p='{\"stringData\":{\"VIRUSTOTAL_API_KEY\":\"1589d12970645df64d3f625df84a3e032694f57c7e6553bc34740f87c3176508\"}}' \
+  --type='merge' \
+  -p='{\"stringData\":{\"VIRUSTOTAL_API_KEY\":\"replace_by_key\"}}' \
   && kubectl delete pod -n malware-analysis -l app=worker-static \
   && echo ok"
 ```
