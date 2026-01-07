@@ -439,6 +439,44 @@ echo -e "\n### Restarting Nginx ###"
 
 sudo systemctl restart nginx cuckoo-web.service
 
+###############################
+##### Cuckoo3 Web API DB ######
+###############################
+
+generate_section_header "Migrating Cuckoo3 web API database"
+
+su - "$username" -c '
+cd ~/cuckoo3
+source venv/bin/activate
+cuckoo api djangocommand migrate
+'
+##############################
+##### Cuckoo3 API token ######
+##############################
+
+generate_section_header "Creating Cuckoo3 API token"
+
+API_KEY=$(su - "$username" -c '
+cd ~/cuckoo3
+source venv/bin/activate
+
+# Créer le token sandbox-api s il n existe pas déjà
+EXISTING=$(cuckoo api token --list 2>/dev/null | grep "sandbox-api" || true)
+if [ -z "$EXISTING" ]; then
+    cuckoo api token --create sandbox-api >/dev/null 2>&1
+fi
+
+# Récupérer la clé (colonne "API Key")
+cuckoo api token --list 2>/dev/null | awk -F"|" '\''/sandbox-api/ {gsub(/^[ \t]+|[ \t]+$/, "", $6); print $6}'\''
+')
+
+echo "Cuckoo API key: $API_KEY"
+
+echo "$API_KEY" > "$(pwd)/cuckoo_api_key.txt"
+echo "API key written to $(pwd)/cuckoo_api_key.txt"
+
+
+
 #################################
 ##### Create helper scripts #####
 #################################
@@ -452,6 +490,8 @@ sudo /home/$username/vmcloak/bin/vmcloak-qemubridge br0 192.168.30.1/24
 echo -e "\n### Mounting ISO ###"
 sudo mount -o loop,ro /home/$username/win10x64.iso /mnt/win10x64
 EOT
+
+
 
 ######################
 ##### Run Cuckoo #####
