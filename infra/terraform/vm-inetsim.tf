@@ -1,3 +1,4 @@
+/*
 resource "libvirt_volume" "inetsim_disk" {
   name   = "inetsim.qcow2"
   pool   = libvirt_pool.default.name
@@ -58,3 +59,4 @@ resource "libvirt_domain" "inetsim" {
     }
   }
 }
+*/
