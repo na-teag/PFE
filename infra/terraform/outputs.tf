@@ -1,3 +1,4 @@
+/*
 output "sandbox_bridge" {
   value = var.sandbox_bridge
 }
@@ -21,3 +22,4 @@ output "external_network_name" {
 output "k3s-master_ip" {
   value = var.k3s_ip
 }
+ */

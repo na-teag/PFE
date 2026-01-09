@@ -1,28 +1,21 @@
 #cloud-config
-hostname: k3s-master
+hostname: k3s
 ssh_pwauth: True
-chpasswd:
-  list: |
-    root:root
-  expire: False
-network:
-  version: 2
-  ethernets:
-    eth0:
-      addresses:
-        - 192.168.122.2/24
-      gateway4: 192.168.122.1
-      nameservers:
-        addresses: [8.8.8.8]
+packages:
+  - curl
+  - sudo
+  - git
+keyboard:
+  layout: fr
+  variant: ""
 users:
   - name: k3s
     groups: sudo
     shell: /bin/bash
     passwd: "$6$8HnNkXiciaai5RDJ$6sEe5zHc.uMcs3S62tamFUWDPY/Foey/krrTxPqRsLf6.WgE9IY/bs0fd2wEiw39z4qWzcgTetNVBr3VRiq8n."
-packages:
-  - curl
-  - sudo
-  - git
+    lock_passwd: false
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHoc8PFIJwFaEstJFDfGl7yEJkO8DOuQ4dr5QBs7hPRq
 
 runcmd:
   # Installer k3s (single-node)
@@ -35,12 +28,14 @@ runcmd:
   - cp /etc/rancher/k3s/k3s.yaml /home/k3s/.kube/config
   - chown k3s:k3s /home/k3s/.kube/config
   # Attendre que tout démarre
-  - sleep 10
-  - until kubectl get nodes; do sleep 5; done
+  - |
+    until k3s kubectl get nodes >/dev/null 2>&1; do
+      sleep 5
+    done
   # Installer ArgoCD dans le cluster
-  - kubectl create namespace argocd || true
-  - kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-  - usermod -aG libvirt k3s
+  - k3s kubectl create namespace argocd || true
+  - k3s kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
   - cd /home/k3s
-  - kubectl apply -n argocd -f https://raw.githubusercontent.com/na-teag/projet-analyse-malware/refs/heads/main/infra/agocd/malware-analysis-app.yaml
-  - kubectl patch svc argocd-server -n argocd -p '{"spec": {"type": "LoadBalancer"}}'
+  - k3s kubectl apply -n argocd -f https://raw.githubusercontent.com/na-teag/projet-analyse-malware/refs/heads/main/infra/agocd/malware-analysis-app.yaml
+  - |
+    k3s kubectl patch svc argocd-server -n argocd -p '{"spec":{"type":"LoadBalancer"}}'

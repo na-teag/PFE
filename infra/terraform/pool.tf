@@ -1,3 +1,4 @@
+/*
 resource "libvirt_pool" "default" {
   name = "default"
   type = "dir"
@@ -6,3 +7,4 @@ resource "libvirt_pool" "default" {
     path = "/var/lib/libvirt/images"
   }
 }
+ */

@@ -1,3 +1,4 @@
+/*
 resource "libvirt_network" "sandbox" {
   name      = "sandbox-net"
   domain    = {
@@ -32,4 +33,6 @@ resource "libvirt_network" "sandbox" {
       }]
     }]
   }
+
 }
+*/
