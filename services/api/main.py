@@ -93,9 +93,9 @@ async def submit(file: UploadFile = File(...), sandbox_os: str = Form(...)):
     "status_static": "queued",
     "status_dynamic": "queued",
   }
-  await redis_client.set(f"job:{job_id}", json.dumps(meta), ex=7 * 24 * 3600)
-  await redis_client.lpush("analysis_queue_static", json.dumps(meta))
-  await redis_client.lpush("analysis_queue_dynamic", json.dumps(meta))
+  redis_client.set(f"job:{job_id}", json.dumps(meta), ex=7 * 24 * 3600)
+  redis_client.lpush("analysis_queue_static", json.dumps(meta))
+  redis_client.lpush("analysis_queue_dynamic", json.dumps(meta))
 
   return SubmissionResponse(
     job_id=job_id,
