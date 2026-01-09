@@ -2,6 +2,7 @@
 
 # TODO
 # Tester qu'il n'existe pas déjà une VM et un disque du même nom
+# Tester que virt-install et kvm sont installé
 
 # Temps d'installation (hors téléchargement) : 4-5mn
 echo "Téléchargement de l'image de la VM..."

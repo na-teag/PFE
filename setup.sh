@@ -41,3 +41,4 @@ uvicorn main:app --app-dir services/sandbox/controller --host 0.0.0.0 --port 900
 # appliquer la clé VirusTotal via ssh
 # générer une clé avec ssh-keygen et l'ajouter à vm-k3s.yaml ? -> mkdir -p ~/.ssh/k3s/ && ssh-keygen -t ed25519 -f ~/.ssh/k3s/id_ed25519 -N "" -C ""
 # vérifier que ne réseau default existe et est bien paramétré
+# vérifier que le reseau "default" existe et le créer si ce n'est pas le cas
