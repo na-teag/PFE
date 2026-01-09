@@ -82,6 +82,11 @@ build {
     "sudo apt-get install -y python3-pip tcpdump curl",
 
 
+    "sudo apt-get update",
+    "sudo apt-get install -y bpftrace",
+    "sudo apt-get install -y linux-headers-$(uname -r)",
+    "sudo apt-get install -y clang llvm libelf-dev zlib1g-dev",
+    "sudo apt-get install -y python3-pip tcpdump curl",
 
     "sudo ufw disable || true"
   ]
