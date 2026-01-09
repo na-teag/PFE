@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Obtenir les variables
 SANDBOX_BRIDGE=$(terraform output -raw sandbox_bridge)
