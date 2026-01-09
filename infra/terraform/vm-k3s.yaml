@@ -15,7 +15,7 @@ users:
     passwd: "$6$8HnNkXiciaai5RDJ$6sEe5zHc.uMcs3S62tamFUWDPY/Foey/krrTxPqRsLf6.WgE9IY/bs0fd2wEiw39z4qWzcgTetNVBr3VRiq8n."
     lock_passwd: false
     ssh_authorized_keys:
-      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHoc8PFIJwFaEstJFDfGl7yEJkO8DOuQ4dr5QBs7hPRq
+      - __SSH_KEY__
 
 runcmd:
   # Installer k3s (single-node)
