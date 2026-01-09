@@ -34,7 +34,6 @@ source "qemu" "ebpf_sandbox" {
     ["-cpu", "host"]
   ]
 
-
   output_directory   = "ebpf_sandbox"
   vm_name            = "packer-ebpf_sandbox.qcow2"
 }
