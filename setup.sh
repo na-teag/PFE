@@ -27,27 +27,32 @@ cd ../..
 ./script/install_cuckoo.sh
 
 # lancer le service sandbox controller
+echo "Lancement du service sandbox controller..."
 if ! command -v python3 >/dev/null 2>&1; then
   sudo apt update && sudo apt install -y python3 python3-pip
 fi
 
 pip install -r services/sandbox/controller/requirements.txt
 uvicorn main:app --app-dir services/sandbox/controller --host 0.0.0.0 --port 9000 --log-level critical --no-access-log &
+echo "Service sandbox controller lancé."
 
 
 # attendre que les services soient dispo
+echo "Merci de patienter jusqu'au démarrage complet des services sur la VM..."
+echo
 while true; do
     STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL" || echo "000")
     if [[ "$STATUS" == "200" ]]; then
-        echo "Service disponible."
+        echo "Services disponibles."
         break
     else
-        echo "Service non disponible (HTTP $STATUS). Nouvelle tentative dans 5 secondes..."
+        echo "Services non disponible (HTTP $STATUS). Nouvelle tentative dans 10 secondes..."
         sleep 10
     fi
 done
 
 # appliquer la clé VirusTotal via ssh
+echo
 read -s -p "Entrez votre clé VirusTotal API : " VT_KEY
 echo
 ssh-keyscan -H 192.168.122.2 >> "$HOME/.ssh/known_hosts"
@@ -58,6 +63,7 @@ echo ok
 '"
 
 # Afficher les informations de connexion à argocd
+echo
 ssh k3s@192.168.122.2 -i ~/.ssh/kvm/id_ed25519 'echo "service ArgoCD : https://$(hostname -I | awk "{print \$1}"):$(kubectl get svc argocd-server -n argocd -o jsonpath="{.spec.ports[?(@.port==443)].nodePort}")"; echo "id : admin"; echo "pwd : $(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)"'
 
 # afficher l'interface graphique du projet sur firefox
@@ -65,3 +71,4 @@ if ! command -v firefox >/dev/null 2>&1; then
   sudo apt update && sudo apt install -y firefox
 fi
 firefox --new-tab "$URL" &
+echo "setup terminé."
