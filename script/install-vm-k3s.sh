@@ -13,10 +13,11 @@ sudo apt install -y \
   virtinst \
   virt-manager \
   openssh-client
+sudo systemctl enable --now libvirtd
 
 if ! groups | grep -q "libvirt"; then
   sudo usermod -aG libvirt $USER
-  newgrp libvirt
+  newgrp libvirt # actualiser
 fi
 
 
@@ -27,7 +28,7 @@ if ! ip -d link show virbr0 2>/dev/null | grep -q "bridge"; then
   exit 1
 fi
 
-# vérifier que le réseau default existe bien
+# vérifier que le réseau default existe bien, le créer si non
 if ! virsh net-info default &>/dev/null; then
   cat > "$XML_PATH" <<'EOF'
 <network>
@@ -44,19 +45,20 @@ if ! virsh net-info default &>/dev/null; then
 EOF
   virsh net-define "$XML_PATH"
 fi
+# démarrer le réseau
 virsh net-start default &>/dev/null || true
 virsh net-autostart default
 
 
 
-# Vérifier si la VM existe
+# Vérifier si une VM du même nom existe
 if virsh dominfo "$VM_NAME" >/dev/null 2>&1; then
     echo -e "\n\nErreur : la VM '$VM_NAME' existe déjà." 1>&2
     echo "Pour supprimer la VM '$VM_NAME' tapez : virsh destroy $VM_NAME && virsh undefine $VM_NAME"
     exit 1
 fi
 
-# Vérifier si le volume existe
+# Vérifier si un volume du même nom existe
 if virsh vol-info --pool "$POOL" "$VOL_NAME" >/dev/null 2>&1; then
     echo -e "\n\nErreur : le volume '$VOL_NAME' existe déjà dans le pool '$POOL'." 1>&2
     echo "Pour supprimer le volume '$VOL_NAME' tapez : virsh vol-delete $VM_NAME.qcow2 --pool $POOL"
@@ -92,3 +94,4 @@ virt-install \
   --network \
     network=default,model=virtio \
   --noautoconsole
+echo "VM $VM_NAME installé avec succès."

@@ -13,8 +13,14 @@ Elle permet de soumettre un fichier, d’effectuer une analyse statique et dynam
 - Redis : file de jobs et stockage des résultats
 - Kubernetes (k3s) : orchestration
 
+### Installation du projet :
+```bash
+git clone https://github.com/na-teag/projet-analyse-malware.git
+./setup.sh
+```
 
-## Installation
+
+## Installation individuelles des composants
 
 Installation de k3s : `curl -sfL https://get.k3s.io | sh -`
 
@@ -60,13 +66,13 @@ appliquer la config avec kubectl : `kubectl apply -k k3s/`
 
 ### Controle des VMs
 
-<br>
+
 démarrer une VM : `virsh start k3s-master` <br>
 se connecter à la console : `virsh console k3s-master` <br>
-vérifier l'état des VMs : `virsh list --all ` et `virsh dominfo k3s-master`<br>
-arreter une VM : `virsh shutdown k3s-master` <br>
+vérifier l'état des VMs : `virsh list --all` et `virsh dominfo k3s-master` <br>
+arrêter une VM : `virsh shutdown k3s-master` <br>
 redémarrer une VM : `virsh reboot k3s-master` <br>
-forcer l'arret : `virsh destroy k3s-master` <br>
+forcer l'arrêt : `virsh destroy k3s-master` <br>
 afficher les disques attachés : `virsh domblklist k3s-master` <br>
 
 
