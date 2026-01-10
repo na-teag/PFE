@@ -62,26 +62,36 @@ SANDBOX_JOBS: Dict[str, dict] = {}
 
 def submit_to_cuckoo(sample_path: Path) -> str:
     """Submit a file to Cuckoo3 and return the analysis id."""
-    with open(sample_path, "rb") as f:
-        files = {"file": (sample_path.name, f)}
-        data = {
-            "settings": json.dumps({
-                "platforms": [{"platform": "windows", "os_version": "10"}],
-                "timeout": 120,
-            })
-        }
-        r = requests.post(
-            f"{CUCKOO_SUBMIT_URL}/submit/file",
-            files=files,
-            data=data,
-            headers=CUCKOO_HEADERS,
-        )
-    r.raise_for_status()
+    try:
+        with open(sample_path, "rb") as f:
+            files = {"file": (sample_path.name, f)}
+            data = {
+                "settings": json.dumps({
+                    "platforms": [{"platform": "windows", "os_version": "10"}],
+                    "timeout": 120,
+                })
+            }
+            r = requests.post(
+                f"{CUCKOO_SUBMIT_URL}/submit/file",
+                files=files,
+                data=data,
+                headers=CUCKOO_HEADERS,
+                timeout=10,
+            )
+        r.raise_for_status()
+    except Exception as e:
+        import traceback
+        print("Error in submit_to_cuckoo:", repr(e))
+        traceback.print_exc()
+        # propagate as 502 so client sees there is a Cuckoo problem
+        raise HTTPException(status_code=502, detail=f"Cuckoo error: {e}")
+
     resp = r.json()
     analysis_id = resp.get("analysis_id") or resp.get("id")
     if not analysis_id:
-        raise RuntimeError(f"No analysis id in Cuckoo response: {resp}")
+        raise HTTPException(status_code=502, detail=f"No analysis id in Cuckoo response: {resp}")
     return analysis_id
+
 
 
 
