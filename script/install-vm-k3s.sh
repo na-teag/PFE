@@ -77,6 +77,7 @@ TMP_USERDATA="$(mktemp)"
 sed "s|__SSH_KEY__|$(cat ~/.ssh/kvm/id_ed25519.pub)|" "$(pwd)/infra/terraform/vm-k3s.yaml" > "$TMP_USERDATA"
 echo "installation de la VM..."
 virt-install \
+  --connect qemu:///system \
   --name $VM_NAME \
   --memory 3072 \
   --vcpus 3 \

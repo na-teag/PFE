@@ -36,3 +36,10 @@ spec:
               value: "kvm"
           ports:
             - containerPort: 9000
+          volumeMounts:
+            - name: results
+              mountPath: /data/results
+      volumes:
+        - name: results
+          persistentVolumeClaim:
+            claimName: results-pvc

@@ -20,6 +20,9 @@ spec:
           envFrom:
             - secretRef:
                 name: vt-credentials
+          env:
+            - name: SANDBOX_URL
+              value: "http://sandbox-controller:9000"
           volumeMounts:
             - name: results
               mountPath: /data/results
