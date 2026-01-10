@@ -16,10 +16,8 @@ CUCKOO_SUBMIT_URL = os.getenv("CUCKOO_SUBMIT_URL", "http://127.0.0.1:8080")
 CUCKOO_RESULT_URL = os.getenv("CUCKOO_RESULT_URL", "http://127.0.0.1:9090")
 CUCKOO_API_TOKEN = os.getenv("CUCKOO_API_KEY", "").strip()
 
-try:
-    CUCKOO_API_TOKEN = TOKEN_PATH.read_text().strip()
-except FileNotFoundError:
-    CUCKOO_API_TOKEN = ""
+CUCKOO_API_TOKEN = os.getenv("CUCKOO_API_KEY", "").strip()
+
 
 CUCKOO_HEADERS = {"Authorization": f"token {CUCKOO_API_TOKEN}"} if CUCKOO_API_TOKEN else {}
 
