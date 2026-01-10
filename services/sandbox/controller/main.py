@@ -14,10 +14,7 @@ app = FastAPI(title="Sandbox Controller", version="1.0.0")
 
 CUCKOO_SUBMIT_URL = os.getenv("CUCKOO_SUBMIT_URL", "http://127.0.0.1:8080")
 CUCKOO_RESULT_URL = os.getenv("CUCKOO_RESULT_URL", "http://127.0.0.1:9090")
-
-# Automatically load token
-PROJECT_ROOT = Path(__file__).resolve().parents[3]   # services/sandbox/controller/ -> project root
-TOKEN_PATH = PROJECT_ROOT / "cuckoo_api_key.txt"
+CUCKOO_API_TOKEN = os.getenv("CUCKOO_API_KEY", "").strip()
 
 try:
     CUCKOO_API_TOKEN = TOKEN_PATH.read_text().strip()

@@ -23,7 +23,7 @@ cd ../..
 # Installation de la vm k3s (si terraform ne fonctionne pas)
 ./script/install-vm-k3s.sh # Temps d'installation (hors téléchargement) : 4-5mn
 
-# Installation rt mise en route de Cuckoo3 et service WEB/API
+# Installation et mise en route de Cuckoo3 et service WEB/API
 ./script/install_cuckoo.sh
 
 # lancer le service sandbox controller
@@ -39,6 +39,7 @@ python3 -m uvicorn main:app \
   --port 9000 \
   --log-level critical \
   --no-access-log &
+echo "Service sandbox controller lancé."
 
 
 # attendre que les services soient dispo
@@ -56,10 +57,15 @@ done
 # appliquer la clé VirusTotal via ssh
 read -s -p "Entrez votre clé VirusTotal API : " VT_KEY
 echo
+
+# lire la clé Cuckoo API depuis un fichier local (sur ta machine)
+CUCKOO_API_KEY="$(cat "$(pwd)/cuckoo_api_key.txt")"
+
 ssh-keyscan -H 192.168.122.2 >> "$HOME/.ssh/known_hosts"
-ssh -i ~/.ssh/kvm/id_ed25519 k3s@192.168.122.2 "VT_KEY='$VT_KEY' bash -c '
-kubectl patch secret vt-credentials -n malware-analysis --type=merge -p \"{\\\"stringData\\\":{\\\"VIRUSTOTAL_API_KEY\\\":\\\"\$VT_KEY\\\"}}\"
+ssh -i ~/.ssh/kvm/id_ed25519 k3s@192.168.122.2 "VT_KEY='$VT_KEY' CUCKOO_KEY='$CUCKOO_API_KEY' bash -c '
+kubectl patch secret vt-credentials -n malware-analysis --type=merge -p \"{\\\"stringData\\\":{\\\"VIRUSTOTAL_API_KEY\\\":\\\"\$VT_KEY\\\",\\\"CUCKOO_API_KEY\\\":\\\"\$CUCKOO_KEY\\\"}}\"
 kubectl delete pod -n malware-analysis -l app=worker-static
+kubectl delete pod -n malware-analysis -l app=sandbox-controller
 echo ok
 '"
 
