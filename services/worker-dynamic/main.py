@@ -54,6 +54,12 @@ def main():
     res["job_id"] = job_id
 
     redis_client.set(f"result_dynamic:{job_id}", json.dumps(res), ex=7 * 24 * 3600)
+    # *** Relecture avant écriture ***
+    job_raw = redis_client.get(f"job:{job_id}")
+    if not job_raw:
+      meta = {}
+    else:
+      meta = json.loads(job_raw)
     meta["status_dynamic"] = "completed"
     redis_client.set(f"job:{job_id}", json.dumps(meta), ex=7 * 24 * 3600)
 
