@@ -13,12 +13,7 @@ app = FastAPI(title="Sandbox Controller", version="1.0.0")
 # --- Cuckoo3 configuration ---
 
 CUCKOO_SUBMIT_URL = os.getenv("CUCKOO_SUBMIT_URL", "http://192.168.122.1:8080")
-CUCKOO_RESULT_URL = os.getenv("CUCKOO_RESULT_URL", "http://192.168.122.1:9090")
 CUCKOO_API_TOKEN = os.getenv("CUCKOO_API_KEY", "").strip()
-
-CUCKOO_API_TOKEN = os.getenv("CUCKOO_API_KEY", "").strip()
-
-
 CUCKOO_HEADERS = {"Authorization": f"token {CUCKOO_API_TOKEN}"} if CUCKOO_API_TOKEN else {}
 
 class RunRequest(BaseModel):
@@ -98,16 +93,28 @@ def submit_to_cuckoo(sample_path: Path) -> str:
 
 def get_cuckoo_result(analysis_id: str) -> dict:
     """Fetch analysis details from Cuckoo3."""
-    r = requests.get(
-        f"{CUCKOO_RESULT_URL}/analysis/{analysis_id}",
-        headers={},
-        timeout=10,
-    )
-    r.raise_for_status()
+    try:
+        r = requests.get(
+            f"{CUCKOO_SUBMIT_URL}/analysis/{analysis_id}",
+            headers=CUCKOO_HEADERS,
+            timeout=10,
+        )
+        r.raise_for_status()
+    except Exception as e:
+        import traceback
+        print("Error in get_cuckoo_result:", repr(e))
+        traceback.print_exc()
+        raise HTTPException(status_code=502, detail=f"Cuckoo result error: {e}")
+
+    data = r.json()
+    state = data.get("state", "pending")
+
     return {
-        "state": "finished",
-        "raw_html": r.text,
+        "state": state,
+        "raw": data,
     }
+
+
 
 
 @app.post("/sandbox/run", response_model=RunResponse)
@@ -205,7 +212,8 @@ def result(sandbox_job_id: str):
         file_system_changes=[],
         network_iocs=[],
         registry_changes=[],
-        summary={"engine": job["engine"], "state": state, "raw": data},
+        summary={"engine": job["engine"], "state": state, "raw": data["raw"]},
+
     )
     job["analysis"] = analysis
 
