@@ -1,3 +1,7 @@
+import os
+import json
+import requests
+from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Dict, Optional, List
@@ -8,9 +12,11 @@ app = FastAPI(title="Sandbox Controller", version="1.0.0")
 
 # --- Cuckoo3 configuration ---
 
-CUCKOO_API_URL = os.getenv("CUCKOO_API_URL", "http://127.0.0.1:8080")
+CUCKOO_SUBMIT_URL = os.getenv("CUCKOO_SUBMIT_URL", "http://127.0.0.1:8080")
+CUCKOO_RESULT_URL = os.getenv("CUCKOO_RESULT_URL", "http://127.0.0.1:9090")
+
 # Automatically load token
-PROJECT_ROOT = Path(__file__).resolve().parents[2]   # services/sandbox-controller/ -> project root
+PROJECT_ROOT = Path(__file__).resolve().parents[3]   # services/sandbox/controller/ -> project root
 TOKEN_PATH = PROJECT_ROOT / "cuckoo_api_key.txt"
 
 try:
@@ -59,28 +65,49 @@ class ResultResponse(BaseModel):
 
 SANDBOX_JOBS: Dict[str, dict] = {}
 
-def submit_to_cuckoo(sample_path: Path) -> int:
+def submit_to_cuckoo(sample_path: Path) -> str:
     """Submit a file to Cuckoo3 and return the analysis id."""
     with open(sample_path, "rb") as f:
         files = {"file": (sample_path.name, f)}
-        r = requests.post(f"{CUCKOO_API_URL}/analyses/", files=files, headers=CUCKOO_HEADERS)
+        data = {
+            "settings": json.dumps({
+                "platforms": [{"platform": "windows", "os_version": "10"}],
+                "timeout": 120,
+            })
+        }
+        r = requests.post(
+            f"{CUCKOO_SUBMIT_URL}/submit/file",
+            files=files,
+            data=data,
+            headers=CUCKOO_HEADERS,
+        )
     r.raise_for_status()
-    data = r.json()
-    analysis_id = data.get("id")
-    if analysis_id is None:
-        raise RuntimeError(f"No analysis id in Cuckoo response: {data}")
+    resp = r.json()
+    analysis_id = resp.get("analysis_id") or resp.get("id")
+    if not analysis_id:
+        raise RuntimeError(f"No analysis id in Cuckoo response: {resp}")
     return analysis_id
 
 
-def get_cuckoo_result(analysis_id: int) -> dict:
+
+
+def get_cuckoo_result(analysis_id: str) -> dict:
     """Fetch analysis details from Cuckoo3."""
-    r = requests.get(f"{CUCKOO_API_URL}/analyses/{analysis_id}/", headers=CUCKOO_HEADERS)
+    r = requests.get(
+        f"{CUCKOO_RESULT_URL}/analysis/{analysis_id}",
+        headers={},
+        timeout=10,
+    )
     r.raise_for_status()
-    return r.json()
+    return {
+        "state": "finished",
+        "raw_html": r.text,
+    }
 
 
 @app.post("/sandbox/run", response_model=RunResponse)
 def run(req: RunRequest):
+    print("sandbox/run received:", req.dict())
     sandbox_job_id = str(uuid.uuid4())
     now = datetime.utcnow().isoformat()
 
@@ -89,6 +116,8 @@ def run(req: RunRequest):
         raise HTTPException(400, f"Sample not found: {sample_path}")
 
     os_lower = req.os.lower()
+    if os_lower in ("w10", "w11"):
+        os_lower = "windows"
     if os_lower == "windows":
         try:
             cuckoo_id = submit_to_cuckoo(sample_path)
@@ -146,8 +175,18 @@ def result(sandbox_job_id: str):
         raise HTTPException(404, "sandbox job not found")
     
     if job["engine"] == "cuckoo3":
-        data = get_cuckoo_result(job["backend_id"])
-        status = data.get("status", "running")  # adapte cette clé après avoir vu le JSON Cuckoo
+        try:
+            data = get_cuckoo_result(job["backend_id"])
+            state = data.get("state", "pending")
+            status_map = {
+                "pending": "queued",
+                "running": "running",
+                "finished": "completed",
+                "fatal_error": "failed"
+            }
+            status = status_map.get(state, "running")
+        except Exception as e:
+            raise HTTPException(502, f"Failed to get Cuckoo result: {e}")
     else:
         raise HTTPException(500, f"Unknown engine: {job['engine']}")
 
@@ -161,7 +200,7 @@ def result(sandbox_job_id: str):
         file_system_changes=[],
         network_iocs=[],
         registry_changes=[],
-        summary={"engine": job["engine"], "raw": data},
+        summary={"engine": job["engine"], "state": state, "raw": data},
     )
     job["analysis"] = analysis
 
