@@ -4,7 +4,7 @@ set -euo pipefail
 ########################
 # CONFIGURATION
 ########################
-VM_NAME="sandbox-test"
+VM_NAME="sandbox-ebpf"
 VM_USER="analyst"
 
 SSH_KEY="$HOME/.ssh/sandbox_key"
@@ -48,6 +48,7 @@ echo "[+] Output dir: $OUT_DIR"
 # COPY COLLECTOR
 #######################
 echo "[+] Copying collector to VM"
+ssh $SSH_OPTS "$VM_USER@$VM_IP" "sudo mkdir -p /opt/ebpf && sudo chown analyst:analyst /opt/ebpf"
 scp $SSH_OPTS "ebpf_collector.bt" "$VM_USER@$VM_IP:$REMOTE_COLLECTOR"
 
 ########################
