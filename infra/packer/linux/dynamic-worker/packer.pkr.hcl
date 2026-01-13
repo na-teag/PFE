@@ -83,7 +83,28 @@ build {
 
 
     "sudo apt-get update",
+    "sudo tee /etc/netplan/01-netcfg.yaml > /dev/null << 'EOF'\nnetwork:\n  version: 2\n  renderer: networkd\n  ethernets:\n    enp1s0:\n      dhcp4: true\nEOF",
+    "sudo chmod 600 /etc/netplan/01-netcfg.yaml",
+    "sudo netplan generate",
+    "sudo netplan apply || true",
+
+    "sudo systemctl enable systemd-networkd",
+    "sudo systemctl restart systemd-networkd",
+    "sudo mkdir -p /etc/cloud/cloud.cfg.d",
+    "sudo tee /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg > /dev/null << 'EOF' \nnetwork: {config: disabled} \nEOF",
+
+    "echo 'analyst ALL=(root) NOPASSWD: /usr/bin/bpftrace, /bin/mkdir, /bin/chown' | sudo tee /etc/sudoers.d/ebpf",
+    "sudo chmod 440 /etc/sudoers.d/ebpf",
+
+    "sudo mkdir -p /home/analyst/.ssh",
+    "sudo chmod 700 /home/analyst/.ssh",
+    "echo '${file("~/.ssh/sandbox_key.pub")}' > /home/analyst/.ssh/authorized_keys",
+    "sudo chmod 600 /home/analyst/.ssh/authorized_keys",
+    "sudo chown -R analyst:analyst /home/analyst/.ssh",
+
     "sudo apt-get install -y bpftrace",
+    "sudo apt-get install -y linux-tools-$(uname -r)",
+    "sudo apt-get install -y linux-tools-common",
     "sudo apt-get install -y linux-headers-$(uname -r)",
     "sudo apt-get install -y clang llvm libelf-dev zlib1g-dev",
     "sudo apt-get install -y python3-pip tcpdump curl",
