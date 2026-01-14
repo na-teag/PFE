@@ -70,9 +70,11 @@ ssh-keygen -t ed25519 -f ~/.ssh/kvm/id_ed25519 -N "" -C ""
 ssh-keygen -f "$HOME/.ssh/known_hosts" -R 192.168.122.2 2>/dev/null || true
 
 # Temps d'installation (hors téléchargement) : 4-5mn
-echo "Téléchargement de l'image de la VM..."
-curl -o jammy-server-cloudimg-amd64.img https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img
-sudo mv jammy-server-cloudimg-amd64.img /var/lib/libvirt/images/
+if [ ! -f "/var/lib/libvirt/images/jammy-server-cloudimg-amd64.img" ]; then
+    echo "Téléchargement de l'image de la VM..."
+    curl -o jammy-server-cloudimg-amd64.img https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img
+    sudo mv jammy-server-cloudimg-amd64.img /var/lib/libvirt/images/
+fi
 TMP_USERDATA="$(mktemp)"
 sed "s|__SSH_KEY__|$(cat ~/.ssh/kvm/id_ed25519.pub)|" "$(pwd)/infra/terraform/vm-k3s.yaml" > "$TMP_USERDATA"
 echo "installation de la VM..."

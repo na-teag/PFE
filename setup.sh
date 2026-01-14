@@ -31,16 +31,6 @@ if ! command -v python3 >/dev/null 2>&1; then
   sudo apt update && sudo apt install -y python3 python3-pip
 fi
 
-pip install --user -r services/sandbox/controller/requirements.txt
-
-python3 -m uvicorn main:app \
-  --app-dir services/sandbox/controller \
-  --host 0.0.0.0 \
-  --port 9000 \
-  --log-level critical \
-  --no-access-log &
-echo "Service sandbox controller lancé."
-
 
 # attendre que les services soient dispo
 while true; do
@@ -49,7 +39,7 @@ while true; do
         echo "Service disponible."
         break
     else
-        echo "Service non disponible (HTTP $STATUS). Nouvelle tentative dans 5 secondes..."
+        echo "Service non disponible (HTTP $STATUS). Nouvelle tentative dans 10 secondes..."
         sleep 10
     fi
 done
