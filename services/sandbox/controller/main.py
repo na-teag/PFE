@@ -1,52 +1,42 @@
-import os, json, time
-from pathlib import Path
-from redis import Redis
+import os
+import json
 import requests
+from pathlib import Path
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from typing import Dict, Optional, List
+from datetime import datetime
+import uuid
 
-REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379")
-SANDBOX_URL = os.getenv("SANDBOX_URL", "http://sandbox-controller:9000")
-RESULTS_PATH = Path(os.getenv("RESULTS_PATH", "/data/results"))
+app = FastAPI(title="Sandbox Controller", version="1.0.0")
 
-redis_client = Redis.from_url(REDIS_URL, decode_responses=True)
+# --- Cuckoo3 configuration ---
 
+CUCKOO_SUBMIT_URL = os.getenv("CUCKOO_SUBMIT_URL", "http://192.168.122.1:8080")
+CUCKOO_API_TOKEN = os.getenv("CUCKOO_API_KEY", "").strip()
+CUCKOO_HEADERS = {"Authorization": f"token {CUCKOO_API_TOKEN}"} if CUCKOO_API_TOKEN else {}
 
-def call_sandbox(job_id: str, path: Path) -> dict:
-  r = requests.post(f"{SANDBOX_URL}/sandbox/run", json={
-    "job_id": job_id,
-    "sample_path": str(path),
-    "os": "windows",
-    "timeout": 120,
-  })
-  r.raise_for_status()
-  sjob = r.json()["sandbox_job_id"]
-  while True:
-    r2 = requests.get(f"{SANDBOX_URL}/sandbox/result/{sjob}")
-    r2.raise_for_status()
-    data = r2.json()
-    if data["status"] == "completed":
-      return data
-    time.sleep(5)
+class RunRequest(BaseModel):
+    job_id: str                     # job global (API principale)
+    sample_path: str                # ex: /shared/jobs/<job_id>/sample.exe
+    os: str = "windows"             # windows ou linux
+    timeout: int = 120              # seconds
 
 
-def main():
-  while True:
-    job = redis_client.brpop("analysis_queue_dynamic", timeout=5)
-    if not job:
-      continue
-    _, payload = job
-    meta = json.loads(payload)
-    job_id = meta["job_id"]
-    path = Path(meta["file_path"])
-
-    res = call_sandbox(job_id, path)
-    res["job_id"] = job_id
-
-    redis_client.set(f"result_dynamic:{job_id}", json.dumps(res), ex=7 * 24 * 3600)
-    meta["status_dynamic"] = "completed"
-    redis_client.set(f"job:{job_id}", json.dumps(meta), ex=7 * 24 * 3600)
+class RunResponse(BaseModel):
+    sandbox_job_id: str
+    job_id: str
+    status: str
+    started_at: str
 
 
-<<<<<<< HEAD
+class StatusResponse(BaseModel):
+    sandbox_job_id: str
+    job_id: str
+    status: str                     # queued | running | completed | failed
+    started_at: str
+    finished_at: Optional[str] = None
+
 
 class SandboxAnalysis(BaseModel):
     process_tree: List[dict]
@@ -65,28 +55,71 @@ class ResultResponse(BaseModel):
 
 SANDBOX_JOBS: Dict[str, dict] = {}
 
-def submit_to_cuckoo(sample_path: Path) -> int:
+def submit_to_cuckoo(sample_path: Path) -> str:
     """Submit a file to Cuckoo3 and return the analysis id."""
-    with open(sample_path, "rb") as f:
-        files = {"file": (sample_path.name, f)}
-        r = requests.post(f"{CUCKOO_API_URL}/analyses/", files=files, headers=CUCKOO_HEADERS)
-    r.raise_for_status()
-    data = r.json()
-    analysis_id = data.get("id")
-    if analysis_id is None:
-        raise RuntimeError(f"No analysis id in Cuckoo response: {data}")
+    try:
+        with open(sample_path, "rb") as f:
+            files = {"file": (sample_path.name, f)}
+            data = {
+                "settings": json.dumps({
+                    "platforms": [{"platform": "windows", "os_version": "10"}],
+                    "timeout": 120,
+                })
+            }
+            r = requests.post(
+                f"{CUCKOO_SUBMIT_URL}/submit/file",
+                files=files,
+                data=data,
+                headers=CUCKOO_HEADERS,
+                timeout=10,
+            )
+        r.raise_for_status()
+    except Exception as e:
+        import traceback
+        print("Error in submit_to_cuckoo:", repr(e))
+        traceback.print_exc()
+        # propagate as 502 so client sees there is a Cuckoo problem
+        raise HTTPException(status_code=502, detail=f"Cuckoo error: {e}")
+
+    resp = r.json()
+    analysis_id = resp.get("analysis_id") or resp.get("id")
+    if not analysis_id:
+        raise HTTPException(status_code=502, detail=f"No analysis id in Cuckoo response: {resp}")
     return analysis_id
 
 
-def get_cuckoo_result(analysis_id: int) -> dict:
+
+
+
+def get_cuckoo_result(analysis_id: str) -> dict:
     """Fetch analysis details from Cuckoo3."""
-    r = requests.get(f"{CUCKOO_API_URL}/analyses/{analysis_id}/", headers=CUCKOO_HEADERS)
-    r.raise_for_status()
-    return r.json()
+    try:
+        r = requests.get(
+            f"{CUCKOO_SUBMIT_URL}/analysis/{analysis_id}",
+            headers=CUCKOO_HEADERS,
+            timeout=10,
+        )
+        r.raise_for_status()
+    except Exception as e:
+        import traceback
+        print("Error in get_cuckoo_result:", repr(e))
+        traceback.print_exc()
+        raise HTTPException(status_code=502, detail=f"Cuckoo result error: {e}")
+
+    data = r.json()
+    state = data.get("state", "pending")
+
+    return {
+        "state": state,
+        "raw": data,
+    }
+
+
 
 
 @app.post("/sandbox/run", response_model=RunResponse)
 def run(req: RunRequest):
+    print("sandbox/run received:", req.dict())
     sandbox_job_id = str(uuid.uuid4())
     now = datetime.utcnow().isoformat()
 
@@ -95,6 +128,8 @@ def run(req: RunRequest):
         raise HTTPException(400, f"Sample not found: {sample_path}")
 
     os_lower = req.os.lower()
+    if os_lower in ("w10", "w11"):
+        os_lower = "windows"
     if os_lower == "windows":
         try:
             cuckoo_id = submit_to_cuckoo(sample_path)
@@ -152,18 +187,22 @@ def result(sandbox_job_id: str):
         raise HTTPException(404, "sandbox job not found")
     
     if job["engine"] == "cuckoo3":
-        data = get_cuckoo_result(job["backend_id"])
-        status = data.get("status", "running")  # adapte cette clé après avoir vu le JSON Cuckoo
+        try:
+            data = get_cuckoo_result(job["backend_id"])
+            state = data.get("state", "pending")
+            status_map = {
+                "pending": "queued",
+                "running": "running",
+                "finished": "completed",
+                "fatal_error": "failed"
+            }
+            status = status_map.get(state, "running")
+        except Exception as e:
+            raise HTTPException(502, f"Failed to get Cuckoo result: {e}")
     else:
         raise HTTPException(500, f"Unknown engine: {job['engine']}")
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-    # TODO Pour l'instant c'est un mock : on force un résultat terminé
-=======
-=======
 
->>>>>>> 7b6e722 (chore: gitignore and env)
     job["status"] = status
     if status == "completed" and not job["finished_at"]:
         job["finished_at"] = datetime.utcnow().isoformat()
@@ -173,17 +212,14 @@ def result(sandbox_job_id: str):
         file_system_changes=[],
         network_iocs=[],
         registry_changes=[],
-        summary={"engine": job["engine"], "raw": data},
+        summary={"engine": job["engine"], "state": state, "raw": data["raw"]},
+
     )
     job["analysis"] = analysis
 
     """# Pour l'instant c'est un mock : on force un résultat terminé
-<<<<<<< HEAD
->>>>>>> 3f4530e (feat: Cuckoo3 endpoints)
-=======
     # TODO Pour l'instant c'est un mock : on force un résultat terminé
 
->>>>>>> 7b6e722 (chore: gitignore and env)
     if job["status"] != "completed":
         job["status"] = "completed"
         job["finished_at"] = datetime.utcnow().isoformat()
@@ -276,11 +312,3 @@ def health():
         "status": "ok",
         "sandbox_jobs": len(SANDBOX_JOBS)
     }
-=======
-if __name__ == "__main__":
-<<<<<<< HEAD
-    app.run(host="0.0.0.0", port=8081)
->>>>>>> f0c2dcf (feat: add dragvuf test)
-=======
-  main()
->>>>>>> 2e352f6 (feat: add ebpf file to host)
