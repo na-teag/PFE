@@ -58,6 +58,7 @@ ssh-keyscan -H 192.168.122.2 >> "$HOME/.ssh/known_hosts"
 ssh -i ~/.ssh/kvm/id_ed25519 k3s@192.168.122.2 "VT_KEY='$VT_KEY' CUCKOO_KEY='$CUCKOO_API_KEY' bash -c '
 kubectl patch secret vt-credentials -n malware-analysis --type=merge -p \"{\\\"stringData\\\":{\\\"VIRUSTOTAL_API_KEY\\\":\\\"\$VT_KEY\\\",\\\"CUCKOO_API_KEY\\\":\\\"\$CUCKOO_KEY\\\"}}\"
 kubectl delete pod -n malware-analysis -l app=worker-static
+kubectl delete pod -n malware-analysis -l app=sandbox-controller
 echo ok
 '"
 
