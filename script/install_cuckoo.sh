@@ -4,7 +4,7 @@ cd "$(dirname "$0")/.."
 
 # Only install once
 if [ -f /opt/cuckoo3/.installed ]; then
-  echo "Cuckoo3 already installed, skipping."
+  echo -e "\n\nCuckoo3 already installed, skipping."
   exit 0
 fi
 

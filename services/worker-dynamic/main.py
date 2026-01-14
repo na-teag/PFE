@@ -4,12 +4,21 @@ from redis import Redis
 import requests
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379")
-SANDBOX_URL = os.getenv("SANDBOX_URL", "http://192.168.122.1:9000")
+SANDBOX_URL = os.getenv("SANDBOX_URL", "http://sandbox-controller:9000")
 
 redis_client = Redis.from_url(REDIS_URL, decode_responses=True)
 
 
+
 def call_sandbox(job_id: str, path: Path, sandbox_os: str) -> dict:
+  print("Calling sandbox:", SANDBOX_URL, "for job", job_id, "path", path)
+  print("Dynamic worker payload to sandbox:", {
+    "job_id": job_id,
+    "sample_path": str(path),
+    "os": sandbox_os,
+    "timeout": 120,
+})
+
   r = requests.post(f"{SANDBOX_URL}/sandbox/run", json={
     "job_id": job_id,
     "sample_path": str(path),
@@ -36,12 +45,21 @@ def main():
     meta = json.loads(payload)
     job_id = meta["job_id"]
     sandbox_os = meta["os"]
+    if sandbox_os in ("w10", "w11"):
+      sandbox_os = "windows"
     path = Path(meta["file_path"])
 
     res = call_sandbox(job_id, path, sandbox_os)
+
     res["job_id"] = job_id
 
     redis_client.set(f"result_dynamic:{job_id}", json.dumps(res), ex=7 * 24 * 3600)
+    # *** Relecture avant écriture ***
+    job_raw = redis_client.get(f"job:{job_id}")
+    if not job_raw:
+      meta = {}
+    else:
+      meta = json.loads(job_raw)
     meta["status_dynamic"] = "completed"
     redis_client.set(f"job:{job_id}", json.dumps(meta), ex=7 * 24 * 3600)
 

@@ -505,6 +505,39 @@ sudo systemctl daemon-reload
 sudo systemctl enable cuckoo-api.service
 sudo systemctl start cuckoo-api.service
 
+###############################
+##### Cuckoo3 core daemon #####
+###############################
+
+generate_section_header "Setting up Cuckoo3 core service"
+
+echo -e "\n### Creating Cuckoo core service ###"
+
+sudo cat <<EOF > /etc/systemd/system/cuckoo.service
+[Unit]
+Description=Cuckoo3 main engine
+After=network.target
+
+[Service]
+User=$username
+Group=$username
+WorkingDirectory=/home/$username/cuckoo3
+ExecStart=/home/$username/cuckoo3/venv/bin/cuckoo
+Environment=CUCKOO_APP=core
+Environment=CUCKOO_CWD=/home/$username/.cuckoocwd
+Environment=CUCKOO_LOGLEVEL=DEBUG
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+echo -e "\n### Enabling and starting Cuckoo core service ###"
+sudo systemctl daemon-reload
+sudo systemctl enable cuckoo.service
+sudo systemctl start cuckoo.service
+
+
 
 #################################
 ##### Create helper scripts #####

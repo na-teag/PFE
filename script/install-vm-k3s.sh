@@ -24,7 +24,7 @@ fi
 
 # Vérifier que virbr0 existe
 if ! ip -d link show virbr0 2>/dev/null | grep -q "bridge"; then
-  echo "erreur: le bridge virbr0 n'existe pas" 1>&2
+  echo -e "\n\nerreur: le bridge virbr0 n'existe pas" 1>&2
   exit 1
 fi
 
@@ -53,14 +53,14 @@ virsh net-autostart default
 
 # Vérifier si une VM du même nom existe
 if virsh dominfo "$VM_NAME" >/dev/null 2>&1; then
-    echo "Erreur : la VM '$VM_NAME' existe déjà." 1>&2
+    echo -e "\n\nErreur : la VM '$VM_NAME' existe déjà." 1>&2
     echo "Pour supprimer la VM '$VM_NAME' tapez : virsh destroy $VM_NAME && virsh undefine $VM_NAME"
     exit 1
 fi
 
 # Vérifier si un volume du même nom existe
 if virsh vol-info --pool "$POOL" "$VOL_NAME" >/dev/null 2>&1; then
-    echo "Erreur : le volume '$VOL_NAME' existe déjà dans le pool '$POOL'." 1>&2
+    echo -e "\n\nErreur : le volume '$VOL_NAME' existe déjà dans le pool '$POOL'." 1>&2
     echo "Pour supprimer le volume '$VOL_NAME' tapez : virsh vol-delete $VM_NAME.qcow2 --pool $POOL"
     exit 1
 fi
@@ -72,13 +72,16 @@ ssh-keygen -t ed25519 -f ~/.ssh/kvm/id_ed25519 -N "" -C ""
 ssh-keygen -f "$HOME/.ssh/known_hosts" -R 192.168.122.2 2>/dev/null || true
 
 # Temps d'installation (hors téléchargement) : 4-5mn
-echo "Téléchargement de l'image de la VM..."
-curl -o jammy-server-cloudimg-amd64.img https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img
-sudo mv jammy-server-cloudimg-amd64.img /var/lib/libvirt/images/
+if [ ! -f "/var/lib/libvirt/images/jammy-server-cloudimg-amd64.img" ]; then
+    echo -e "\n##########################################\n### Téléchargement de l'image de la VM ###\n##########################################"
+    curl -o jammy-server-cloudimg-amd64.img https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img
+    sudo mv jammy-server-cloudimg-amd64.img /var/lib/libvirt/images/
+fi
 TMP_USERDATA="$(mktemp)"
 sed "s|__SSH_KEY__|$(cat ~/.ssh/kvm/id_ed25519.pub)|" "$(pwd)/infra/terraform/vm-k3s.yaml" > "$TMP_USERDATA"
-echo "installation de la VM..."
+echo -e "\n#############################\n### installation de la VM ###\n#############################"
 virt-install \
+  --connect qemu:///system \
   --name $VM_NAME \
   --memory 3072 \
   --vcpus 3 \

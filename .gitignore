@@ -5,6 +5,7 @@
 .env
 .idea/
 .vscode/
+*__pycache__/
 k3s/.env
-infra/cuckoo3/helper_script.sh
-infra/cuckoo3/cuckoo_api_key.txt
+helper_script.sh
+cuckoo_api_key.txt
