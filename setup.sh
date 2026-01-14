@@ -25,6 +25,7 @@ cd ../..
 ./script/install_cuckoo.sh
 
 # lancer le service sandbox controller
+echo "Lancement du service sandbox controller..."
 if ! command -v python3 >/dev/null 2>&1; then
   sudo apt update && sudo apt install -y python3 python3-pip
 fi
@@ -32,13 +33,15 @@ fi
 
 # attendre que les services soient dispo
 echo -e "\n\n"
+echo "Merci de patienter jusqu'au démarrage complet des services sur la VM..."
+echo
 while true; do
     STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL" || echo "000")
     if [[ "$STATUS" == "200" ]]; then
-        echo "Service disponible."
+        echo "Services disponibles."
         break
     else
-        echo "Service non disponible (HTTP $STATUS). Nouvelle tentative dans 10 secondes..."
+        echo "Services non disponible (HTTP $STATUS). Nouvelle tentative dans 10 secondes..."
         sleep 10
     fi
 done
@@ -55,7 +58,6 @@ ssh-keyscan -H 192.168.122.2 >> "$HOME/.ssh/known_hosts"
 ssh -i ~/.ssh/kvm/id_ed25519 k3s@192.168.122.2 "VT_KEY='$VT_KEY' CUCKOO_KEY='$CUCKOO_API_KEY' bash -c '
 kubectl patch secret vt-credentials -n malware-analysis --type=merge -p \"{\\\"stringData\\\":{\\\"VIRUSTOTAL_API_KEY\\\":\\\"\$VT_KEY\\\",\\\"CUCKOO_API_KEY\\\":\\\"\$CUCKOO_KEY\\\"}}\"
 kubectl delete pod -n malware-analysis -l app=worker-static
-kubectl delete pod -n malware-analysis -l app=sandbox-controller
 echo ok
 '"
 
@@ -68,3 +70,4 @@ if ! command -v firefox >/dev/null 2>&1; then
   sudo apt update && sudo apt install -y firefox
 fi
 firefox --new-tab "$URL" &
+echo "setup terminé."
