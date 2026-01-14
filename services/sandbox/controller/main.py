@@ -7,61 +7,35 @@ from pydantic import BaseModel
 from typing import Dict, Optional, List
 from datetime import datetime
 import uuid
-import os
 
-REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379")
-SANDBOX_URL = os.getenv("SANDBOX_URL", "http://sandbox-controller:9000")
-RESULTS_PATH = Path(os.getenv("RESULTS_PATH", "/data/results"))
+app = FastAPI(title="Sandbox Controller", version="1.0.0")
 
-SANDBOX_IMAGE = "output/packer-malware-target.qcow2"
-RESULT_DIR = "/tmp/sandbox_results"
+# --- Cuckoo3 configuration ---
 
 CUCKOO_SUBMIT_URL = os.getenv("CUCKOO_SUBMIT_URL", "http://192.168.122.1:8080")
 CUCKOO_API_TOKEN = os.getenv("CUCKOO_API_KEY", "").strip()
 CUCKOO_HEADERS = {"Authorization": f"token {CUCKOO_API_TOKEN}"} if CUCKOO_API_TOKEN else {}
 
-    subprocess.Popen([
-    "./run_analysis.sh",
-    sample_path,
-    result_file
-    ])
+class RunRequest(BaseModel):
+    job_id: str                     # job global (API principale)
+    sample_path: str                # ex: /shared/jobs/<job_id>/sample.exe
+    os: str = "windows"             # windows ou linux
+    timeout: int = 120              # seconds
 
 
-def call_sandbox(job_id: str, path: Path) -> dict:
-  r = requests.post(f"{SANDBOX_URL}/sandbox/run", json={
-    "job_id": job_id,
-    "sample_path": str(path),
-    "os": "windows",
-    "timeout": 120,
-  })
-  r.raise_for_status()
-  sjob = r.json()["sandbox_job_id"]
-  while True:
-    r2 = requests.get(f"{SANDBOX_URL}/sandbox/result/{sjob}")
-    r2.raise_for_status()
-    data = r2.json()
-    if data["status"] == "completed":
-      return data
-    time.sleep(5)
+class RunResponse(BaseModel):
+    sandbox_job_id: str
+    job_id: str
+    status: str
+    started_at: str
 
 
-def main():
-  while True:
-    job = redis_client.brpop("analysis_queue_dynamic", timeout=5)
-    if not job:
-      continue
-    _, payload = job
-    meta = json.loads(payload)
-    job_id = meta["job_id"]
-    path = Path(meta["file_path"])
-
-    res = call_sandbox(job_id, path)
-    res["job_id"] = job_id
-
-    redis_client.set(f"result_dynamic:{job_id}", json.dumps(res), ex=7 * 24 * 3600)
-    meta["status_dynamic"] = "completed"
-    redis_client.set(f"job:{job_id}", json.dumps(meta), ex=7 * 24 * 3600)
-
+class StatusResponse(BaseModel):
+    sandbox_job_id: str
+    job_id: str
+    status: str                     # queued | running | completed | failed
+    started_at: str
+    finished_at: Optional[str] = None
 
 
 class SandboxAnalysis(BaseModel):
@@ -338,8 +312,3 @@ def health():
         "status": "ok",
         "sandbox_jobs": len(SANDBOX_JOBS)
     }
-
-if __name__ == "__main__":
-
-    app.run(host="0.0.0.0", port=8081)
-  main()
