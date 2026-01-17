@@ -73,7 +73,7 @@ async def submit(file: UploadFile = File(...), sandbox_os: str = Form(...)):
   data = await file.read()
   if len(data) > MAX_SIZE:
     raise HTTPException(413, "File too large")
-  valid = {"w10", "w11", "linux"}
+  valid = {"windows", "linux"}
   if sandbox_os not in valid:
     raise HTTPException(400, f"Invalid os value: {sandbox_os}, should be in {valid}")
   h = hashlib.sha256(data).hexdigest()

@@ -27,11 +27,15 @@ def call_sandbox(job_id: str, path: Path, sandbox_os: str) -> dict:
   })
   r.raise_for_status()
   sjob = r.json()["sandbox_job_id"]
+  start = time.monotonic()
   while True:
-    r2 = requests.get(f"{SANDBOX_URL}/sandbox/result/{sjob}")
+    r2 = requests.get(f"{SANDBOX_URL}/sandbox/result/{sjob}", timeout=10)
     r2.raise_for_status()
     data = r2.json()
     if data["status"] == "completed":
+      return data
+    if time.monotonic() - start > 15 * 60:
+      data["status"] = "timeout"
       return data
     time.sleep(5)
 
@@ -45,8 +49,6 @@ def main():
     meta = json.loads(payload)
     job_id = meta["job_id"]
     sandbox_os = meta["os"]
-    if sandbox_os in ("w10", "w11"):
-      sandbox_os = "windows"
     path = Path(meta["file_path"])
 
     res = call_sandbox(job_id, path, sandbox_os)
