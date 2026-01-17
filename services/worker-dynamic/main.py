@@ -40,6 +40,7 @@ def main():
     os_name = meta.get("os", "windows")  # default to windows if not set
 
     res = call_sandbox(job_id, path, sandbox_os)
+
     res["job_id"] = job_id
 
     redis_client.set(f"result_dynamic:{job_id}", json.dumps(res), ex=7 * 24 * 3600)
