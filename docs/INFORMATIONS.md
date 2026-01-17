@@ -77,6 +77,14 @@ Restaurer un snapshot : ```bash virsh snapshot-revert k3s-master snapshot1```
 
 Supprimer un snapshot : ```bash virsh snapshot-delete k3s-master snapshot1```
 
+### Cloud-init
+
+Vous pouvez tester que l'exécution cloud-init s'est déroulée correctement en exécutant dans la VM :
+```bash
+cloud-init status
+sudo cloud-init schema --system
+```
+
 ### ArgoCD
 
 Depuis la machine hôte, la commande suivante permet d’obtenir automatiquement :
@@ -154,6 +162,21 @@ ssh k3s@192.168.122.2 "kubectl patch secret vt-credentials -n malware-analysis \
   && echo ok"
 ```
 
+## Cuckoo3
+
+### supprimer les fichiers cuckoo :
+
+```bash
+systemctl stop cuckoo-api.service
+systemctl stop cuckoo-web.service
+sudo rm -rf /home/cuckoo/
+sudo gpasswd -d www-data cuckoo
+sudo delgroup cuckoo
+sudo deluser cuckoo
+rm /opt/cuckoo3/.installed
+```
+
+
 ## Tests et validations des services
 Les services s’exécutent exclusivement dans le cluster Kubernetes.
 
@@ -179,7 +202,7 @@ Envoi d'un fichier à analyser
 ```bash
 curl -X POST http://<API_IP>:8000/api/submit \
   -F "file=@sample.exe" \
-  -F "sandbox_os=w10"
+  -F "sandbox_os=windows"
 ```
 
 Vérifier le retour des résultats d'un job précis en format JSON

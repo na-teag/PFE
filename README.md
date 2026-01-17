@@ -24,7 +24,7 @@ Le script setup.sh :
 
 - installe les dépendances nécessaires (Terraform, Firefox si absent)
 
-- déploie une VM k3s via libvirt
+- déploie une VM k3s via libvirt/virt-install
 
 - installe et configure Cuckoo Sandbox
 
@@ -40,7 +40,13 @@ Pré-requis :
 
 - virtualisation activée (KVM / libvirt)
 
+- ~40Go de disponible (le script vous avertira au préalable s'il manque de la place)
+
 - accès sudo
+
+### Limitations
+
+Le projet a été conçu pour utiliser terraform, mais suite à beaucoup de difficultés (erreur de provider en tout genre, doc incomplète, erreur de création de réseau, VM non bootable, ...), Terraform a été abandonné au profit de commandes virt-install.
 
 ### Accès à l’interface
 
@@ -56,7 +62,9 @@ Cette configuration garantit un accès stable et reproductible aux services, ind
 
 ### Documentation complète
 
-Toutes les informations détaillées (infrastructure, VM, Packer, Docker, tests, dépannage) sont disponibles dans le dossier /doc et les fichiers INFORMATIONS.md et ARCHITECTURE.md.
+Toutes les informations détaillées (infrastructure, VM, Packer, Docker, tests, dépannage) sont disponibles dans le dossier /doc :
+- [INFORMATIONS.md](/docs/INFORMATIONS.md)
+- [ARCHITECTURE.md](/docs/ARCHITECTURE.md)
 
 ### License et règles YARA
 

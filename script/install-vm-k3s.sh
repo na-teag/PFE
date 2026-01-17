@@ -3,7 +3,7 @@ set -euo pipefail
 
 XML_PATH=".default-network.xml"
 VM_NAME="k3s"
-VOL_NAME="k3s.qcow2"
+VOL_NAME="${1:-k3s.qcow2}"
 POOL="default"
 
 sudo apt install -y \
