@@ -48,6 +48,7 @@ def main():
     if sandbox_os in ("w10", "w11"):
       sandbox_os = "windows"
     path = Path(meta["file_path"])
+    os_name = meta.get("os", "windows")  # default to windows if not set
 
     res = call_sandbox(job_id, path, sandbox_os)
 
