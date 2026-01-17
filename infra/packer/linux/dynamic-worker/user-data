@@ -16,10 +16,6 @@ chpasswd:
     analyst:infected
   expire: false
 
-runcmd:
-  - sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
-  - systemctl restart ssh
-
 keyboard:
   layout: fr
   variant: azerty
@@ -50,6 +46,8 @@ write_files:
       fs.protected_hardlinks = 0
 
 runcmd:
+  - sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+  - systemctl restart ssh
   # Désactivation services bruit parasites
   - systemctl disable apt-daily.timer
   - systemctl disable apt-daily-upgrade.timer

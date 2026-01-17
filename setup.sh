@@ -26,6 +26,9 @@ cd ../..
 # Installation de la vm k3s (si terraform ne fonctionne pas)
 ./script/install-vm-k3s.sh $VM_K3S # Temps d'installation (hors téléchargement) : 4-5mn
 
+# Installation de la vm linux
+./infra/packer/linux/dynamic-worker/build_vm.sh
+
 # Installation et mise en route de Cuckoo3 et service WEB/API
 ./script/install_cuckoo.sh
 
