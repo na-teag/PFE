@@ -62,7 +62,9 @@ Cette configuration garantit un accès stable et reproductible aux services, ind
 
 ### Documentation complète
 
-Toutes les informations détaillées (infrastructure, VM, Packer, Docker, tests, dépannage) sont disponibles dans le dossier /doc et les fichiers INFORMATIONS.md et ARCHITECTURE.md.
+Toutes les informations détaillées (infrastructure, VM, Packer, Docker, tests, dépannage) sont disponibles dans le dossier /doc :
+- [INFORMATIONS.md](/docs/INFORMATIONS.md)
+- [ARCHITECTURE.md](/docs/ARCHITECTURE.md)
 
 ### License et règles YARA
 
