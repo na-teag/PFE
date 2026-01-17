@@ -179,7 +179,7 @@ Envoi d'un fichier à analyser
 ```bash
 curl -X POST http://<API_IP>:8000/api/submit \
   -F "file=@sample.exe" \
-  -F "sandbox_os=w10"
+  -F "sandbox_os=windows"
 ```
 
 Vérifier le retour des résultats d'un job précis en format JSON
