@@ -30,9 +30,19 @@ spec:
       hostPID: true   # pour parler à l’hyperviseur de la machine hôte
       containers:
         - name: sandbox-controller
-          image: dockerhubmalware/malware-sandbox-controller:v1.1.1
+          image: dockerhubmalware/malware-sandbox-controller:v1.2.6
+          envFrom:
+            - secretRef:
+                name: vt-credentials
           env:
             - name: HYPERVISOR_DRIVER
               value: "kvm"
           ports:
             - containerPort: 9000
+          volumeMounts:
+            - name: results
+              mountPath: /data/results
+      volumes:
+        - name: results
+          persistentVolumeClaim:
+            claimName: results-pvc

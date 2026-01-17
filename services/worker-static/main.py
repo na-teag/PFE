@@ -77,6 +77,13 @@ def main():
         }
 
         redis_client.set(f"result_static:{job_id}", json.dumps(res), ex=604800)
+        # *** Relecture avant écriture ***
+        job_raw = redis_client.get(f"job:{job_id}")
+        if not job_raw:
+          meta2 = {}
+        else:
+          meta2 = json.loads(job_raw)
+
         meta["status_static"] = "completed"
         redis_client.set(f"job:{job_id}", json.dumps(meta), ex=604800)
 

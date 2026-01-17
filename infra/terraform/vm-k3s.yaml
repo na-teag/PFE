@@ -15,7 +15,7 @@ users:
     passwd: "$6$8HnNkXiciaai5RDJ$6sEe5zHc.uMcs3S62tamFUWDPY/Foey/krrTxPqRsLf6.WgE9IY/bs0fd2wEiw39z4qWzcgTetNVBr3VRiq8n."
     lock_passwd: false
     ssh_authorized_keys:
-      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHoc8PFIJwFaEstJFDfGl7yEJkO8DOuQ4dr5QBs7hPRq
+      - __SSH_KEY__
 
 runcmd:
   # Installer k3s (single-node)
@@ -26,7 +26,7 @@ runcmd:
   - mv ./kubectl /usr/local/bin/kubectl
   - mkdir -p /home/k3s/.kube
   - cp /etc/rancher/k3s/k3s.yaml /home/k3s/.kube/config
-  - chown k3s:k3s /home/k3s/.kube/config
+  - chown -R k3s:k3s /home/k3s/.kube
   # Attendre que tout démarre
   - |
     until k3s kubectl get nodes >/dev/null 2>&1; do
