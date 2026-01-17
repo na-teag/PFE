@@ -65,7 +65,7 @@ echo ok
 '"
 
 # Afficher les informations de connexion à argocd
-echo
+echo -e "\n\n"
 ssh k3s@192.168.122.2 -i ~/.ssh/kvm/id_ed25519 'echo "service ArgoCD : https://$(hostname -I | awk "{print \$1}"):$(kubectl get svc argocd-server -n argocd -o jsonpath="{.spec.ports[?(@.port==443)].nodePort}")"; echo "id : admin"; echo "pwd : $(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)"'
 
 # afficher l'interface graphique du projet sur firefox

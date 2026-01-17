@@ -16,18 +16,6 @@ seen_tmp_drop = False
 seen_network_tool = False
 executions = []
 
-files = set()
-execs = set()
-
-urls = set()
-executed_scripts = set()
-files = set()
-execs = set()
-
-seen_tmp_drop = False
-seen_network_tool = False
-executions = []
-
 
 SYSTEM_WHITELIST = (
     "/etc/ld.so.cache",
