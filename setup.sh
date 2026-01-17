@@ -2,6 +2,11 @@
 set -euo pipefail
 
 URL="http://192.168.122.2:8000/"
+VM_K3S="k3s.qcow2"
+VM_PACKER="packer-ebpf_sandbox.qcow2"
+
+# Vérifier qu'il y a suffisament de place
+./script/check_storage.sh $VM_K3S $VM_PACKER
 
 # Installer terraform si absent
 if ! terraform --version >/dev/null 2>&1; then
@@ -19,10 +24,12 @@ terraform init
 cd ../..
 
 # Installation de la vm k3s (si terraform ne fonctionne pas)
-./script/install-vm-k3s.sh # Temps d'installation (hors téléchargement) : 4-5mn
+./script/install-vm-k3s.sh $VM_K3S # Temps d'installation (hors téléchargement) : 4-5mn
 
 # Installation et mise en route de Cuckoo3 et service WEB/API
 ./script/install_cuckoo.sh
+
+# TODO lancer le script d'installation de sandbox linux en passant $VM_PACKER
 
 # lancer le service sandbox controller
 echo "Lancement du service sandbox controller..."
