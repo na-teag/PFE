@@ -564,7 +564,7 @@ def download_report_pdf(job_id: str):
     elements.append(Paragraph("Local analysis", styles["SubsectionTitle"]))
     elements.append(Spacer(1, 12))
 
-    elements.append(Paragraph("Yara Matches", styles["SubSubSectionTitle"]))
+    elements.append(Paragraph("Yara Matches", styles["SubSubsectionTitle"]))
     elements.append(Spacer(1, 8))
     for y in static.get("yara_matches", []) or ["None"]:
         elements.append(Paragraph(f"- {y}", styles["Normal"]))
