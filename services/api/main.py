@@ -633,6 +633,7 @@ def download_report_pdf(job_id: str):
     dyn = report["dynamic_analysis"]
     elements.append(Paragraph("Dynamic Analysis", styles["SectionTitle"]))
     elements.append(Spacer(1, 12))
+    engine_type = dyn.get("engine", "unknown")
     elements.append(Paragraph(
         f"<b>Engine:</b> {dyn.get('engine', 'unknown')}",
         styles["Normal"]
@@ -641,33 +642,69 @@ def download_report_pdf(job_id: str):
     elements.append(Paragraph(f"<b>Score:</b> {dyn.get('score', 0)} | <b>Tags:</b> {', '.join(dyn.get('tags', []))}", styles["Normal"]))
     elements.append(Spacer(1, 16))
 
-    # TTPS table
-    ttps = dyn.get("ttps", [])
-    if ttps:
-        rows = [["ID", "Name", "Tactics"]] + [[t.get("id", ""), t.get("name", ""), ", ".join(t.get("tactics", []))] for t in ttps]
-        t = Table(rows, colWidths=[80, 200, 150])
-        t.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), TABLE_HEADER_GREY), ('GRID', (0,0), (-1,-1), 0.5, BORDER_GREY), ('ALIGN', (0,0), (-1,-1), 'LEFT')]))
-        elements.append(Paragraph("MITRE ATT&CK TTPs", styles["SectionTitle"]))
+    # ===== CUCKOO3-SPECIFIC SECTIONS =====
+    if engine_type == "cuckoo3":
+        # TTPS table (Cuckoo3 only)
+        ttps = dyn.get("ttps", [])
+        if ttps:
+            rows = [["ID", "Name", "Tactics"]] + [[t.get("id", ""), t.get("name", ""), ", ".join(t.get("tactics", []))] for t in ttps]
+            t = Table(rows, colWidths=[80, 200, 150])
+            t.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), TABLE_HEADER_GREY), ('GRID', (0,0), (-1,-1), 0.5, BORDER_GREY), ('ALIGN', (0,0), (-1,-1), 'LEFT')]))
+            elements.append(Paragraph("MITRE ATT&CK TTPs", styles["SectionTitle"]))
+            elements.append(Spacer(1, 12))
+            elements.append(t)
+            elements.append(Spacer(1, 16))
+
+        # Tasks table (Cuckoo3 only)
+        tasks_data = dyn.get("tasks", [])
+        if tasks_data:
+            rows = [["Task ID", "Platform", "Duration"]] + [[t.get("id"), f"{t.get('platform')}-{t.get('os_version')}", f"{format_ts(t.get('started_on'))} → {format_ts(t.get('stopped_on'))}"] for t in tasks_data]
+            task_table = Table(rows, colWidths=[120, 100, 220])
+            elements.append(Paragraph("Analysis Tasks", styles["SectionTitle"]))
+            elements.append(Spacer(1, 12))
+            elements.append(task_table)
+            elements.append(Spacer(1, 16))
+
+    # ===== EBPF-SPECIFIC SECTIONS =====
+    elif engine_type == "ebpf":
+        # eBPF Verdict and Reasons
+        verdict_ebpf = dyn.get("verdict", "unknown")
+        reasons = dyn.get("reasons", [])
+        
+        elements.append(Paragraph("Analysis Verdict", styles["SubsectionTitle"]))
         elements.append(Spacer(1, 12))
-        elements.append(t)
+        elements.append(Paragraph(f"<b>Verdict:</b> {verdict_ebpf}", styles["Normal"]))
+        
+        if reasons:
+            elements.append(Paragraph("<b>Reasons:</b>", styles["Normal"]))
+            for reason in reasons:
+                elements.append(Paragraph(f"- {reason}", styles["Normal"]))
+        elements.append(Spacer(1, 16))
+    
+    # eBPF Files
+    files = dyn.get("files", [])
+    if files:
+        elements.append(Paragraph("Files Accessed", styles["SubsectionTitle"]))
+        elements.append(Spacer(1, 12))
+        for f in files:
+            elements.append(Paragraph(f"- {f.get('path', 'unknown')} ({f.get('operation', 'unknown')})", styles["Normal"]))
+        elements.append(Spacer(1, 16))
+    
+    # eBPF Executions
+    executions = dyn.get("executions", [])
+    if executions:
+        elements.append(Paragraph("Process Executions", styles["SubsectionTitle"]))
+        elements.append(Spacer(1, 12))
+        for exe in executions:
+            elements.append(Paragraph(f"- {exe.get('command', 'unknown')}", styles["Normal"]))
         elements.append(Spacer(1, 16))
 
-    # Tasks table
-    tasks_data = dyn.get("tasks", [])
-    if tasks_data:
-        rows = [["Task ID", "Platform", "Duration"]] + [[t.get("id"), f"{t.get('platform')}-{t.get('os_version')}", f"{format_ts(t.get('started_on'))} → {format_ts(t.get('stopped_on'))}"] for t in tasks_data]
-        task_table = Table(rows, colWidths=[120, 100, 220])
-        elements.append(Paragraph("Analysis Tasks", styles["SectionTitle"]))
-        elements.append(Spacer(1, 12))
-        elements.append(task_table)
-        elements.append(Spacer(1, 16))
-
+    # ===== COMMON SECTIONS (Both engines) =====
     def section_table(title, headers, rows, widths):
         table_elements = []
-
         table_elements.append(Paragraph(title, styles["DynamicAnalysis"]))
         table_elements.append(Spacer(1, 4))
-
+    
         t = Table([headers] + rows, colWidths=widths, repeatRows=1)
         t.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,0), TABLE_HEADER_GREY),
@@ -675,11 +712,12 @@ def download_report_pdf(job_id: str):
             ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
             ('VALIGN', (0,0), (-1,-1), 'TOP'),
         ]))
-
+    
         table_elements.append(t)
         table_elements.append(Spacer(1, 16))
-
+    
         elements.append(KeepTogether(table_elements))
+
 
     sections = [
         ("Processes", ["PID", "Name", "PPID", "Command"], dyn.get("processes", []), [50, 120, 50, 260]),
