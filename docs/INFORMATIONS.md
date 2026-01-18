@@ -44,13 +44,13 @@ Utiliser terraform sans `sudo` : ```bash sudo usermod -aG libvirt $USER``` puis 
 
 Tester la configuration terraform sans l'appliquer : ```bash terraform plan ```
 
-Appliquer la config terraform : ```bash terraform apply```
+Appliquer la configuration terraform : ```bash terraform apply```
 
-Pour effacer tout ce qui a été créé par terraform avant de relancer une config : ```bash terraform destroy```
+Pour effacer tout ce qui a été créé par terraform avant de relancer une configuration : ```bash terraform destroy```
 
 Supprimer une ressource spécifique : ```bash terraform destroy -target=libvirt_domain.k3s_master```
 
-Appliquer la config avec kubectl : ```bash kubectl apply -k k3s/```
+Appliquer la configuration avec kubectl : ```bash kubectl apply -k k3s/```
 
 
 ### Contrôle des VMs
@@ -164,7 +164,7 @@ ssh k3s@192.168.122.2 "kubectl patch secret vt-credentials -n malware-analysis \
 
 ## Cuckoo3
 
-### supprimer les fichiers cuckoo :
+### Supprimer les fichiers Cuckoo3 :
 
 ```bash
 sudo systemctl stop cuckoo-api.service
