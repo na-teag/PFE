@@ -1,0 +1,75 @@
+#cloud-config
+hostname: sandbox
+manage_etc_hosts: true
+
+users:
+  - name: analyst
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    lock_passwd: false
+
+ssh_pwauth: true
+disable_root: false
+
+chpasswd:
+  list: |
+    analyst:infected
+  expire: false
+
+keyboard:
+  layout: fr
+  variant: azerty
+
+
+package_update: true
+package_upgrade: false
+
+packages:
+  - curl
+  - tcpdump
+  - python3
+  - python3-pip
+  - strace
+  - ltrace
+  - net-tools
+  - iproute2
+  - ca-certificates
+  - qemu-guest-agent
+
+write_files:
+  - path: /etc/sysctl.d/99-sandbox.conf
+    permissions: '0644'
+    content: |
+      kernel.dmesg_restrict = 0
+      kernel.kptr_restrict = 0
+      fs.protected_symlinks = 0
+      fs.protected_hardlinks = 0
+
+runcmd:
+  - sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+  - systemctl restart ssh
+  # Désactivation services bruit parasites
+  - systemctl disable apt-daily.timer
+  - systemctl disable apt-daily-upgrade.timer
+  - systemctl stop snapd
+  - systemctl disable snapd
+  - systemctl disable ufw
+  - systemctl stop ufw
+  - systemctl disable apport
+  - systemctl stop apport
+  - systemctl disable systemd-timesyncd
+
+  # Activation agent QEMU
+  - systemctl enable qemu-guest-agent
+  - systemctl start qemu-guest-agent
+
+  # Nettoyage cloud-init pour VM clonées
+  - cloud-init clean --logs
+  - rm -rf /var/lib/cloud/*
+
+  # Nettoyage traces
+  - rm -rf /tmp/*
+  - rm -rf /var/log/*
+  - history -c
+
+final_message: "Sandbox malware prête."

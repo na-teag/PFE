@@ -128,8 +128,6 @@ def run(req: RunRequest):
         raise HTTPException(400, f"Sample not found: {sample_path}")
 
     os_lower = req.os.lower()
-    if os_lower in ("w10", "w11"):
-        os_lower = "windows"
     if os_lower == "windows":
         try:
             cuckoo_id = submit_to_cuckoo(sample_path)
@@ -138,7 +136,7 @@ def run(req: RunRequest):
         engine = "cuckoo3"
         backend_id = cuckoo_id
     elif os_lower == "linux":
-        raise HTTPException(501, "Linux dynamic sandbox not implemented yet")
+        raise HTTPException(501, "Wrong controller for Linux sandbox")
     else:
         raise HTTPException(400, f"Unsupported os: {req.os}")
 
