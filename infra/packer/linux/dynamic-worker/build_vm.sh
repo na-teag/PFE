@@ -96,5 +96,5 @@ sudo virt-install \
   --import \
   --cloud-init user-data="$TMP_USERDATA"
 
-VM_IP=$(virsh domifaddr sandbox-ebpf | awk '/ipv4/ {print $4}' | cut -d/ -f1)
+VM_IP=$(virsh domifaddr "$VM_NAME" | awk '/ipv4/ {print $4}' | cut -d/ -f1)
 ssh-keygen -f "$HOME/.ssh/known_hosts" -R "$VM_IP" 2>/dev/null || true
