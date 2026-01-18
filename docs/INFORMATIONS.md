@@ -167,13 +167,15 @@ ssh k3s@192.168.122.2 "kubectl patch secret vt-credentials -n malware-analysis \
 ### supprimer les fichiers cuckoo :
 
 ```bash
-systemctl stop cuckoo-api.service
-systemctl stop cuckoo-web.service
+sudo systemctl stop cuckoo-api.service
+sudo systemctl stop cuckoo-web.service
+sudo systemctl stop cuckoo.service
+sudo umount /mnt/win10x64
 sudo rm -rf /home/cuckoo/
 sudo gpasswd -d www-data cuckoo
-sudo delgroup cuckoo
 sudo deluser cuckoo
-rm /opt/cuckoo3/.installed
+sudo delgroup cuckoo
+sudo rm /opt/cuckoo3/.installed
 ```
 
 

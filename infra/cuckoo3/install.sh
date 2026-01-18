@@ -47,7 +47,7 @@ if [[ ! -d vmcloak ]]; then
 fi
 cd vmcloak
 git fetch --all
-git switch bugfix/write_input_format && git pull
+git switch main && git pull
 if [[ ! -d venv ]]; then
     echo -e "\n### Initiating new virtualenv ###"
     $python_version -m venv venv
@@ -77,7 +77,7 @@ if [[ ! -d venv ]]; then
     echo -e "\n### Installing wheel and requests ###"
     $python_version -m pip install -U wheel requests
     echo -e "\n### Installing dependencies ###"
-    for repo in peepdb sflock roach httpreplay; do
+    for repo in sflock roach httpreplay; do
         $python_version -m pip install -U git+https://github.com/cert-ee/\$repo
     done
     $python_version -m pip install daphne
@@ -137,7 +137,7 @@ download_images_for() {
 echo -e "\n### Downloading images ###"
 cd /home/$username/vmcloak
 source venv/bin/activate
-vmcloak isodownload --win10x64 --download-to /home/$username/win10x64.iso
+[ ! -s /home/$username/win10x64.iso ] && vmcloak isodownload --win10x64 --download-to /home/$username/win10x64.iso
 
 EOF
 }
