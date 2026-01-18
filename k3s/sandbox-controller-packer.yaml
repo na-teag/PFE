@@ -34,7 +34,7 @@ spec:
 
       containers:
         - name: sandbox-controller-packer
-          image: dockerhubmalware/malware-sandbox-controller-packer:v1.0.0
+          image: dockerhubmalware/malware-sandbox-controller-packer:v1.0.1
           imagePullPolicy: Always
 
           securityContext:
