@@ -232,23 +232,51 @@ def build_unified_report(job_id: str, meta: dict, static_raw: str | None, dynami
         if engine_info.get("result") is not None
     }
 
+    engine_type = dynamic.get("analysis", {}).get("summary", {}).get("engine", "unknown")
+
+    # Initialize common variables
+    score = 0
+    tags = []
+    ttps = []
+    tasks = []
+    all_hashes = {"sha256": meta.get("file_hash")}
+    malicious_dynamic = False
+
     # DYNAMIC: Cuckoo3 parsing
-    cuckoo_raw = dynamic.get("analysis", {}).get("summary", {}).get("raw", {}) if dynamic else {}
-    
-    score = cuckoo_raw.get("score", 0)
-    tags = cuckoo_raw.get("tags", [])
-    ttps = cuckoo_raw.get("ttps", [])
-    tasks = cuckoo_raw.get("tasks", [])
-    malicious_dynamic = score >= 5  # 7 = malicious
-    
-    submitted = cuckoo_raw.get("submitted", {})
-    target = cuckoo_raw.get("target", {})
-    all_hashes = {
-        "sha256": meta.get("file_hash"),
-        "md5": submitted.get("md5") or target.get("md5"),
-        "sha1": submitted.get("sha1") or target.get("sha1"),
-        "sha512": submitted.get("sha512") or target.get("sha512"),
-    }
+    if engine_type == "cuckoo3" :
+        cuckoo_raw = dynamic.get("analysis", {}).get("summary", {}).get("raw", {}) if dynamic else {}
+        
+        score = cuckoo_raw.get("score", 0)
+        tags = cuckoo_raw.get("tags", [])
+        ttps = cuckoo_raw.get("ttps", [])
+        tasks = cuckoo_raw.get("tasks", [])
+        malicious_dynamic = score >= 5
+        
+        submitted = cuckoo_raw.get("submitted", {})
+        target = cuckoo_raw.get("target", {})
+        all_hashes = {
+            "md5": submitted.get("md5") or target.get("md5"),
+            "sha1": submitted.get("sha1") or target.get("sha1"),
+            "sha512": submitted.get("sha512") or target.get("sha512"),
+        }
+
+    # DYNAMIC : EBPF parsing
+    elif engine_type == "ebpf":
+        ebpf_raw = dynamic.get("analysis", {}).get("summary", {}).get("raw", {})
+        
+        summary = ebpf_raw.get("summary", {})
+        verdict_ebpf = summary.get("verdict", "unknown")
+        score = summary.get("score", 0)
+        reasons = summary.get("reasons", [])
+        
+        files = ebpf_raw.get("files", [])
+        executions = ebpf_raw.get("executions", [])
+        network_data = ebpf_raw.get("network", {})
+        network_urls = network_data.get("urls", [])
+        
+        tags = reasons if isinstance(reasons, list) else []
+        
+        malicious_dynamic = score >= 5
 
     # IOCs (extend with network when available)
     ips = set()
@@ -272,8 +300,51 @@ def build_unified_report(job_id: str, meta: dict, static_raw: str | None, dynami
             ports.add(value)
         elif event_type == "user_agent":
             user_agents.add(value)
+
+    if engine_type == "ebpf" and network_urls:
+        urls.update(network_urls)
             
     verdict_malicious = malicious_dynamic or malicious_count > 0
+
+    # Build dynamic analysis section based on engine
+    dynamic_section = {
+        "engine": engine_type,
+        "score": score,
+        "tags": tags,
+        "processes": dynamic.get("analysis", {}).get("process_tree", []),
+        "filesystem": dynamic.get("analysis", {}).get("file_system_changes", []),
+        "network": dynamic.get("analysis", {}).get("network_iocs", []),
+        "registry": dynamic.get("analysis", {}).get("registry_changes", []),
+    }
+    
+    if engine_type == "cuckoo3":
+        cuckoo_raw = dynamic.get("analysis", {}).get("summary", {}).get("raw", {})
+        dynamic_section.update({
+            "analysis_id": cuckoo_raw.get("id"),
+            "state": cuckoo_raw.get("state"),
+            "ttps": ttps,
+            "tasks": tasks,
+        })
+    elif engine_type == "ebpf":
+        ebpf_raw = dynamic.get("analysis", {}).get("summary", {}).get("raw", {})
+        dynamic_section.update({
+            "verdict": verdict_ebpf if 'verdict_ebpf' in locals() else "unknown",
+            "reasons": reasons if 'reasons' in locals() else [],
+            "files": files if 'files' in locals() else [],
+            "executions": executions if 'executions' in locals() else [],
+        })
+
+    timestamps = {
+        "generated_at": format_ts(datetime.utcnow().isoformat()),
+    }
+    
+    if engine_type == "cuckoo3":
+        cuckoo_raw = dynamic.get("analysis", {}).get("summary", {}).get("raw", {})
+        if cuckoo_raw.get("created_on"):
+            timestamps["cuckoo_created"] = format_ts(cuckoo_raw.get("created_on"))
+
+
+
 
     report = {
         "job_id": job_id,
@@ -297,19 +368,7 @@ def build_unified_report(job_id: str, meta: dict, static_raw: str | None, dynami
             "last_analysis_results": filtered_last_analysis_results,
             "yara_matches": static.get("yara_matches", []),
         },
-        "dynamic_analysis": {
-            "engine": "Cuckoo3",
-            "analysis_id": cuckoo_raw.get("id"),
-            "score": score,
-            "tags": tags,
-            "state": cuckoo_raw.get("state"),
-            "ttps": ttps,
-            "tasks": tasks,
-            "processes": dynamic.get("analysis", {}).get("process_tree", []),
-            "filesystem": dynamic.get("analysis", {}).get("file_system_changes", []),
-            "network": dynamic.get("analysis", {}).get("network_iocs", []),
-            "registry": dynamic.get("analysis", {}).get("registry_changes", []),
-        },
+        "dynamic_analysis": dynamic_section,
         "iocs": {
             "ips": sorted(ips),
             "domains": sorted(domains),
@@ -318,12 +377,9 @@ def build_unified_report(job_id: str, meta: dict, static_raw: str | None, dynami
             "user_agents": sorted(user_agents),
             "hashes": [meta.get("file_hash")] + [v for v in all_hashes.values() if v and v != meta.get("file_hash")],
             "tags": tags,
-            "ttps": [t.get("id") for t in ttps],
+            "ttps": [t.get("id") for t in ttps] if ttps else [],
         },
-        "timestamps": {
-            "generated_at": format_ts(datetime.utcnow().isoformat()),
-            "cuckoo_created": format_ts(cuckoo_raw.get("created_on")) if cuckoo_raw.get("created_on") else None,
-        }
+        "timestamps": timestamps
     }
 
     return report
