@@ -592,8 +592,9 @@ def download_report_pdf(job_id: str):
         t = Table(rows, colWidths=[80, 200, 150])
         t.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), TABLE_HEADER_GREY), ('GRID', (0,0), (-1,-1), 0.5, BORDER_GREY), ('ALIGN', (0,0), (-1,-1), 'LEFT')]))
         elements.append(Paragraph("MITRE ATT&CK TTPs", styles["SectionTitle"]))
-        elements.append(Spacer(1, 16))
+        elements.append(Spacer(1, 12))
         elements.append(t)
+        elements.append(Spacer(1, 16))
 
     # Tasks table
     tasks_data = dyn.get("tasks", [])
@@ -601,8 +602,9 @@ def download_report_pdf(job_id: str):
         rows = [["Task ID", "Platform", "Duration"]] + [[t.get("id"), f"{t.get('platform')}-{t.get('os_version')}", f"{format_ts(t.get('started_on'))} → {format_ts(t.get('stopped_on'))}"] for t in tasks_data]
         task_table = Table(rows, colWidths=[120, 100, 220])
         elements.append(Paragraph("Analysis Tasks", styles["SectionTitle"]))
-        elements.append(Spacer(1, 16))
+        elements.append(Spacer(1, 12))
         elements.append(task_table)
+        elements.append(Spacer(1, 16))
 
     def section_table(title, headers, rows, widths):
         table_elements = []
