@@ -8,11 +8,16 @@ from typing import Dict, Optional, List
 from datetime import datetime
 import uuid
 import shutil
+import subprocess
+
+
 
 app = FastAPI(title="Sandbox Controller", version="1.0.0")
 
 SANDBOX_JOBS: Dict[str, dict] = {}
 API_URL = "http://192.168.122.2:8000"
+ANALYSIS_SCRIPT = Path("/analysis/run_analysis.sh")
+ANALYSIS_LOG_DIR = Path("/analysis/logs")
 
 # TODO réécrire le fichier pour le faire tourner sur l'hôte avec la sandbox linux
 
@@ -55,16 +60,19 @@ class ResultResponse(BaseModel):
 
 
 def submit_to_cuckoo(sample_path: Path, sandbox_job_id: str) -> str:
-    """Submit a file to Cuckoo3 and return the analysis id."""
     try:
-        pass
-        # TODO scp and start
+        env = os.environ.copy()
+        env["SANDBOX_JOB_ID"] = sandbox_job_id
+
+        subprocess.Popen(
+    [str(ANALYSIS_SCRIPT), str(sample_path)],
+    stdout=subprocess.DEVNULL,
+    stderr=subprocess.DEVNULL,
+    env=env,
+    )
+
     except Exception as e:
-        import traceback
-        print("Error in submit_to_cuckoo:", repr(e))
-        traceback.print_exc()
-        # propagate as 502 so client sees there is a Cuckoo problem
-        raise HTTPException(status_code=502, detail=f"Cuckoo error: {e}")
+        raise HTTPException(502, f"Failed to start analysis script: {e}")
 
     return sandbox_job_id
 
@@ -73,20 +81,26 @@ def submit_to_cuckoo(sample_path: Path, sandbox_job_id: str) -> str:
 
 
 def get_cuckoo_result(analysis_id: str) -> dict:
-    """Fetch analysis details from Cuckoo3."""
-    try:
-        data = {}
-    except Exception as e:
-        import traceback
-        print("Error in get_cuckoo_result:", repr(e))
-        traceback.print_exc()
-        raise HTTPException(status_code=502, detail=f"Cuckoo result error: {e}")
+    job_dir = ANALYSIS_LOG_DIR / analysis_id
 
-    state = data.get("state", "pending")
+    if not job_dir.exists():
+        return {"state": "pending", "raw": {}}
+
+    report = job_dir / "report.json"
+    error = job_dir / "error.log"
+
+    if error.exists():
+        return {
+            "state": "fatal_error",
+            "raw": {"error": error.read_text()}
+        }
+
+    if not report.exists():
+        return {"state": "running", "raw": {}}
 
     return {
-        "state": state,
-        "raw": data,
+        "state": "finished",
+        "raw": json.loads(report.read_text())
     }
 
 
@@ -94,55 +108,80 @@ def get_cuckoo_result(analysis_id: str) -> dict:
 
 @app.post("/sandbox/run", response_model=RunResponse)
 def run(
-        job_id: str = Form(...),
-        os_sandbox: str = Form(...),
-        timeout: int = Form(120),
-        sample: UploadFile | None = File(None)
+    job_id: str = Form(...),
+    os_sandbox: str = Form(...),
+    timeout: int = Form(120),
+    sample: UploadFile | None = File(None),
 ):
     sandbox_job_id = str(uuid.uuid4())
     now = datetime.utcnow().isoformat()
     sample_path: Path | None = None
 
-    if os_sandbox == "linux":
-        if not sample:
-            raise HTTPException(400, f"sample file required")
-        tmp_dir = Path("/tmp/sandbox")
-        tmp_dir.mkdir(exist_ok=True)
-        filename = PurePath(sample.filename).name
-        tmp_file = tmp_dir / filename
-        with tmp_file.open("wb") as f:
-            shutil.copyfileobj(sample.file, f)
-        # IMPORTANT : no exec on host
-        tmp_file.chmod(0o600)
-        sample_path = tmp_file
-        # TODO penser à supprimer le fichier après le scp
-
-        # TODO terminer d'adapter la fonction
-        try:
-            cuckoo_id = submit_to_cuckoo(sample_path, sandbox_job_id)
-        except Exception as e:
-            raise HTTPException(502, f"Cuckoo error: {e}")
-        engine = "cuckoo3"
-        backend_id = cuckoo_id
-    elif os_sandbox == "windows":
-        raise HTTPException(501, "Wrong controller for Windows sandbox")
-    else:
+    # CHECK OS
+    if os_sandbox != "linux":
         raise HTTPException(400, f"Unsupported os: {os_sandbox}")
 
+    if not sample:
+        raise HTTPException(400, "sample file required")
+
+    # STORE SAMPLE (TEMP)
+    try:
+        tmp_dir = Path("/tmp/sandbox")
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+
+        filename = PurePath(sample.filename).name
+        sample_path = tmp_dir / f"{sandbox_job_id}_{filename}"
+
+        with sample_path.open("wb") as f:
+            shutil.copyfileobj(sample.file, f)
+
+        # Jamais exécutable sur l’hôte
+        sample_path.chmod(0o600)
+
+    except Exception as e:
+        raise HTTPException(500, f"Failed to store sample: {e}")
+
+    # LAUNCH ANALYSIS
+    try:
+        env = os.environ.copy()
+        env["SANDBOX_JOB_ID"] = sandbox_job_id
+        env["SANDBOX_TIMEOUT"] = str(timeout)
+
+        subprocess.Popen(
+            [
+                str(ANALYSIS_SCRIPT),
+                str(sample_path),
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            env=env,
+            start_new_session=True,  # évite de tuer le job si l’API restart
+        )
+
+    except Exception as e:
+        raise HTTPException(502, f"Failed to start analysis script: {e}")
+
+    finally:
+        # on supprime le sample local : il a déjà été copié par le script
+        try:
+            if sample_path and sample_path.exists():
+                sample_path.unlink()
+        except Exception:
+            pass
+
+    # REGISTER JOB
     SANDBOX_JOBS[sandbox_job_id] = {
         "sandbox_job_id": sandbox_job_id,
         "job_id": job_id,
-        "sample_path": sample_path,
         "os": os_sandbox,
         "timeout": timeout,
         "status": "running",
         "started_at": now,
         "finished_at": None,
         "analysis": None,
-        "engine": engine,
-        "backend_id": backend_id,
+        "engine": "linux-ebpf",
+        "backend_id": sandbox_job_id,
     }
-
 
     return RunResponse(
         sandbox_job_id=sandbox_job_id,
