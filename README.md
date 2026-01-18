@@ -49,6 +49,10 @@ Pré-requis :
 - Le projet a été conçu pour utiliser terraform, mais suite à beaucoup de difficultés (erreur de provider en tout genre, documentation incomplète, erreur de création de réseau, VM non bootable, ...), Terraform a été abandonné au profit de commandes virt-install.
 - Le projet actuel ne permet pas de traiter plusieurs analyses simultanément, bien qu'un système de queue soit en place.
 - Les analyses se font seulement sur Windows 10 ou sur Ubuntu 22.04.
+- L'analyse de la VM linux n'est pas relié à l'API, elle peut être lancé manuellement avec :
+  ```bash
+  cd services/sandbox-controller/packer/analysis/
+  ./run_analysis ./<sample à analyser>```
 
 ### Accès à l’interface
 
