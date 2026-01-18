@@ -439,8 +439,14 @@ def download_report_pdf(job_id: str):
         fontSize=13,
         fontName="Helvetica-Bold",
         textColor=HEADER_BLUE,
-        spaceAfter=6,
-        leftIndent=15,
+        spaceAfter=6
+    ))
+    styles.add(ParagraphStyle(
+        name="SubSubsectionTitle",
+        fontSize=11,
+        fontName="Helvetica-Bold",
+        textColor=HEADER_BLUE,
+        spaceAfter=4
     ))
 
     elements = []
@@ -491,10 +497,14 @@ def download_report_pdf(job_id: str):
     elements.append(Paragraph("Static Analysis", styles["SectionTitle"]))
     elements.append(Spacer(1, 12))
 
+
+    elements.append(Paragraph("Virus Total analysis", styles["SubsectionTitle"]))
+    elements.append(Spacer(1, 12))
+
     elements.append(Paragraph(
         f"""
         <b>Engine:</b> {static.get('engine')}<br/>
-        <b>Detections:</b> {static.get('detections')}/{static.get('total_engines')}<br/>
+        <b>Detections Anti Virus from hash:</b> {static.get('detections')}/{static.get('total_engines')}<br/>
         <b>Tags:</b> {", ".join(static.get("tags", [])) or "None"}
         """,
         styles["Normal"]
@@ -502,7 +512,7 @@ def download_report_pdf(job_id: str):
     elements.append(Spacer(1, 16))
 
     popular_threat_classification = static.get("popular_threat_classification", {})
-    elements.append(Paragraph("Popular Threat Classification", styles["SubsectionTitle"]))
+    elements.append(Paragraph("Popular Threat Classification", styles["SubSubsectionTitle"]))
     elements.append(Spacer(1, 12))
 
     if popular_threat_classification:
@@ -519,7 +529,7 @@ def download_report_pdf(job_id: str):
     
     elements.append(Spacer(1, 16))
 
-    elements.append(Paragraph("Last Analysis Results", styles["SubsectionTitle"]))
+    elements.append(Paragraph("Last Analysis Results", styles["SubSubsectionTitle"]))
     elements.append(Spacer(1, 12))
 
     last_analysis_results = static.get("last_analysis_results", {})
@@ -550,7 +560,11 @@ def download_report_pdf(job_id: str):
     # =========================
     # Yara Matches
     # =========================
-    elements.append(Paragraph("Yara Matches", styles["SectionTitle"]))
+
+    elements.append(Paragraph("Local analysis", styles["SubsectionTitle"]))
+    elements.append(Spacer(1, 12))
+
+    elements.append(Paragraph("Yara Matches", styles["SubSubSectionTitle"]))
     elements.append(Spacer(1, 8))
     for y in static.get("yara_matches", []) or ["None"]:
         elements.append(Paragraph(f"- {y}", styles["Normal"]))
@@ -569,6 +583,7 @@ def download_report_pdf(job_id: str):
     ))
     elements.append(Spacer(1, 12))
     elements.append(Paragraph(f"<b>Score:</b> {dyn.get('score', 0)} | <b>Tags:</b> {', '.join(dyn.get('tags', []))}", styles["Normal"]))
+    elements.append(Spacer(1, 16))
 
     # TTPS table
     ttps = dyn.get("ttps", [])
@@ -577,6 +592,7 @@ def download_report_pdf(job_id: str):
         t = Table(rows, colWidths=[80, 200, 150])
         t.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), TABLE_HEADER_GREY), ('GRID', (0,0), (-1,-1), 0.5, BORDER_GREY), ('ALIGN', (0,0), (-1,-1), 'LEFT')]))
         elements.append(Paragraph("MITRE ATT&CK TTPs", styles["SectionTitle"]))
+        elements.append(Spacer(1, 16))
         elements.append(t)
 
     # Tasks table
@@ -585,6 +601,7 @@ def download_report_pdf(job_id: str):
         rows = [["Task ID", "Platform", "Duration"]] + [[t.get("id"), f"{t.get('platform')}-{t.get('os_version')}", f"{format_ts(t.get('started_on'))} → {format_ts(t.get('stopped_on'))}"] for t in tasks_data]
         task_table = Table(rows, colWidths=[120, 100, 220])
         elements.append(Paragraph("Analysis Tasks", styles["SectionTitle"]))
+        elements.append(Spacer(1, 16))
         elements.append(task_table)
 
     def section_table(title, headers, rows, widths):
