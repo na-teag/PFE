@@ -10,7 +10,7 @@ ORANGE='\033[33m'
 RESET='\033[0m'
 
 K3S="$1"
-PACKER="$2"
+PACKER="${2}.qcow2"
 
 K3S_PATH="/var/lib/libvirt/images/$K3S"
 PACKER_PATH="/var/lib/libvirt/images/$PACKER"

@@ -3,7 +3,7 @@ set -euo pipefail
 
 URL="http://192.168.122.2:8000/"
 VM_K3S="k3s.qcow2"
-VM_PACKER="packer-ebpf_sandbox.qcow2"
+VM_PACKER="sandbox-ebpf"
 
 # Vérifier qu'il y a suffisament de place
 ./script/check_storage.sh $VM_K3S $VM_PACKER
@@ -27,25 +27,25 @@ cd ../..
 ./script/install-vm-k3s.sh $VM_K3S # Temps d'installation (hors téléchargement) : 4-5mn
 
 # Installation de la vm linux
-./infra/packer/linux/dynamic-worker/build_vm.sh
+./infra/packer/linux/dynamic-worker/build_vm.sh $VM_PACKER
 
 # Installation et mise en route de Cuckoo3 et service WEB/API
 ./script/install_cuckoo.sh
 
-# TODO lancer le script d'installation de sandbox linux en passant $VM_PACKER
 
 # lancer le service sandbox controller
 echo "Lancement du service sandbox controller..."
 if ! command -v python3 >/dev/null 2>&1; then
   sudo apt update && sudo apt install -y python3 python3-pip
 fi
-
-#pip install -r services/sandbox/controller/requirements.txt
-#uvicorn main:app --app-dir services/sandbox/controller --host 0.0.0.0 --port 9000 --log-level critical --no-access-log &
+#pip install -r services/sandbox-controller/packer/requirements.txt
+#uvicorn main:app --app-dir services/sandbox-controller/packer --host 0.0.0.0 --port 9000 --log-level critical --no-access-log &
 
 
 # attendre que les services soient dispo
 echo -e "\n\n"
+echo "Merci de patienter jusqu'au démarrage complet des services sur la VM..."
+echo
 while true; do
     STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL" || echo "000")
     if [[ "$STATUS" == "200" ]]; then
@@ -58,8 +58,7 @@ while true; do
 done
 
 # appliquer la clé VirusTotal via ssh
-echo
-echo
+echo -e "\n\n"
 read -s -p "Entrez votre clé VirusTotal API : " VT_KEY
 echo
 

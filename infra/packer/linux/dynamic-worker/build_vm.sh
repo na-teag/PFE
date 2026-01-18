@@ -4,7 +4,7 @@ set -euo pipefail
 ########################
 # CONFIG
 ########################
-VM_NAME="sandbox-ebpf"
+VM_NAME="${1:-sandbox-ebpf}"
 PACKER_DIR="$(cd "$(dirname "$0")" && pwd)"
 PACKER_TEMPLATE="packer.pkr.hcl"
 
@@ -18,7 +18,7 @@ RAM_MB=2048
 VCPUS=2
 DISK_SIZE=20
 OS_VARIANT="ubuntu22.04"
-NETWORK="default"
+NETWORK="default" # TODO change network ?
 
 ########################
 # CHECKS

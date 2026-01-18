@@ -545,8 +545,8 @@ sudo systemctl start cuckoo.service
 
 generate_section_header "Creating helper scripts under $(pwd)"
 
-touch ~/helper_script.sh && chmod u+x ~/helper_script.sh
-cat <<EOT > helper_script.sh
+touch ~/script/helper_script.sh && chmod u+x ~/script/helper_script.sh
+cat <<EOT > script/helper_script.sh
 echo -e "\n### Bringing up network bridge ###"
 sudo /home/$username/vmcloak/bin/vmcloak-qemubridge br0 192.168.30.1/24
 echo -e "\n### Mounting ISO ###"
