@@ -28,7 +28,7 @@ def call_sandbox(job_id: str, path: Path, sandbox_os: str) -> dict:
                             "os_sandbox": sandbox_os,
                             "timeout": 120,
                         },
-                        timeout=30,
+                        timeout=120,
                     )
             except  Exception as e:
                 import traceback

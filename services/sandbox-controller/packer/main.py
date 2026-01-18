@@ -1,14 +1,16 @@
-import os
-import json
-import requests
+import os, sys, traceback
+import tempfile
+import uuid
+
 from pathlib import Path, PurePath
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
 from typing import Dict, Optional, List
 from datetime import datetime
-import uuid
 import shutil
 import subprocess
+
+from analysis.build_report import build_report
 
 
 
@@ -16,16 +18,17 @@ app = FastAPI(title="Sandbox Controller", version="1.0.0")
 
 SANDBOX_JOBS: Dict[str, dict] = {}
 API_URL = "http://192.168.122.2:8000"
-ANALYSIS_SCRIPT = Path("/analysis/run_analysis.sh")
-ANALYSIS_LOG_DIR = Path("/analysis/logs")
 
-# TODO réécrire le fichier pour le faire tourner sur l'hôte avec la sandbox linux
+SSH_KEY_PATH = str(Path.home() / ".ssh/kvm/id_rsa")
+VM_NAME = "sandbox-ebpf"
+VM_USER = "analyst"
 
-class RunRequest(BaseModel):
-    job_id: str                     # job global (API principale)
-    sample_data: str
-    os: str = "linux"               # windows ou linux
-    timeout: int = 120              # seconds
+BASE_DIR = Path(__file__).parent
+ANALYSIS_DIR = BASE_DIR / "analysis"
+LOG_DIR = ANALYSIS_DIR / "log"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+ANALYSIS_SCRIPT = ANALYSIS_DIR / "run_analysis.sh"
 
 
 class RunResponse(BaseModel):
@@ -59,20 +62,42 @@ class ResultResponse(BaseModel):
 
 
 
-def submit_to_cuckoo(sample_path: Path, sandbox_job_id: str) -> str:
+def submit_to_ebpf(sample_path: Path, sandbox_job_id: str, timeout: int) -> str:
+    stderr_log = LOG_DIR / f"{sandbox_job_id}.err.log"
+    stdout_log = LOG_DIR / f"{sandbox_job_id}.out.log"
     try:
         env = os.environ.copy()
         env["SANDBOX_JOB_ID"] = sandbox_job_id
+        env["SANDBOX_TIMEOUT"] = str(timeout)
 
         subprocess.Popen(
-    [str(ANALYSIS_SCRIPT), str(sample_path)],
-    stdout=subprocess.DEVNULL,
-    stderr=subprocess.DEVNULL,
-    env=env,
-    )
+            [str(ANALYSIS_SCRIPT), str(sample_path)],
+            stdout=stdout_log.open("ab"),
+            stderr=stderr_log.open("ab"),
+            env=env,
+            start_new_session=True
+        )
 
     except Exception as e:
-        raise HTTPException(502, f"Failed to start analysis script: {e}")
+        tb = traceback.format_exc()
+        msg = f"[WARN] Failed to start analysis script for {sample_path} : {e}\n\n{tb}\n"
+        SANDBOX_JOBS[sandbox_job_id]["status"] = "fatal_error"
+        with stderr_log.open("ab") as f:
+            f.write(msg.encode())
+        raise HTTPException(500, f" Failed to start analysis script for {sample_path} : {e}")
+
+    finally:
+        # on supprime le sample local : il a déjà été copié par le script
+        try:
+            if sample_path and sample_path.exists():
+                sample_path.unlink()
+        except Exception:
+            tb = traceback.format_exc()
+            msg = f"[WARN] Cleanup failed for {sample_path}\n{tb}\n"
+            sys.stderr.write(msg)
+            with stderr_log.open("ab") as f:
+                f.write(msg.encode())
+
 
     return sandbox_job_id
 
@@ -80,29 +105,77 @@ def submit_to_cuckoo(sample_path: Path, sandbox_job_id: str) -> str:
 
 
 
-def get_cuckoo_result(analysis_id: str) -> dict:
-    job_dir = ANALYSIS_LOG_DIR / analysis_id
 
-    if not job_dir.exists():
-        return {"state": "pending", "raw": {}}
+def get_ebpf_result(analysis_id: str) -> dict:
+    stderr_log = LOG_DIR / f"{analysis_id}.err.log"
+    stdout_log = LOG_DIR / f"{analysis_id}.out.log"
+    tmp_path = None
+    try:
+        env = os.environ.copy()
+        env["SANDBOX_JOB_ID"] = analysis_id
 
-    report = job_dir / "report.json"
-    error = job_dir / "error.log"
+        # get ip
+        out = subprocess.check_output(
+            ["virsh", "domifaddr", VM_NAME],
+            text=True
+        )
+        ip = None
+        for line in out.splitlines():
+            if "ipv4" in line:
+                ip = line.split()[3].split("/")[0]
+        if not ip:
+            raise RuntimeError("VM IP not found")
 
-    if error.exists():
-        return {
-            "state": "fatal_error",
-            "raw": {"error": error.read_text()}
-        }
+        # create tmp file
+        tmp = tempfile.NamedTemporaryFile(
+            prefix=f"ebpf_{analysis_id}_",
+            suffix=".log",
+            delete=False
+        )
+        tmp_path = Path(tmp.name)
+        tmp.close()
 
-    if not report.exists():
-        return {"state": "running", "raw": {}}
+        # get file via scp
+        cmd = [
+            "scp",
+            "-i", str(SSH_KEY_PATH),
+            "-o", "StrictHostKeyChecking=no",
+            "-o", "UserKnownHostsFile=/dev/null",
+            f"{VM_USER}@{ip}:/tmp/ebpf.log",
+            str(tmp_path),
+        ]
+        subprocess.run(
+            cmd,
+            check=True,
+            stdout=stdout_log.open("ab"),
+            stderr=stderr_log.open("ab"),
+            text=True,
+        )
+
+    except Exception as e:
+        tb = traceback.format_exc()
+        msg = f"[WARN] Failed to get log result : {e}\n\n{tb}\n"
+        SANDBOX_JOBS[analysis_id]["status"] = "fatal_error"
+        with stderr_log.open("ab") as f:
+            f.write(msg.encode())
+        raise HTTPException(500, f"Failed to get log result : {e}")
+
+
+    report = None
+    try:
+        report = build_report(tmp_path)
+    except Exception as e:
+        tb = traceback.format_exc()
+        msg = f"[WARN] Failed to build report : {e}\n\n{tb}\n"
+        SANDBOX_JOBS[analysis_id]["status"] = "fatal_error"
+        with stderr_log.open("ab") as f:
+            f.write(msg.encode())
+        raise HTTPException(500, f"Failed to build report : {e}")
 
     return {
         "state": "finished",
-        "raw": json.loads(report.read_text())
+        "raw": report
     }
-
 
 
 
@@ -141,47 +214,24 @@ def run(
     except Exception as e:
         raise HTTPException(500, f"Failed to store sample: {e}")
 
-    # LAUNCH ANALYSIS
-    try:
-        env = os.environ.copy()
-        env["SANDBOX_JOB_ID"] = sandbox_job_id
-        env["SANDBOX_TIMEOUT"] = str(timeout)
-
-        subprocess.Popen(
-            [
-                str(ANALYSIS_SCRIPT),
-                str(sample_path),
-            ],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            env=env,
-            start_new_session=True,  # évite de tuer le job si l’API restart
-        )
-
-    except Exception as e:
-        raise HTTPException(502, f"Failed to start analysis script: {e}")
-
-    finally:
-        # on supprime le sample local : il a déjà été copié par le script
-        try:
-            if sample_path and sample_path.exists():
-                sample_path.unlink()
-        except Exception:
-            pass
-
     # REGISTER JOB
     SANDBOX_JOBS[sandbox_job_id] = {
         "sandbox_job_id": sandbox_job_id,
         "job_id": job_id,
         "os": os_sandbox,
         "timeout": timeout,
-        "status": "running",
+        "status": "pending",
         "started_at": now,
         "finished_at": None,
         "analysis": None,
-        "engine": "linux-ebpf",
+        "engine": "ebpf",
         "backend_id": sandbox_job_id,
     }
+
+    # LAUNCH ANALYSIS
+    submit_to_ebpf(sample_path, sandbox_job_id, timeout)
+
+    SANDBOX_JOBS[sandbox_job_id]["status"] = "running"
 
     return RunResponse(
         sandbox_job_id=sandbox_job_id,
@@ -189,6 +239,8 @@ def run(
         status="running",
         started_at=now,
     )
+
+
 
 
 @app.get("/sandbox/status/{sandbox_job_id}", response_model=StatusResponse)
@@ -206,15 +258,17 @@ def status(sandbox_job_id: str):
     )
 
 
+
+
 @app.get("/sandbox/result/{sandbox_job_id}", response_model=ResultResponse)
 def result(sandbox_job_id: str):
     job = SANDBOX_JOBS.get(sandbox_job_id)
     if not job:
         raise HTTPException(404, "sandbox job not found")
     
-    if job["engine"] == "cuckoo3":
+    if job["engine"] == "ebpf":
         try:
-            data = get_cuckoo_result(job["backend_id"])
+            data = get_ebpf_result(job["backend_id"])
             state = data.get("state", "pending")
             status_map = {
                 "pending": "queued",
@@ -224,7 +278,7 @@ def result(sandbox_job_id: str):
             }
             status = status_map.get(state, "running")
         except Exception as e:
-            raise HTTPException(502, f"Failed to get Cuckoo result: {e}")
+            raise HTTPException(502, f"Failed to get ebpf result: {e}")
     else:
         raise HTTPException(500, f"Unknown engine: {job['engine']}")
 

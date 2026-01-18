@@ -26,7 +26,22 @@ SSH_KEY="$SSH_DIR/id_ed25519"
 ########################
 # CHECKS
 ########################
-for cmd in packer virt-install virsh ssh-keygen; do
+# Vérifier que packer est installé
+if ! command -v packer >/dev/null 2>&1; then
+    sudo apt-get update >/dev/null 2>&1
+    # Ajouter les repos de packer si on ne peut pas l'installer
+    if ! sudo apt-get install -y packer ; then
+        echo "######### TEST"
+        sudo apt-get install -y curl gnupg lsb-release
+        sudo mkdir -p /usr/share/keyrings
+        curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(grep -oP '(?<=UBUNTU_CODENAME=).*' /etc/os-release || lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+        sudo apt-get update >/dev/null 2>&1
+        sudo apt-get install -y packer
+    fi
+fi
+
+for cmd in virt-install virsh ssh-keygen; do
   command -v "$cmd" >/dev/null || { echo "[-] $cmd not installed"; exit 1; }
 done
 

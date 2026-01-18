@@ -8,7 +8,7 @@ packer {
 }
 
 source "qemu" "ebpf_sandbox" {
-  iso_url          = "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
+  iso_url          = "/var/lib/libvirt/images/jammy-server-cloudimg-amd64.img"
   iso_checksum     = "none"
   disk_image         = true
   disk_size          = "9G"
