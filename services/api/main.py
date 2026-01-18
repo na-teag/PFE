@@ -434,6 +434,14 @@ def download_report_pdf(job_id: str):
         fontName="Helvetica-Bold",
         spaceAfter=8
     ))
+    styles.add(ParagraphStyle(
+        name="SubsectionTitle",
+        fontSize=13,
+        fontName="Helvetica-Bold",
+        textColor=HEADER_BLUE,
+        spaceAfter=6,
+        leftIndent=15,
+    ))
 
     elements = []
 
@@ -494,7 +502,7 @@ def download_report_pdf(job_id: str):
     elements.append(Spacer(1, 16))
 
     popular_threat_classification = static.get("popular_threat_classification", {})
-    elements.append(Paragraph("Popular Threat Classification", styles["SectionTitle"]))
+    elements.append(Paragraph("Popular Threat Classification", styles["SubsectionTitle"]))
     elements.append(Spacer(1, 12))
 
     if popular_threat_classification:
@@ -511,7 +519,7 @@ def download_report_pdf(job_id: str):
     
     elements.append(Spacer(1, 16))
 
-    elements.append(Paragraph("Last Analysis Results", styles["SectionTitle"]))
+    elements.append(Paragraph("Last Analysis Results", styles["SubsectionTitle"]))
     elements.append(Spacer(1, 12))
 
     last_analysis_results = static.get("last_analysis_results", {})
