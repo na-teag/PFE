@@ -212,20 +212,16 @@ def build_unified_report(job_id: str, meta: dict, static_raw: str | None, dynami
     static = json.loads(static_raw) if static_raw else {}
     dynamic = json.loads(dynamic_raw) if dynamic_raw else {}
 
+    # STATIC: VirusTotal parsing
     vt = static.get("virustotal", {})
     vt_stats = vt.get("data", {}).get("attributes", {}).get("last_analysis_stats", {})
 
     malicious_count = vt_stats.get("malicious", 0)
     total_engines = sum(vt_stats.values()) if vt_stats else 0
 
-    score = dynamic.get("analysis", {}).get("summary", {}).get("score", 0)
-    malicious_dynamic = dynamic.get("analysis", {}).get("summary", {}).get("malicious", False)
-
     popular_threat_classification = vt.get("data", {}).get("attributes", {}).get("popular_threat_classification", {})
     
     last_analysis_results = vt.get("data", {}).get("attributes", {}).get("last_analysis_results", {})
-
-    verdict_malicious = malicious_dynamic or malicious_count > 0
 
     filtered_last_analysis_results = {
         engine_name: {
@@ -236,6 +232,25 @@ def build_unified_report(job_id: str, meta: dict, static_raw: str | None, dynami
         if engine_info.get("result") is not None
     }
 
+    # DYNAMIC: Cuckoo3 parsing
+    cuckoo_raw = dynamic.get("analysis", {}).get("summary", {}).get("raw", {}) if dynamic else {}
+    
+    score = cuckoo_raw.get("score", 0)
+    tags = cuckoo_raw.get("tags", [])
+    ttps = cuckoo_raw.get("ttps", [])
+    tasks = cuckoo_raw.get("tasks", [])
+    malicious_dynamic = score >= 5  # 7 = malicious
+    
+    submitted = cuckoo_raw.get("submitted", {})
+    target = cuckoo_raw.get("target", {})
+    all_hashes = {
+        "sha256": meta.get("file_hash"),
+        "md5": submitted.get("md5") or target.get("md5"),
+        "sha1": submitted.get("sha1") or target.get("sha1"),
+        "sha512": submitted.get("sha512") or target.get("sha512"),
+    }
+
+    # IOCs (extend with network when available)
     ips = set()
     domains = set()
     urls = set()
@@ -243,34 +258,22 @@ def build_unified_report(job_id: str, meta: dict, static_raw: str | None, dynami
     user_agents = set()
 
     network_events = dynamic.get("analysis", {}).get("network_iocs", [])
-
-    for evt in network_events:
-        evt_type = evt.get("type")
-        value = evt.get("value")
-
-        if not evt_type or value is None:
-            continue
-
-        if evt_type == "ip":
+    for event in network_events:
+        event_type = event.get("type", "").lower()
+        value = event.get("value", "")
+    
+        if event_type == "ip":
             ips.add(value)
-
-            port = evt.get("port")
-            proto = evt.get("protocol")
-            if port:
-                ports.add(f"{port}/{proto or 'unknown'}")
-
-        elif evt_type == "domain":
+        elif event_type == "domain":
             domains.add(value)
-
-        elif evt_type == "url":
+        elif event_type == "url":
             urls.add(value)
-
-        elif evt_type in ("user-agent", "user_agent"):
+        elif event_type == "port":
+            ports.add(value)
+        elif event_type == "user_agent":
             user_agents.add(value)
-
-        elif evt_type == "port":
-            ports.add(f"{value}/unknown")
-
+            
+    verdict_malicious = malicious_dynamic or malicious_count > 0
 
     report = {
         "job_id": job_id,
@@ -278,10 +281,11 @@ def build_unified_report(job_id: str, meta: dict, static_raw: str | None, dynami
             "name": meta.get("file_name"),
             "sha256": meta.get("file_hash"),
             "submitted_at": format_ts(meta.get("submitted_at")),
+            **{k: v for k, v in all_hashes.items() if v and k != "sha256"},
         },
         "verdict": {
             "malicious": verdict_malicious,
-            "confidence": round(malicious_count / total_engines, 2) if total_engines else 0.0,
+            "confidence": round(malicious_count / max(total_engines, 1), 2),
             "score": score,
         },
         "static_analysis": {
@@ -294,7 +298,13 @@ def build_unified_report(job_id: str, meta: dict, static_raw: str | None, dynami
             "yara_matches": static.get("yara_matches", []),
         },
         "dynamic_analysis": {
-            "engine": dynamic.get("analysis", {}).get("summary", {}).get("engine", "unknown"),
+            "engine": "Cuckoo3",
+            "analysis_id": cuckoo_raw.get("id"),
+            "score": score,
+            "tags": tags,
+            "state": cuckoo_raw.get("state"),
+            "ttps": ttps,
+            "tasks": tasks,
             "processes": dynamic.get("analysis", {}).get("process_tree", []),
             "filesystem": dynamic.get("analysis", {}).get("file_system_changes", []),
             "network": dynamic.get("analysis", {}).get("network_iocs", []),
@@ -306,10 +316,13 @@ def build_unified_report(job_id: str, meta: dict, static_raw: str | None, dynami
             "urls": sorted(urls),
             "ports": sorted(ports),
             "user_agents": sorted(user_agents),
-            "hashes": [meta.get("file_hash")],
+            "hashes": [meta.get("file_hash")] + [v for v in all_hashes.values() if v and v != meta.get("file_hash")],
+            "tags": tags,
+            "ttps": [t.get("id") for t in ttps],
         },
         "timestamps": {
             "generated_at": format_ts(datetime.utcnow().isoformat()),
+            "cuckoo_created": format_ts(cuckoo_raw.get("created_on")) if cuckoo_raw.get("created_on") else None,
         }
     }
 
@@ -547,6 +560,24 @@ def download_report_pdf(job_id: str):
         styles["Normal"]
     ))
     elements.append(Spacer(1, 12))
+    elements.append(Paragraph(f"<b>Score:</b> {dyn.get('score', 0)} | <b>Tags:</b> {', '.join(dyn.get('tags', []))}", styles["Normal"]))
+
+    # TTPS table
+    ttps = dyn.get("ttps", [])
+    if ttps:
+        rows = [["ID", "Name", "Tactics"]] + [[t.get("id", ""), t.get("name", ""), ", ".join(t.get("tactics", []))] for t in ttps]
+        t = Table(rows, colWidths=[80, 200, 150])
+        t.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), TABLE_HEADER_GREY), ('GRID', (0,0), (-1,-1), 0.5, BORDER_GREY), ('ALIGN', (0,0), (-1,-1), 'LEFT')]))
+        elements.append(Paragraph("MITRE ATT&CK TTPs", styles["SectionTitle"]))
+        elements.append(t)
+
+    # Tasks table
+    tasks_data = dyn.get("tasks", [])
+    if tasks_data:
+        rows = [["Task ID", "Platform", "Duration"]] + [[t.get("id"), f"{t.get('platform')}-{t.get('os_version')}", f"{format_ts(t.get('started_on'))} → {format_ts(t.get('stopped_on'))}"] for t in tasks_data]
+        task_table = Table(rows, colWidths=[120, 100, 220])
+        elements.append(Paragraph("Analysis Tasks", styles["SectionTitle"]))
+        elements.append(task_table)
 
     def section_table(title, headers, rows, widths):
         table_elements = []
