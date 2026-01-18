@@ -66,7 +66,7 @@ build {
 
     "sudo mkdir -p /home/analyst/.ssh",
     "sudo chmod 700 /home/analyst/.ssh",
-    "echo '${file("~/.ssh/sandbox_key.pub")}' > /home/analyst/.ssh/authorized_keys",
+    "echo '${file("~/.ssh/packer_ed25519.pub")}' > /home/analyst/.ssh/authorized_keys",
     "sudo chmod 600 /home/analyst/.ssh/authorized_keys",
     "sudo chown -R analyst:analyst /home/analyst/.ssh",
 

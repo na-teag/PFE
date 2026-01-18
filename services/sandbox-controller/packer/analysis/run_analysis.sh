@@ -7,7 +7,7 @@ set -euo pipefail
 VM_NAME="sandbox-ebpf"
 VM_USER="analyst"
 
-SSH_KEY="$HOME/.ssh/sandbox_key"
+SSH_KEY="$HOME/.ssh/sandbox_key/id_ed25519"
 SSH_OPTS="-i $SSH_KEY -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
