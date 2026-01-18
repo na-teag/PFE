@@ -92,30 +92,30 @@ for f in files:
 if seen_tmp_drop and seen_network_tool:
     score += 5
     reasons.add("Downloaded or staged payload executed from /tmp")
-            cmd = event.get("comm", "")
-            if not cmd:
-                continue
-            binary = event.get("file", "")
-            arg1 = event.get("arg1", "")
-            arg2 = event.get("arg2", "")
+    cmd = event.get("comm", "")
+    if not cmd:
+        pass
+    binary = event.get("file", "")
+    arg1 = event.get("arg1", "")
+    arg2 = event.get("arg2", "")
 
-            executions.append({
-                "binary": binary,
-                "arg1": arg1,
-                "arg2": arg2
-            })
+    executions.append({
+        "binary": binary,
+        "arg1": arg1,
+        "arg2": arg2
+    })
 
-            # Bash qui exécute un script
-            if binary.endswith("/bash") and arg1.startswith("/"):
-                executed_scripts.add(arg1)
-                score += 1
-                reasons.add(f"Bash executed script: {arg1}")
+    # Bash qui exécute un script
+    if binary.endswith("/bash") and arg1.startswith("/"):
+        executed_scripts.add(arg1)
+        score += 1
+        reasons.add(f"Bash executed script: {arg1}")
 
-            # Curl / Wget → URL
-            if binary.endswith("/curl") and arg1.startswith("http"):
-                urls.add(arg1)
-                score += 3
-                reasons.add("Outbound network access via curl")
+    # Curl / Wget → URL
+    if binary.endswith("/curl") and arg1.startswith("http"):
+        urls.add(arg1)
+        score += 3
+        reasons.add("Outbound network access via curl")
 
 # /tmp drop score (once)
 #if any(p.startswith("/tmp/") for p in files):
