@@ -14,8 +14,8 @@ PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LOGS_DIR="$PROJECT_DIR/logs"
 
 SAMPLE="$1"
-SANDBOX_JOB_ID="${SANDBOX_JOB_ID:-unknown}"
-OUT_DIR="$LOGS_DIR/$SANDBOX_JOB_ID"
+TIMESTAMP="$(date +"%Y-%m-%d_%H-%M-%S")"
+OUT_DIR="$LOGS_DIR/$TIMESTAMP"
 
 REMOTE_SAMPLE="/tmp/$(basename "$SAMPLE")"
 REMOTE_LOG="/tmp/ebpf.log"
