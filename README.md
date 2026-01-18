@@ -9,7 +9,7 @@ Elle permet de soumettre un fichier, d’effectuer une analyse statique et dynam
 - API FastAPI : soumission, orchestration, résultats, UI
 - Workers statiques : analyse VirusTotal / YARA
 - Workers dynamiques : analyse en sandbox Windows et Linux
-- Sandbox-controller : gestion des VM d’analyse
+- Sandbox-controller : gestion des VM d’analyses
 - Redis : file de jobs et stockage des résultats
 - Kubernetes (k3s) : orchestration
 
@@ -46,13 +46,13 @@ Pré-requis :
 
 ### Limitations
 
-- Le projet a été conçu pour utiliser terraform, mais suite à beaucoup de difficultés (erreur de provider en tout genre, doc incomplète, erreur de création de réseau, VM non bootable, ...), Terraform a été abandonné au profit de commandes virt-install.
+- Le projet a été conçu pour utiliser terraform, mais suite à beaucoup de difficultés (erreur de provider en tout genre, documentation incomplète, erreur de création de réseau, VM non bootable, ...), Terraform a été abandonné au profit de commandes virt-install.
 - Le projet actuel ne permet pas de traiter plusieurs analyses simultanément, bien qu'un système de queue soit en place.
-- Les analyses se font seulement sur Windows 10 ou sur Ubuntu 22.04
+- Les analyses se font seulement sur Windows 10 ou sur Ubuntu 22.04.
 
 ### Accès à l’interface
 
-Par défaut, les services sont exposés via la VM k3s connecté au réseau libvirt via l'interface vribr0.
+Par défaut, les services sont exposés via la VM k3s connectée au réseau libvirt via l'interface vribr0.
 
 - Interface web API : http://192.168.122.2:8000/
 
@@ -68,6 +68,6 @@ Toutes les informations détaillées (infrastructure, VM, Packer, Docker, tests,
 - [INFORMATIONS.md](/docs/INFORMATIONS.md)
 - [ARCHITECTURE.md](/docs/ARCHITECTURE.md)
 
-### License et règles YARA
+### Licence et règles YARA
 
 Ce projet utilise des règles yara sous licence GPL-2.0 : [rules](https://github.com/Yara-Rules/rules)
