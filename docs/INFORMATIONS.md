@@ -178,6 +178,14 @@ sudo delgroup cuckoo
 sudo rm /opt/cuckoo3/.installed
 ```
 
+### Service web
+
+https://localhost:9090
+
+### Service API
+
+https://localhost:8080
+
 
 ## Tests et validations des services
 Les services s’exécutent exclusivement dans le cluster Kubernetes.
