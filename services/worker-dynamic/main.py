@@ -6,8 +6,8 @@ from redis import Redis
 import requests
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379")
-SANDBOX_CUCKOO_URL = os.getenv("SANDBOX_URL", "http://sandbox-controller:9000")
-SANDBOX_PACKER_URL = "http://192.168.122.1:7070"
+SANDBOX_CUCKOO_URL = os.getenv("SANDBOX_CUCKOO_URL", "http://sandbox-controller:9000")
+SANDBOX_EBPF_URL = os.getenv("SANDBOX_EBPF_URL", "http://192.168.122.1:7070")
 
 redis_client = Redis.from_url(REDIS_URL, decode_responses=True)
 
@@ -17,7 +17,7 @@ def call_sandbox(job_id: str, path: Path, sandbox_os: str) -> dict:
     r = None
     match sandbox_os:
         case "linux":
-            sandbox_url = SANDBOX_PACKER_URL
+            sandbox_url = SANDBOX_EBPF_URL
             try:
                 with open(path, "rb") as f:
                     r = requests.post(

@@ -111,7 +111,7 @@ packer build win10_22h2.pkr.hcl
 ## Docker Images
 Build des images Docker
 
-Se placer dans le dossier du service concerné (`api`, `sandbox-controller/cuckoo`, `sandbox-controller/packer`, `worker-static` ou `worker-dynamic`), et incrémenter la version de l'image ici et dans le fichier YAML associé :
+Se placer dans le dossier du service concerné (`api`, `sandbox-controller/cuckoo`, `worker-static` ou `worker-dynamic`), et incrémenter la version de l'image ici et dans le fichier YAML associé :
 ```bash
 docker build -t dockerhubmalware/malware-<nom_du_service>:vx.y.z .
 ```
