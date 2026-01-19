@@ -126,6 +126,21 @@ echo -e "\n### Generating Nginx configuration ###"
 cuckoo web generateconfig --nginx > /home/$username/cuckoo3/cuckoo-web.conf
 echo -e "\n### Migrating databases ###"
 cuckoomigrate database all
+
+# ===== FIX: Node info dump path =====
+echo -e "\\n### Fixing node info dump path ###"
+NODE_DIR="~/.cuckoocwd/operational"
+mkdir -p "\$NODE_DIR"
+touch "\$NODE_DIR/node_info.json"
+chmod 666 "\$NODE_DIR/node_info.json"
+
+# Patch cuckoo.yaml with node config
+if ! grep -q "info_dump_path" ~/.cuckoocwd/conf/cuckoo.yaml; then
+    echo -e "\\n  node:\\n    info_dump_path: \$NODE_DIR/node_info.json" >> ~/.cuckoocwd/conf/cuckoo.yaml
+    echo "Added node config to cuckoo.yaml"
+else
+    echo "Node config already exists"
+fi
 EOF
 }
 
@@ -546,7 +561,7 @@ sudo systemctl start cuckoo.service
 generate_section_header "Creating helper scripts under $(pwd)"
 
 touch ~/script/helper_script.sh && chmod u+x ~/script/helper_script.sh
-cat <<EOT > script/helper_script.sh
+cat <<EOT > ~/script/helper_script.sh
 echo -e "\n### Bringing up network bridge ###"
 sudo /home/$username/vmcloak/bin/vmcloak-qemubridge br0 192.168.30.1/24
 echo -e "\n### Mounting ISO ###"

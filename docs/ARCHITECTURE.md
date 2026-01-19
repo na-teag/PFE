@@ -4,14 +4,17 @@
 flowchart LR
     
 subgraph HOST
-    subgraph Cuckoo3
-        VM1[sandbox windows 10]
+    subgraph R3[réseau 192.168.30.0/24]
+        subgraph Cuckoo3
+            VM1[sandbox windows 10]
+            VM2[sandbox windows 10]
+            VM3[sandbox windows 10]
+        end
     end
-    
 
     subgraph R2[réseau 192.168.122.0/24]
-        VM2[sandbox linux]
-        subgraph VM3[VM k3s]
+        VM4[sandbox linux]
+        subgraph VM5[VM k3s]
             subgraph C[cluster malware-analysis]
                 P1[api]
                 P2[worker static]
@@ -34,9 +37,12 @@ flowchart TD
     API --> redis
     API --> worker1[worker static]
     API --> worker2[worker dynamic]
-    worker2 --> controller[sandbox controller]
+    worker2 --> controller[sandbox controller windows]
+    worker2 --> controllerlinux[sandbox controller linux]
     worker1 <--> VT[VirusTotal]
     controller --> cuckoo[API Cuckoo3]
+    controllerlinux -->|start| sandboxebpf[sandbox linux]
+    controllerlinux <-->|get result| sandboxebpf
     cuckoo -->|start| sandbox[sandbox windows 10]
     cuckoo <-->|get result| sandbox
     controller <-->|get result| cuckoo
@@ -45,7 +51,6 @@ flowchart TD
     USER <-->|curl http://API_IP:8000/api/result/JOB_ID| API
     API <-->|get result| redis
     click VT "https://virustotal.com" "VirusTotal" _blank
-    click drakvuf "https://drakvuf.com/" "drakvuf" _blank
     click redis " https://redis.io/" "redis" _blank
     click redis2 " https://redis.io/" "redis" _blank
    
@@ -58,7 +63,7 @@ flowchart TD
 ```mermaid
 flowchart TD 
     USER --> setup[setup.sh]
-    setup --> cuckoo3
+    setup --> Cuckoo3
     setup --> Terraform["virt-install"]
     subgraph network
         subgraph VMs
@@ -75,10 +80,9 @@ flowchart TD
     end
     Terraform --> network
     
-    click Drakvuf "https://drakvuf.com/" "Drakvuf" _blank
+    click Cuckoo3 "https://github.com/cert-ee/cuckoo3" "Cuckoo3" _blank
     click Terraform "https://.terraform.io/" "Terraform" _blank
     click Argocd "https://argo-cd.readthedocs.io" "Argo CD" _blank
-    click Inetsim "https://inetsim.org/" "INetSim" _blank
 ```
 
 
