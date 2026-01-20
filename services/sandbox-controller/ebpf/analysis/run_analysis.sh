@@ -32,6 +32,16 @@ fi
 mkdir -p "$OUT_DIR"
 
 ########################
+# REVERT SNAPSHOT
+########################
+virsh shutdown "$VM_NAME"
+while [ "$(virsh domstate "$VM_NAME")" != "shut off" ]; do
+    sleep 1
+done
+virsh snapshot-revert "$VM_NAME" clean-install # in case the last analysis failed before the final revert to clean installation
+virsh start "$VM_NAME"
+
+########################
 # GET VM IP
 ########################
 VM_IP=$(virsh domifaddr "$VM_NAME" | awk '/ipv4/ {print $4}' | cut -d/ -f1)
@@ -79,6 +89,17 @@ scp $SSH_OPTS "$VM_USER@$VM_IP:$REMOTE_LOG" "$OUT_DIR/ebpf.log"
 ########################
 echo "[+] Running analysis"
 python3 "$PROJECT_DIR/build_report.py" "$OUT_DIR/ebpf.log" > "$OUT_DIR/report.json"
+
+########################
+# REVERT SNAPSHOT
+########################
+virsh shutdown "$VM_NAME"
+while [ "$(virsh domstate "$VM_NAME")" != "shut off" ]; do
+    sleep 1
+done
+
+virsh snapshot-revert "$VM_NAME" clean-install
+virsh start "$VM_NAME"
 
 ########################
 # DONE

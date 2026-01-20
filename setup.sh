@@ -3,10 +3,10 @@ set -euo pipefail
 
 URL="http://192.168.122.2:8000/"
 VM_K3S="k3s.qcow2"
-VM_PACKER="sandbox-ebpf"
+VM_EBPF="sandbox-ebpf"
 
 # Vérifier qu'il y a suffisament de place
-./script/check_storage.sh $VM_K3S $VM_PACKER
+./script/check_storage.sh $VM_K3S $VM_EBPF
 
 # Installer terraform si absent
 if ! terraform --version >/dev/null 2>&1; then
@@ -27,7 +27,7 @@ cd ../..
 ./script/install-vm-k3s.sh $VM_K3S # Temps d'installation (hors téléchargement) : 4-5mn
 
 # Installation de la vm linux
-./infra/packer/linux/dynamic-worker/build_vm.sh $VM_PACKER
+./infra/packer/linux/dynamic-worker/build_vm.sh $VM_EBPF
 
 # Installation et mise en route de Cuckoo3 et service WEB/API
 ./script/install_cuckoo.sh
@@ -43,6 +43,28 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r services/sandbox-controller/ebpf/requirements.txt
 uvicorn main:app --app-dir services/sandbox-controller/ebpf --host 0.0.0.0 --port 7070 --log-level warning --no-access-log &
+
+# prendre un snapshot de la VM linux
+echo -e "\n##############################\n### création d'un snapshot ###\n##############################"
+virsh shutdown "$VM_EBPF"
+while [ "$(virsh domstate "$VM_EBPF")" != "shut off" ]; do
+    echo -e "\n\nAttente de l'arrêt de la VM..."
+    sleep 1
+done
+# supprimer ancien snapshot
+if virsh snapshot-list "$VM_EBPF" | grep -q clean-install; then
+    echo -e "\n\nAncien snapshot trouvé, suppression en cours..."
+    virsh snapshot-delete "$VM_EBPF" clean-install
+fi
+virsh snapshot-create-as \
+  "$VM_EBPF" \
+  clean-install \
+  "Clean state after installation" \
+  --disk-only \
+  --atomic
+echo -e "\n\nNouveau snapshot enregistré"
+virsh start "$VM_EBPF"
+
 
 
 # attendre que les services soient dispo
