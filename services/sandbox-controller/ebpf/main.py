@@ -1,5 +1,5 @@
-import os, sys, traceback
-import tempfile
+import json
+import os, traceback
 import uuid
 
 from pathlib import Path, PurePath
@@ -10,22 +10,19 @@ from datetime import datetime
 import shutil
 import subprocess
 
-from analysis.build_report import build_report
-
-
 
 app = FastAPI(title="Sandbox Controller", version="1.0.0")
 
 SANDBOX_JOBS: Dict[str, dict] = {}
 API_URL = "http://192.168.122.2:8000"
 
-SSH_KEY_PATH = str(Path.home() / ".ssh/kvm/id_rsa")
+SSH_KEY_PATH = str(Path.home() / ".ssh/kvm/id_ed25519")
 VM_NAME = "sandbox-ebpf"
 VM_USER = "analyst"
 
 BASE_DIR = Path(__file__).parent
 ANALYSIS_DIR = BASE_DIR / "analysis"
-LOG_DIR = ANALYSIS_DIR / "log"
+LOG_DIR = ANALYSIS_DIR / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 ANALYSIS_SCRIPT = ANALYSIS_DIR / "run_analysis.sh"
@@ -63,20 +60,23 @@ class ResultResponse(BaseModel):
 
 
 def submit_to_ebpf(sample_path: Path, sandbox_job_id: str, timeout: int) -> str:
-    stderr_log = LOG_DIR / f"{sandbox_job_id}.err.log"
-    stdout_log = LOG_DIR / f"{sandbox_job_id}.out.log"
+    out_dir = LOG_DIR / sandbox_job_id
+    out_dir.mkdir(parents=True, exist_ok=True)
+    stderr_log = out_dir / "err.log"
     try:
         env = os.environ.copy()
         env["SANDBOX_JOB_ID"] = sandbox_job_id
         env["SANDBOX_TIMEOUT"] = str(timeout)
 
-        subprocess.Popen(
-            [str(ANALYSIS_SCRIPT), str(sample_path)],
-            stdout=stdout_log.open("ab"),
+        p = subprocess.Popen(
+            [str(ANALYSIS_SCRIPT), str(sample_path), sandbox_job_id],
+            stdout=subprocess.DEVNULL,
             stderr=stderr_log.open("ab"),
             env=env,
             start_new_session=True
         )
+
+        SANDBOX_JOBS[sandbox_job_id]["process"] = p
 
     except Exception as e:
         tb = traceback.format_exc()
@@ -86,19 +86,6 @@ def submit_to_ebpf(sample_path: Path, sandbox_job_id: str, timeout: int) -> str:
             f.write(msg.encode())
         raise HTTPException(500, f" Failed to start analysis script for {sample_path} : {e}")
 
-    finally:
-        # on supprime le sample local : il a déjà été copié par le script
-        try:
-            if sample_path and sample_path.exists():
-                sample_path.unlink()
-        except Exception:
-            tb = traceback.format_exc()
-            msg = f"[WARN] Cleanup failed for {sample_path}\n{tb}\n"
-            sys.stderr.write(msg)
-            with stderr_log.open("ab") as f:
-                f.write(msg.encode())
-
-
     return sandbox_job_id
 
 
@@ -106,76 +93,57 @@ def submit_to_ebpf(sample_path: Path, sandbox_job_id: str, timeout: int) -> str:
 
 
 
-def get_ebpf_result(analysis_id: str) -> dict:
-    stderr_log = LOG_DIR / f"{analysis_id}.err.log"
-    stdout_log = LOG_DIR / f"{analysis_id}.out.log"
-    tmp_path = None
-    try:
-        env = os.environ.copy()
-        env["SANDBOX_JOB_ID"] = analysis_id
+def get_ebpf_result(sandbox_job_id: str) -> dict:
+    out_dir = LOG_DIR / sandbox_job_id
+    out_dir.mkdir(parents=True, exist_ok=True)
+    stderr_log = out_dir / "err2.log"
+    report_path = LOG_DIR / sandbox_job_id / "report.json"
 
-        # get ip
-        out = subprocess.check_output(
-            ["virsh", "domifaddr", VM_NAME],
-            text=True
-        )
-        ip = None
-        for line in out.splitlines():
-            if "ipv4" in line:
-                ip = line.split()[3].split("/")[0]
-        if not ip:
-            raise RuntimeError("VM IP not found")
-
-        # create tmp file
-        tmp = tempfile.NamedTemporaryFile(
-            prefix=f"ebpf_{analysis_id}_",
-            suffix=".log",
-            delete=False
-        )
-        tmp_path = Path(tmp.name)
-        tmp.close()
-
-        # get file via scp
-        cmd = [
-            "scp",
-            "-i", str(SSH_KEY_PATH),
-            "-o", "StrictHostKeyChecking=no",
-            "-o", "UserKnownHostsFile=/dev/null",
-            f"{VM_USER}@{ip}:/tmp/ebpf.log",
-            str(tmp_path),
-        ]
-        subprocess.run(
-            cmd,
-            check=True,
-            stdout=stdout_log.open("ab"),
-            stderr=stderr_log.open("ab"),
-            text=True,
-        )
-
-    except Exception as e:
-        tb = traceback.format_exc()
-        msg = f"[WARN] Failed to get log result : {e}\n\n{tb}\n"
-        SANDBOX_JOBS[analysis_id]["status"] = "fatal_error"
+    process = SANDBOX_JOBS[sandbox_job_id]["process"]
+    if not process and (not report_path.exists() or report_path.stat().st_size == 0):
+        SANDBOX_JOBS[sandbox_job_id]["status"] = "fatal_error"
+        msg = f"[WARN] No analysis process registered\n"
+        SANDBOX_JOBS[sandbox_job_id]["status"] = "fatal_error"
         with stderr_log.open("ab") as f:
             f.write(msg.encode())
-        raise HTTPException(500, f"Failed to get log result : {e}")
+        raise HTTPException(500, f"no analysis process registered for job {sandbox_job_id}")
+
+    if process:
+        if process.poll() is None:
+            return {
+                "state": "running",
+                "raw": ""
+            }
+        elif process.returncode != 0:
+            SANDBOX_JOBS[sandbox_job_id]["status"] = "fatal_error"
+            msg = f"[WARN] analysis process for job {sandbox_job_id} returned error code {process.returncode}"
+            with stderr_log.open("ab") as f:
+                f.write(msg.encode())
+            raise HTTPException(500, f"analysis process for job {sandbox_job_id} returned error code {process.returncode}")
 
 
-    report = None
     try:
-        report = build_report(tmp_path)
+        if not report_path.exists():
+            raise FileNotFoundError(f"{report_path} does not exist")
+        if report_path.stat().st_size == 0:
+            raise ValueError(f"{report_path} is empty")
+
+        with report_path.open("r") as f:
+            report = json.load(f)
+        return {
+            "state": "finished",
+            "raw": report
+        }
     except Exception as e:
         tb = traceback.format_exc()
-        msg = f"[WARN] Failed to build report : {e}\n\n{tb}\n"
-        SANDBOX_JOBS[analysis_id]["status"] = "fatal_error"
+        msg = f"[WARN] Failed to get report : {e}\n\n{tb}\n"
+        SANDBOX_JOBS[sandbox_job_id]["status"] = "fatal_error"
         with stderr_log.open("ab") as f:
             f.write(msg.encode())
-        raise HTTPException(500, f"Failed to build report : {e}")
+        raise HTTPException(500, f"Failed to get report : {e}")
 
-    return {
-        "state": "finished",
-        "raw": report
-    }
+
+
 
 
 

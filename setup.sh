@@ -38,8 +38,11 @@ echo "Lancement du service sandbox controller..."
 if ! command -v python3 >/dev/null 2>&1; then
   sudo apt update && sudo apt install -y python3 python3-pip
 fi
-pip install -r services/sandbox-controller/packer/requirements.txt
-uvicorn main:app --app-dir services/sandbox-controller/packer --host 0.0.0.0 --port 7070 --log-level warning --no-access-log &
+
+python3 -m venv venv
+source venv/bin/activate
+pip install -r services/sandbox-controller/ebpf/requirements.txt
+uvicorn main:app --app-dir services/sandbox-controller/ebpf --host 0.0.0.0 --port 7070 --log-level warning --no-access-log &
 
 
 # attendre que les services soient dispo

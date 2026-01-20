@@ -1,3 +1,4 @@
 redis
 requests
 fastapi
+json

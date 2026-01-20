@@ -2,8 +2,4 @@ fastapi
 uvicorn[standard]
 pydantic
 requests
-datetime
-typing
-pathlib
-uuid
 python-multipart

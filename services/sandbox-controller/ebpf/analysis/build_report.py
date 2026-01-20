@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json
 from pathlib import Path
+import sys
 
 def build_report(log_file: Path):
     score = 0
@@ -22,11 +23,10 @@ def build_report(log_file: Path):
         "/lib/",
         "/proc/self",
         "/proc/sys",
-        "/tmp/sample.sh"
     )
 
-    def is_whitelisted(path):
-        return any(path.startswith(w) for w in SYSTEM_WHITELIST)
+    def is_whitelisted(file_path):
+        return any(file_path.startswith(w) for w in SYSTEM_WHITELIST)
 
     with log_file.open() as f:
         for line in f:
@@ -150,3 +150,10 @@ def build_report(log_file: Path):
 
     print(json.dumps(report, indent=2))
     return report
+
+if len(sys.argv) != 2:
+    raise ValueError("Usage: build_report.py <log_file>")
+log_path = Path(sys.argv[1]).resolve()
+if not log_path.is_file():
+    raise FileNotFoundError(log_path)
+build_report(log_path)

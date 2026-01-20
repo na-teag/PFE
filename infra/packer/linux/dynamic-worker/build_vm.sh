@@ -9,7 +9,6 @@ VM_NAME="${1:-sandbox-ebpf}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PACKER_DIR="$SCRIPT_DIR"
 PACKER_IMAGE="$PACKER_DIR/ebpf_sandbox/packer-ebpf_sandbox.qcow2"
-
 USERDATA_TEMPLATE="user-data"
 
 LIBVIRT_IMG_DIR="/var/lib/libvirt/images"
@@ -20,7 +19,7 @@ VCPUS=2
 OS_VARIANT="ubuntu22.04"
 NETWORK="default"
 
-SSH_DIR="$HOME/.ssh/sandbox_key"
+SSH_DIR="$HOME/.ssh/kvm"
 SSH_KEY="$SSH_DIR/id_ed25519"
 
 ########################
@@ -45,6 +44,7 @@ for cmd in virt-install virsh ssh-keygen; do
   command -v "$cmd" >/dev/null || { echo "[-] $cmd not installed"; exit 1; }
 done
 
+cd -- "$(dirname -- "$0")"
 [[ -f "$USERDATA_TEMPLATE" ]] || { echo "[-] user-data not found"; exit 1; }
 
 ########################
@@ -54,8 +54,8 @@ echo "[+] Running packer init"
 cd "$PACKER_DIR"
 packer init .
 
-rm -f ~/.ssh/packer_ed25519 ~/.ssh/packer_ed25519.pub
-ssh-keygen -t ed25519 -f ~/.ssh/packer_ed25519 -N "" -C ""
+#rm -f ~/.ssh/packer_ed25519 ~/.ssh/packer_ed25519.pub
+#ssh-keygen -t ed25519 -f ~/.ssh/packer_ed25519 -N "" -C ""
 
 echo "[+] Running packer build"
 packer build -force .
@@ -75,19 +75,19 @@ fi
 # INSTALL IMAGE
 ########################
 echo "[+] Installing qcow2 image"
-sudo cp "$PACKER_IMAGE" "$LIBVIRT_IMAGE"
+sudo mv "$PACKER_IMAGE" "$LIBVIRT_IMAGE"
 sudo chown libvirt-qemu:libvirt-qemu "$LIBVIRT_IMAGE"
 sudo chmod 660 "$LIBVIRT_IMAGE"
 
 ########################
 # SSH KEY GENERATION
 ########################
-echo "[+] Generating SSH key"
-rm -rf "$SSH_DIR"
-mkdir -p "$SSH_DIR"
-rm -f "$SSH_KEY" "$SSH_KEY.pub"
+#echo "[+] Generating SSH key"
+#rm -rf "$SSH_DIR"
+#mkdir -p "$SSH_DIR"
+#rm -f "$SSH_KEY" "$SSH_KEY.pub"
 
-ssh-keygen -t ed25519 -f "$SSH_KEY" -N "" -C ""
+#ssh-keygen -t ed25519 -f "$SSH_KEY" -N "" -C ""
 
 ########################
 # PREPARE USER-DATA

@@ -12,8 +12,7 @@ sudo apt install -y \
   libvirt-clients \
   virtinst \
   virt-manager \
-  openssh-client \
-  awk cut
+  openssh-client
 sudo systemctl enable --now libvirtd
 
 if ! groups | grep -q "libvirt"; then
