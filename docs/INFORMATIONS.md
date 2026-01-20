@@ -56,26 +56,26 @@ Appliquer la configuration avec kubectl : ```bash kubectl apply -k k3s/```
 ### Contrôle des VMs
 
 
-Démarrer une VM : ```bash virsh start k3s-master```
+Démarrer une VM : ```bash virsh start k3s```
 
-Se connecter à la console : ```bash virsh console k3s-master```
+Se connecter à la console : ```bash virsh console k3s```
 
-Vérifier l'état des VMs : ```bash virsh list --all``` et ```bashvirsh dominfo k3s-master```
+Vérifier l'état des VMs : ```bash virsh list --all``` et ```bashvirsh dominfo k3s```
 
-Arrêter une VM : ```bash virsh shutdown k3s-master```
+Arrêter une VM : ```bash virsh shutdown k3s```
 
-Redémarrer une VM : ```bash virsh reboot k3s-master```
+Redémarrer une VM : ```bash virsh reboot k3s```
 
-Forcer l'arrêt : ```bash virsh destroy k3s-master```
+Forcer l'arrêt : ```bash virsh destroy k3s```
 
-Afficher les disques attachés : ```bash virsh domblklist k3s-master```
+Afficher les disques attachés : ```bash virsh domblklist k3s```
 
 
-Faire un snapshot : ```bash virsh snapshot-create-as k3s-master snapshot1 "snapshot avant test"```
+Faire un snapshot : ```bash virsh snapshot-create-as k3s snapshot1 "snapshot avant test"```
 
-Restaurer un snapshot : ```bash virsh snapshot-revert k3s-master snapshot1```
+Restaurer un snapshot : ```bash virsh snapshot-revert k3s snapshot1```
 
-Supprimer un snapshot : ```bash virsh snapshot-delete k3s-master snapshot1```
+Supprimer un snapshot : ```bash virsh snapshot-delete k3s snapshot1```
 
 ### Cloud-init
 
@@ -93,7 +93,7 @@ Depuis la machine hôte, la commande suivante permet d’obtenir automatiquement
 - l’identifiant administrateur
 - le mot de passe initial
 ```bash
-ssh k3s@192.168.122.2 'echo "service ArgoCD : https://$(hostname -I | awk "{print \$1}"):$(kubectl get svc argocd-server -n argocd -o jsonpath="{.spec.ports[?(@.port==443)].nodePort}")"; echo "id : admin"; echo "pwd : $(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)"'
+ssh -i ~/.ssh/kvm/id_ed25519 k3s@192.168.122.2 'echo "service ArgoCD : https://$(hostname -I | awk "{print \$1}"):$(kubectl get svc argocd-server -n argocd -o jsonpath="{.spec.ports[?(@.port==443)].nodePort}")"; echo "id : admin"; echo "pwd : $(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)"'
 ```
 
 ## Packer Images
@@ -152,14 +152,17 @@ kubectl get pods -n malware-analysis
 kubectl get svc -n malware-analysis
 ```
 
-### Mettre à jour la clé VirusTotal
+### Mettre à jour les clé VirusTotal et Cuckoo
 
 ```bash
-ssh k3s@192.168.122.2 "kubectl patch secret vt-credentials -n malware-analysis \
-  --type='merge' \
-  -p='{\"stringData\":{\"VIRUSTOTAL_API_KEY\":\"replace_by_key\"}}' \
-  && kubectl delete pod -n malware-analysis -l app=worker-static \
-  && echo ok"
+VT_KEY=abcdefghijklm
+CUCKOO_API_KEY=nopqrstwxyz
+ssh -i ~/.ssh/kvm/id_ed25519 k3s@192.168.122.2 "VT_KEY='$VT_KEY' CUCKOO_KEY='$CUCKOO_API_KEY' bash -c '
+kubectl patch secret vt-credentials -n malware-analysis --type=merge -p \"{\\\"stringData\\\":{\\\"VIRUSTOTAL_API_KEY\\\":\\\"\$VT_KEY\\\",\\\"CUCKOO_API_KEY\\\":\\\"\$CUCKOO_KEY\\\"}}\"
+kubectl delete pod -n malware-analysis -l app=worker-static
+kubectl delete pod -n malware-analysis -l app=sandbox-controller
+echo ok
+'"
 ```
 
 ## Cuckoo3
