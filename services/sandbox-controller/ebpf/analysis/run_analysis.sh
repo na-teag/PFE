@@ -75,6 +75,7 @@ wait_for_vm_ip() {
     local elapsed=0
     local ip=""
 
+    echo "[+] Waiting for VM to start..."
     while (( elapsed < timeout )); do
         ip=$(virsh domifaddr "$VM" 2>/dev/null | awk '/ipv4/ {print $4}' | cut -d/ -f1)
         if [[ -n "$ip" ]]; then
@@ -93,9 +94,26 @@ VM_IP=$(virsh domifaddr "$VM_NAME" | awk '/ipv4/ {print $4}' | cut -d/ -f1)
 echo "[+] VM IP: $VM_IP"
 echo "[+] Output dir: $OUT_DIR"
 
+wait_for_ssh() {
+    local ip="$1"
+    local timeout=120
+    local elapsed=0
+
+    while (( elapsed < timeout )); do
+        if nc -z "$ip" 22 2>/dev/null; then
+            return 0
+        fi
+        sleep 2
+        elapsed=$(( elapsed + 2 ))
+    done
+    return 1
+}
+
 #######################
 # COPY COLLECTOR
 #######################
+echo "[+] Waiting for ssh..."
+wait_for_ssh $VM_IP
 echo "[+] Copying collector to VM"
 ssh $SSH_OPTS "$VM_USER@$VM_IP" "sudo mkdir -p /opt/ebpf && sudo chown analyst:analyst /opt/ebpf"
 scp $SSH_OPTS "$PROJECT_DIR/ebpf_collector.bt" "$VM_USER@$VM_IP:$REMOTE_COLLECTOR"
