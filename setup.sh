@@ -10,7 +10,6 @@ chmod +x infra/cuckoo3/install.sh
 chmod +x infra/packer/linux/dynamic-worker/build_vm.sh
 chmod +x script/*
 chmod +x services/sandbox-controller/ebpf/analysis/run_analysis.sh
-chmod +x services/sandbox-controller/ebpf/analysis/sample.sh
 
 # Vérifier qu'il y a suffisament de place
 ./script/check_storage.sh $VM_K3S $VM_EBPF
