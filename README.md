@@ -49,7 +49,7 @@ Pré-requis :
 - Le projet a été conçu pour utiliser terraform, mais suite à beaucoup de difficultés (erreur de provider en tout genre, documentation incomplète, erreur de création de réseau, VM non bootable, pas d'accès console, ...), Terraform a été abandonné au profit de commandes virt-install.
 - Le projet prévoyait initialement d'utiliser [Drakvuf](https://drakvuf.com/) en tant que sandbox, mais suite à des difficultés d'installation/utilisation due à la contrainte de ne pas pouvoir utiliser [Xen](https://xenproject.org/), nous avons choisi d'utiliser Cuckoo3 et une VM configurée manuellement pour les analyses sur Linux.
 - Le projet actuel ne permet pas de traiter plusieurs analyses simultanément, bien qu'un système de queue soit en place.
-- Les analyses se font seulement sur Windows 10 (car cuckoo3 ne prends pas encore en charge windows 11) ou sur Ubuntu 22.04 (facile à changer dans le fichier [install-vm-k3s.sh](/script/install-vm-k3s.sh), l.79. Les arguments `os-variant` dans le même fichier l.91 et dans [build_vm.sh](/infra/packer/linux/dynamic-worker/build_vm.sh) l.19 seraient aussi à changer).
+- Les analyses se font seulement sur Windows 10 (car cuckoo3 ne prend pas encore en charge windows 11) ou sur Ubuntu 22.04 (facile à changer dans le fichier [install-vm-k3s.sh](/script/install-vm-k3s.sh), l.79. Les arguments `os-variant` dans le même fichier l.91 et dans [build_vm.sh](/infra/packer/linux/dynamic-worker/build_vm.sh) l.19 seraient aussi à changer).
 
 ### Accès à l’interface
 
