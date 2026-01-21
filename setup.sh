@@ -6,10 +6,10 @@ VM_K3S="k3s.qcow2"
 VM_EBPF="sandbox-ebpf"
 
 # Ajouter les droits d'éxecution pour tout les scripts
-chmod +x infra/cuckoo3/install.sh
-chmod +x infra/packer/linux/dynamic-worker/build_vm.sh
-chmod +x script/*
-chmod +x services/sandbox-controller/ebpf/analysis/run_analysis.sh
+sudochmod +x infra/cuckoo3/install.sh
+sudo chmod +x infra/packer/linux/dynamic-worker/build_vm.sh
+sudo chmod +x script/*
+sudo chmod +x services/sandbox-controller/ebpf/analysis/run_analysis.sh
 
 # Vérifier qu'il y a suffisament de place
 ./script/check_storage.sh $VM_K3S $VM_EBPF
