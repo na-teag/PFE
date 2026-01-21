@@ -30,7 +30,7 @@ spec:
     spec:
       containers:
         - name: api
-          image: dockerhubmalware/malware-api:v11.2.1
+          image: dockerhubmalware/malware-api:v11.2.2
           imagePullPolicy: Always
           # Injection de toutes les variables d'environnement depuis le secret
           envFrom:
