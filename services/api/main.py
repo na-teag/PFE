@@ -686,10 +686,8 @@ def download_report_pdf(job_id: str):
     if files:
         elements.append(Paragraph("Files Accessed", styles["SubsectionTitle"]))
         elements.append(Spacer(1, 12))
-        if hasattr(f, 'get'):
-            elements.append(Paragraph(f"- {f.get('path', 'unknown')} ({f.get('operation', 'unknown')})", styles["Normal"]))
-        else:
-            elements.append(Paragraph(f"- {str(f)}", styles["Normal"]))
+        for f in files:
+            elements.append(Paragraph(f"- {f}", styles["Normal"]))
         elements.append(Spacer(1, 16))
     
     # eBPF Executions
@@ -699,9 +697,19 @@ def download_report_pdf(job_id: str):
         elements.append(Spacer(1, 12))
         for exe in executions:
             if isinstance(exe, dict):
-                elements.append(Paragraph(f"- {exe.get('command', 'unknown')}", styles["Normal"]))
+                binary = exe.get('binary', 'unknown')
+                arg1 = exe.get('arg1', '')
+                arg2 = exe.get('arg2', '')
+                cmd_parts = [binary]
+                if arg1:
+                    cmd_parts.append(arg1)
+                if arg2:
+                    cmd_parts.append(arg2)
+            
+                command = ' '.join(cmd_parts)
+                elements.append(Paragraph(f"- {command}", styles["Normal"]))
             else:
-                elements.append(Paragraph(f"- {exe}", styles["Normal"]))
+                elements.append(Paragraph(f"- {str(exe)}", styles["Normal"]))
         elements.append(Spacer(1, 16))
 
     # ===== COMMON SECTIONS (Both engines) =====
