@@ -165,6 +165,20 @@ echo ok
 '"
 ```
 
+### Désinstaller tout
+
+```bash
+command=$(ps -aux | grep uvicorn | grep services/sandbox-controller/ebpf)
+[[ -n "$command" ]] && kill -9 $(echo "$command" | awk '{print $2}')
+virsh destroy k3s
+virsh destroy sandbox-ebpf
+virsh undefine k3s
+virsh undefine sandbox-ebpf
+virsh vol-delete k3s.qcow2 --pool default
+virsh vol-delete sandbox-ebpf.qcow2 --pool default
+```
+Pour désinstaller Cuckoo, faites les commandes ci-dessous :
+
 ## Cuckoo3
 
 ### Supprimer les fichiers Cuckoo3 :
