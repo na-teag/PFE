@@ -1,4 +1,5 @@
 #!/bin/bash
+set -uo pipefail
 
 #####################
 ##### Variables #####
@@ -224,6 +225,7 @@ create_user() {
 
     if id "$username" &>/dev/null; then
         echo "User $username already exists."
+        mkdir -p /home/$username && chown -R $username:$username /home/$username
     else
         sudo useradd -m -s /bin/bash "$username"
         echo "$username:$password" | chpasswd
@@ -560,8 +562,8 @@ sudo systemctl start cuckoo.service
 
 generate_section_header "Creating helper scripts under $(pwd)"
 
-touch ~/script/helper_script.sh && chmod u+x ~/script/helper_script.sh
-cat <<EOT > ~/script/helper_script.sh
+touch "$(pwd)/script/helper_script.sh" && chmod u+x "$(pwd)/script/helper_script.sh"
+cat <<EOT > "$(pwd)/script/helper_script.sh"
 echo -e "\n### Bringing up network bridge ###"
 sudo /home/$username/vmcloak/bin/vmcloak-qemubridge br0 192.168.30.1/24
 echo -e "\n### Mounting ISO ###"
