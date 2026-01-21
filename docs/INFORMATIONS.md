@@ -192,7 +192,7 @@ sudo rm -rf /home/cuckoo/
 sudo gpasswd -d www-data cuckoo
 sudo deluser cuckoo
 sudo delgroup cuckoo
-sudo rm /opt/cuckoo3/.installed
+sudo rm -rf /opt/cuckoo3/
 ```
 
 ### Service web

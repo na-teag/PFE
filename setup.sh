@@ -6,7 +6,7 @@ VM_K3S="k3s.qcow2"
 VM_EBPF="sandbox-ebpf"
 
 # Ajouter les droits d'éxecution pour tout les scripts
-sudochmod +x infra/cuckoo3/install.sh
+sudo chmod +x infra/cuckoo3/install.sh
 sudo chmod +x infra/packer/linux/dynamic-worker/build_vm.sh
 sudo chmod +x script/*
 sudo chmod +x services/sandbox-controller/ebpf/analysis/run_analysis.sh
@@ -100,4 +100,9 @@ if ! command -v firefox >/dev/null 2>&1; then
   sudo apt update && sudo apt install -y firefox
 fi
 firefox --new-tab "$URL" &
+
+# restart services to reload config
+sudo systemctl restart cuckoo-api
+sudo systemctl restart cuckoo
+
 echo "setup terminé."

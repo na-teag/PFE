@@ -137,7 +137,7 @@ chmod 666 "\$NODE_DIR/node_info.json"
 
 # Patch cuckoo.yaml with node config
 if ! grep -q "info_dump_path" ~/.cuckoocwd/conf/cuckoo.yaml; then
-    echo -e "\\n  node:\\n    info_dump_path: \$NODE_DIR/node_info.json" >> ~/.cuckoocwd/conf/cuckoo.yaml
+    echo -e "\\nnode:\\n  info_dump_path: \$NODE_DIR/node_info.json" >> ~/.cuckoocwd/conf/cuckoo.yaml
     echo "Added node config to cuckoo.yaml"
 else
     echo "Node config already exists"
@@ -153,6 +153,7 @@ download_images_for() {
 echo -e "\n### Downloading images ###"
 cd /home/$username/vmcloak
 source venv/bin/activate
+read TEST
 [ ! -s /home/$username/win10x64.iso ] && vmcloak isodownload --win10x64 --download-to /home/$username/win10x64.iso
 
 EOF
