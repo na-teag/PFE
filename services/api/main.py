@@ -650,7 +650,7 @@ def download_report_pdf(job_id: str):
             rows = [["ID", "Name", "Tactics"]] + [[t.get("id", ""), t.get("name", ""), ", ".join(t.get("tactics", []))] for t in ttps]
             t = Table(rows, colWidths=[80, 200, 150])
             t.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), TABLE_HEADER_GREY), ('GRID', (0,0), (-1,-1), 0.5, BORDER_GREY), ('ALIGN', (0,0), (-1,-1), 'LEFT')]))
-            elements.append(Paragraph("MITRE ATT&CK TTPs", styles["SectionTitle"]))
+            elements.append(Paragraph("MITRE ATTACK TTPs", styles["SectionTitle"]))
             elements.append(Spacer(1, 12))
             elements.append(t)
             elements.append(Spacer(1, 16))
