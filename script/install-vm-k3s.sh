@@ -90,7 +90,7 @@ virt-install \
   --cpu host \
   --os-variant ubuntu22.04 \
   --disk \
-    size=10,backing_store="/var/lib/libvirt/images/jammy-server-cloudimg-amd64.img",bus=virtio \
+    size=9,backing_store="/var/lib/libvirt/images/jammy-server-cloudimg-amd64.img",bus=virtio \
   --cloud-init \
     user-data="$TMP_USERDATA",network-config="$(pwd)/infra/terraform/network-config.yaml" \
   --network \

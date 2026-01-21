@@ -44,26 +44,13 @@ source venv/bin/activate
 pip install -r services/sandbox-controller/ebpf/requirements.txt
 uvicorn main:app --app-dir services/sandbox-controller/ebpf --host 0.0.0.0 --port 7070 --log-level warning --no-access-log &
 
-# prendre un snapshot de la VM linux
-echo -e "\n##############################\n### création d'un snapshot ###\n##############################"
+# éteindre la golden VM
 virsh shutdown "$VM_EBPF"
 while [ "$(virsh domstate "$VM_EBPF")" != "shut off" ]; do
     echo -e "\n\nAttente de l'arrêt de la VM..."
     sleep 1
 done
-# supprimer ancien snapshot
-if virsh snapshot-list "$VM_EBPF" | grep -q clean-install; then
-    echo -e "\n\nAncien snapshot trouvé, suppression en cours..."
-    virsh snapshot-delete "$VM_EBPF" clean-install
-fi
-virsh snapshot-create-as \
-  "$VM_EBPF" \
-  clean-install \
-  "Clean state after installation" \
-  --disk-only \
-  --atomic
-echo -e "\n\nNouveau snapshot enregistré"
-virsh start "$VM_EBPF"
+virsh autostart --disable "$VM_EBPF"
 
 
 

@@ -2,9 +2,20 @@
 set -euo pipefail
 
 ########################
+# CHECKS
+########################
+if [[ -z "${1:-}" || ! -f "$1" ]]; then
+  echo "Usage: $0 <sample.sh> [<job_id>]"
+  exit 1
+fi
+
+trap cleanup_vm EXIT INT TERM
+
+########################
 # CONFIGURATION
 ########################
-VM_NAME="sandbox-ebpf"
+GOLDEN_VM="sandbox-ebpf"
+VM_NAME="${GOLDEN_VM}_TMP"
 VM_USER="analyst"
 
 SSH_KEY="$HOME/.ssh/kvm/id_ed25519"
@@ -21,35 +32,63 @@ REMOTE_SAMPLE="/tmp/$(basename "$SAMPLE")"
 REMOTE_LOG="/tmp/ebpf.log"
 REMOTE_COLLECTOR="/opt/ebpf/ebpf_collector.bt"
 
-########################
-# CHECKS
-########################
-if [[ -z "${SAMPLE:-}" || ! -f "$SAMPLE" ]]; then
-  echo "Usage: $0 <sample.sh> [<job_id>]"
-  exit 1
-fi
-
 mkdir -p "$OUT_DIR"
 
 ########################
-# REVERT SNAPSHOT
+# REVERT VM
 ########################
-virsh shutdown "$VM_NAME"
-while [ "$(virsh domstate "$VM_NAME")" != "shut off" ]; do
+cleanup_vm() {
+    if virsh dominfo "$VM_NAME" &>/dev/null; then
+        if [[ "$(virsh domstate "$VM_NAME")" != "shut off" ]]; then
+            virsh destroy "$VM_NAME"
+        fi
+        virsh undefine "$VM_NAME" --remove-all-storage
+    fi
+}
+
+if virsh dominfo "$VM_NAME" &>/dev/null; then
+    echo "[WARN] VM $VM_NAME still exists, destroying..."
+    cleanup_vm
+fi
+
+if [[ "$(virsh domstate "$GOLDEN_VM")" != "shut off" ]]; then
+    echo "[FATAL] Golden VM $GOLDEN_VM have been started, may be compromised"
+    exit 1
+fi
+
+virt-clone \
+  --original "$GOLDEN_VM" \
+  --name "$VM_NAME" \
+  --auto-clone
+virsh start "$VM_NAME"
+while [ "$(virsh domstate "$VM_NAME")" != "running" ]; do
     sleep 1
 done
-virsh snapshot-revert "$VM_NAME" clean-install # in case the last analysis failed before the final revert to clean installation
-virsh start "$VM_NAME"
+
 
 ########################
 # GET VM IP
 ########################
-VM_IP=$(virsh domifaddr "$VM_NAME" | awk '/ipv4/ {print $4}' | cut -d/ -f1)
+wait_for_vm_ip() {
+    local VM="$1"
+    local timeout=120
+    local elapsed=0
+    local ip=""
 
-if [[ -z "$VM_IP" ]]; then
-  echo "[-] Unable to get VM IP"
-  exit 1
-fi
+    while (( elapsed < timeout )); do
+        ip=$(virsh domifaddr "$VM" 2>/dev/null | awk '/ipv4/ {print $4}' | cut -d/ -f1)
+        if [[ -n "$ip" ]]; then
+            return 0
+        fi
+        sleep 2
+        elapsed=$(( elapsed + 2 ))
+    done
+    echo "[ERROR] Timeout waiting for IP for VM $VM" >&2
+    return 1
+}
+wait_for_vm_ip $VM_NAME
+
+VM_IP=$(virsh domifaddr "$VM_NAME" | awk '/ipv4/ {print $4}' | cut -d/ -f1)
 
 echo "[+] VM IP: $VM_IP"
 echo "[+] Output dir: $OUT_DIR"
@@ -90,16 +129,7 @@ scp $SSH_OPTS "$VM_USER@$VM_IP:$REMOTE_LOG" "$OUT_DIR/ebpf.log"
 echo "[+] Running analysis"
 python3 "$PROJECT_DIR/build_report.py" "$OUT_DIR/ebpf.log" > "$OUT_DIR/report.json"
 
-########################
-# REVERT SNAPSHOT
-########################
-virsh shutdown "$VM_NAME"
-while [ "$(virsh domstate "$VM_NAME")" != "shut off" ]; do
-    sleep 1
-done
 
-virsh snapshot-revert "$VM_NAME" clean-install
-virsh start "$VM_NAME"
 
 ########################
 # DONE
@@ -107,3 +137,5 @@ virsh start "$VM_NAME"
 echo "[+] Analysis complete"
 echo "[+] Logs     : $OUT_DIR/ebpf.log"
 echo "[+] Report   : $OUT_DIR/report.json"
+
+# trap will delete $VM_NAME
