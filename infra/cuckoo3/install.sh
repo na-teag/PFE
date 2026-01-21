@@ -385,6 +385,9 @@ sudo mkdir -p $cuckoo_web_static_root
 sudo chown -R $username:$username $cuckoo_web_static_root
 sudo adduser www-data "$username"
 run_as_cuckoo "$username" "$(configure_cuckoo_for "$username")"
+sudo mkdir -p "/home/$username/.cuckoocwd/operational"
+sudo touch "/home/$username/.cuckoocwd/operational/node_info.json"
+sudo chown $username:$username "/home/$username/.cuckoocwd/operational/node_info.json"
 
 sudo rm /etc/nginx/sites-enabled/cuckoo-web.conf 2&>/dev/null
 sudo rm /etc/nginx/sites-enabled/default 2&>/dev/null
