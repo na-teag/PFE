@@ -14,7 +14,7 @@ PACKER="${2}.qcow2"
 
 K3S_PATH="/var/lib/libvirt/images/$K3S"
 PACKER_PATH="/var/lib/libvirt/images/$PACKER"
-CUCKOO_FLAG="/opt/cuckoo3/.installed1"
+CUCKOO_FLAG="/opt/cuckoo3/.installed"
 
 
 REQ_VAR=0
@@ -26,7 +26,7 @@ WARNING="0"
 [[ ! -f "$PACKER_PATH" ]] && REQ_VAR=$((REQ_VAR + 10))
 
 # /home requirements
-[[ ! -f "$CUCKOO_FLAG" ]] && REQ_HOME=200
+[[ ! -f "$CUCKOO_FLAG" ]] && REQ_HOME=20
 
 # filesystem
 FS_VAR=$(df --output=source "/var/lib" | tail -1)
