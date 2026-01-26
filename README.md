@@ -1,5 +1,9 @@
 # Projet d'analyse de malware
 
+## Notes
+
+La branche [creating-sandbox-controller-packer](https://github.com/na-teag/projet-analyse-malware/tree/creating-sandbox-controller-packer) est plus avancée que main
+
 ## Présentation
 
 Ce projet est une plateforme distribuée d’analyse de malwares reposant sur Kubernetes.
