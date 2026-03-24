@@ -81,7 +81,9 @@ sequenceDiagram
 
 ```
 
+## Threat modeling diagram 
 
+<img width="799" height="796" alt="image" src="https://github.com/user-attachments/assets/5220ace9-e904-4f33-8c97-3b7aba1291b2" />
 
 
 # Projet d'analyse de malware
