@@ -15,14 +15,16 @@ spec:
     spec:
       containers:
         - name: worker-dynamic
-          image: dockerhubmalware/malware-worker-dynamic:v1.0.6
+          image: dockerhubmalware/malware-worker-dynamic:v1.0.8
           # Injection de toutes les variables d'environnement depuis le secret
           envFrom:
             - secretRef:
                 name: vt-credentials
           env:
-            - name: SANDBOX_URL
+            - name: SANDBOX_CUCKOO_URL
               value: "http://sandbox-controller:9000"
+            - name: SANDBOX_EBPF_URL
+              value: "http://192.168.122.1:7070"
           volumeMounts:
             - name: results
               mountPath: /data/results

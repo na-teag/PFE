@@ -1,4 +1,5 @@
 #!/bin/bash
+set -uo pipefail
 
 #####################
 ##### Variables #####
@@ -136,7 +137,7 @@ chmod 666 "\$NODE_DIR/node_info.json"
 
 # Patch cuckoo.yaml with node config
 if ! grep -q "info_dump_path" ~/.cuckoocwd/conf/cuckoo.yaml; then
-    echo -e "\\n  node:\\n    info_dump_path: \$NODE_DIR/node_info.json" >> ~/.cuckoocwd/conf/cuckoo.yaml
+    echo -e "\\nnode:\\n  info_dump_path: \$NODE_DIR/node_info.json" >> ~/.cuckoocwd/conf/cuckoo.yaml
     echo "Added node config to cuckoo.yaml"
 else
     echo "Node config already exists"
@@ -152,6 +153,7 @@ download_images_for() {
 echo -e "\n### Downloading images ###"
 cd /home/$username/vmcloak
 source venv/bin/activate
+read TEST
 [ ! -s /home/$username/win10x64.iso ] && vmcloak isodownload --win10x64 --download-to /home/$username/win10x64.iso
 
 EOF
@@ -224,6 +226,7 @@ create_user() {
 
     if id "$username" &>/dev/null; then
         echo "User $username already exists."
+        mkdir -p /home/$username && chown -R $username:$username /home/$username
     else
         sudo useradd -m -s /bin/bash "$username"
         echo "$username:$password" | chpasswd
@@ -383,6 +386,9 @@ sudo mkdir -p $cuckoo_web_static_root
 sudo chown -R $username:$username $cuckoo_web_static_root
 sudo adduser www-data "$username"
 run_as_cuckoo "$username" "$(configure_cuckoo_for "$username")"
+sudo mkdir -p "/home/$username/.cuckoocwd/operational"
+sudo touch "/home/$username/.cuckoocwd/operational/node_info.json"
+sudo chown $username:$username "/home/$username/.cuckoocwd/operational/node_info.json"
 
 sudo rm /etc/nginx/sites-enabled/cuckoo-web.conf 2&>/dev/null
 sudo rm /etc/nginx/sites-enabled/default 2&>/dev/null
@@ -560,8 +566,8 @@ sudo systemctl start cuckoo.service
 
 generate_section_header "Creating helper scripts under $(pwd)"
 
-touch ~/script/helper_script.sh && chmod u+x ~/script/helper_script.sh
-cat <<EOT > ~/script/helper_script.sh
+touch "$(pwd)/script/helper_script.sh" && chmod u+x "$(pwd)/script/helper_script.sh"
+cat <<EOT > "$(pwd)/script/helper_script.sh"
 echo -e "\n### Bringing up network bridge ###"
 sudo /home/$username/vmcloak/bin/vmcloak-qemubridge br0 192.168.30.1/24
 echo -e "\n### Mounting ISO ###"

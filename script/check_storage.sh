@@ -37,24 +37,27 @@ FREE_HOME=$(df -BG --output=avail "/home" | tail -1 | tr -d 'G')
 if [[ "$FS_VAR" == "$FS_HOME" ]]; then
     TOTAL_REQ=$((REQ_VAR + REQ_HOME))
     if (( FREE_VAR < TOTAL_REQ )); then
-        echo "${ORANGE}Espace disque insuffisant : ${TOTAL_REQ}G nécessaires, ${FREE_VAR} disponibles${RESET}"
+        echo -e "${ORANGE}Espace disque insuffisant : ${TOTAL_REQ}G nécessaires, ${FREE_VAR} disponibles${RESET}"
         WARNING="1"
     fi
 else
     if (( FREE_VAR < REQ_VAR )); then
-        echo "${ORANGE}Espace disque insuffisant : /var/lib n'a pas assez d'espace, ${REQ_VAR}G nécessaires, ${FREE_VAR} disponibles${RESET}"
+        echo -e "${ORANGE}Espace disque insuffisant : /var/lib n'a pas assez d'espace, ${REQ_VAR}G nécessaires, ${FREE_VAR} disponibles${RESET}"
         WARNING="1"
     fi
 
     if (( FREE_HOME < REQ_HOME )); then
-        echo "${ORANGE}Espace disque insuffisant : /home n'a pas assez d'espace, ${REQ_HOME}G nécessaires, ${FREE_HOME} disponibles${RESET}"
+        echo -e "${ORANGE}Espace disque insuffisant : /home n'a pas assez d'espace, ${REQ_HOME}G nécessaires, ${FREE_HOME} disponibles${RESET}"
         WARNING="1"
     fi
 fi
 
-if [ $WARNING == "1" ]; then
+if [ $WARNING = "1" ]; then
     echo
     echo "Voulez vous continuer malgré tout ? (oui/non)"
     read -r ANSWER
-    [[ "$ANSWER" != "oui" ]] && exit 1
+    case "$ANSWER" in
+            oui|OUI|o|y|yes|YES|O|Y) ;;
+            *) exit 1 ;;
+    esac
 fi

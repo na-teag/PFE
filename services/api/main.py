@@ -650,7 +650,7 @@ def download_report_pdf(job_id: str):
             rows = [["ID", "Name", "Tactics"]] + [[t.get("id", ""), t.get("name", ""), ", ".join(t.get("tactics", []))] for t in ttps]
             t = Table(rows, colWidths=[80, 200, 150])
             t.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), TABLE_HEADER_GREY), ('GRID', (0,0), (-1,-1), 0.5, BORDER_GREY), ('ALIGN', (0,0), (-1,-1), 'LEFT')]))
-            elements.append(Paragraph("MITRE ATT&CK TTPs", styles["SectionTitle"]))
+            elements.append(Paragraph("MITRE ATTACK TTPs", styles["SectionTitle"]))
             elements.append(Spacer(1, 12))
             elements.append(t)
             elements.append(Spacer(1, 16))
@@ -687,7 +687,7 @@ def download_report_pdf(job_id: str):
         elements.append(Paragraph("Files Accessed", styles["SubsectionTitle"]))
         elements.append(Spacer(1, 12))
         for f in files:
-            elements.append(Paragraph(f"- {f.get('path', 'unknown')} ({f.get('operation', 'unknown')})", styles["Normal"]))
+            elements.append(Paragraph(f"- {f}", styles["Normal"]))
         elements.append(Spacer(1, 16))
     
     # eBPF Executions
@@ -696,7 +696,20 @@ def download_report_pdf(job_id: str):
         elements.append(Paragraph("Process Executions", styles["SubsectionTitle"]))
         elements.append(Spacer(1, 12))
         for exe in executions:
-            elements.append(Paragraph(f"- {exe.get('command', 'unknown')}", styles["Normal"]))
+            if isinstance(exe, dict):
+                binary = exe.get('binary', 'unknown')
+                arg1 = exe.get('arg1', '')
+                arg2 = exe.get('arg2', '')
+                cmd_parts = [binary]
+                if arg1:
+                    cmd_parts.append(arg1)
+                if arg2:
+                    cmd_parts.append(arg2)
+            
+                command = ' '.join(cmd_parts)
+                elements.append(Paragraph(f"- {command}", styles["Normal"]))
+            else:
+                elements.append(Paragraph(f"- {str(exe)}", styles["Normal"]))
         elements.append(Spacer(1, 16))
 
     # ===== COMMON SECTIONS (Both engines) =====

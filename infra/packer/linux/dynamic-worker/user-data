@@ -7,6 +7,8 @@ users:
     sudo: ALL=(ALL) NOPASSWD:ALL
     shell: /bin/bash
     lock_passwd: false
+    ssh_authorized_keys:
+      - __SSH_KEY__
 
 ssh_pwauth: true
 disable_root: false

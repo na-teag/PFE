@@ -28,9 +28,9 @@ Le script setup.sh :
 
 - installe les dépendances nécessaires (Terraform, Firefox si absent)
 
-- déploie une VM k3s via libvirt/virt-install
+- déploie une VM avec k3s et une VM avec ebpf via libvirt/virt-install
 
-- installe et configure Cuckoo Sandbox
+- installe et configure [Cuckoo3 Sandbox](https://github.com/cert-ee/cuckoo3)
 
 - déploie les services Kubernetes
 
@@ -50,13 +50,10 @@ Pré-requis :
 
 ### Limitations
 
-- Le projet a été conçu pour utiliser terraform, mais suite à beaucoup de difficultés (erreur de provider en tout genre, documentation incomplète, erreur de création de réseau, VM non bootable, ...), Terraform a été abandonné au profit de commandes virt-install.
+- Le projet a été conçu pour utiliser terraform, mais suite à beaucoup de difficultés (erreur de provider en tout genre, documentation incomplète, erreur de création de réseau, VM non bootable, pas d'accès console, ...), Terraform a été abandonné au profit de commandes virt-install.
+- Le projet prévoyait initialement d'utiliser [Drakvuf](https://drakvuf.com/) en tant que sandbox, mais suite à des difficultés d'installation/utilisation due à la contrainte de ne pas pouvoir utiliser [Xen](https://xenproject.org/), nous avons choisi d'utiliser Cuckoo3 et une VM configurée manuellement pour les analyses sur Linux.
 - Le projet actuel ne permet pas de traiter plusieurs analyses simultanément, bien qu'un système de queue soit en place.
-- Les analyses se font seulement sur Windows 10 ou sur Ubuntu 22.04.
-- L'analyse de la VM linux n'est pas relié à l'API, elle peut être lancé manuellement avec :
-  ```bash
-  cd services/sandbox-controller/packer/analysis/
-  ./run_analysis ./<sample à analyser>```
+- Les analyses se font seulement sur Windows 10 (car cuckoo3 ne prend pas encore en charge windows 11) ou sur Ubuntu 22.04 (facile à changer dans le fichier [install-vm-k3s.sh](/script/install-vm-k3s.sh), l.79. Les arguments `os-variant` dans le même fichier l.91 et dans [build_vm.sh](/infra/packer/linux/dynamic-worker/build_vm.sh) l.19 seraient aussi à changer).
 
 ### Accès à l’interface
 

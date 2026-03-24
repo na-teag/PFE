@@ -2,13 +2,12 @@
 *.terraform.lock*
 *.tfstate
 *.tfstate.backup
-.env
+*.env
 .idea/
 .vscode/
 *__pycache__/
-k3s/.env
-helper_script.sh
-cuckoo_api_key.txt
+*helper_script.sh
+*cuckoo_api_key.txt
 *output/
 *output2/
 *logs/
@@ -21,3 +20,5 @@ cuckoo_api_key.txt
 */packer_cache/
 *.packer.d/
 *.log
+*venv/*
+*.fuse_hidden*

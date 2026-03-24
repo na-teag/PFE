@@ -30,6 +30,7 @@ fi
 
 # vérifier que le réseau default existe bien, le créer si non
 if ! virsh net-info default &>/dev/null; then
+  echo -e "\n########################################\n### Installation du réseau 'default' ###\n########################################"
   cat > "$XML_PATH" <<'EOF'
 <network>
   <name>default</name>
@@ -66,6 +67,7 @@ if virsh vol-info --pool "$POOL" "$VOL_NAME" >/dev/null 2>&1; then
 fi
 
 # Générer une clé ssh
+echo -e "\n###############################################\n### création d'une clé SSH dans ~/.ssh/kvm/ ###\n###############################################"
 mkdir -p ~/.ssh/kvm/
 rm -f ~/.ssh/kvm/id_ed25519 ~/.ssh/kvm/id_ed25519.pub
 ssh-keygen -t ed25519 -f ~/.ssh/kvm/id_ed25519 -N "" -C ""
@@ -88,7 +90,7 @@ virt-install \
   --cpu host \
   --os-variant ubuntu22.04 \
   --disk \
-    size=10,backing_store="/var/lib/libvirt/images/jammy-server-cloudimg-amd64.img",bus=virtio \
+    size=9,backing_store="/var/lib/libvirt/images/jammy-server-cloudimg-amd64.img",bus=virtio \
   --cloud-init \
     user-data="$TMP_USERDATA",network-config="$(pwd)/infra/terraform/network-config.yaml" \
   --network \
