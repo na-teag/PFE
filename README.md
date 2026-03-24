@@ -1,3 +1,92 @@
+# PFE
+
+
+
+```mermaid
+flowchart TB
+    USER -->|1. Upload sample| BLOB[Azure Blob Storage]
+    BLOB -->|2. Event Grid| FUNC[Azure Function]
+
+        subgraph HOST[Linux Host]
+            CUCKOO[Cuckoo3]
+            WINVM[Windows Guest VM]
+        end
+        
+        subgraph LINVM[Linux VM]
+            QUARANTINE[Quarantine]
+            INETSIM[INetSim]
+        end
+    FUNC -->|3. Provision & Start Task| HOST
+    QUARANTINE -->|4. Pull Sample| BLOB
+    QUARANTINE -->|5. Send sample| CUCKOO
+    CUCKOO -->|6. Exec sample| WINVM
+    WINVM <-->|7. Network traffic| INETSIM
+    CUCKOO -->|8. Generate report| BLOB
+    HOST -->|9. Send logs| MONITOR[Azure Monitor]
+
+```
+
+
+## Sequence Diagram
+
+```mermaid
+%%{init: {'theme': 'light'}}%%
+sequenceDiagram
+    actor User
+    participant API
+    participant Redis
+    participant Static Worker
+    participant Sandbox Controller
+    participant KVM/Cuckoo
+
+    
+    rect rgb(240, 240, 245)
+        Note over User,KVM/Cuckoo: Phase 1 — Soumission
+        User->>API: POST /analyze (fichier)
+        API->>Redis: LPUSH job_queue_static + job_queue_sandbox
+        API-->>User: 202 Accepted + job_id
+    end
+
+    
+    rect rgb(235, 248, 242)
+        Note over User,KVM/Cuckoo: Phase 2 — Analyse statique (async)
+        Static Worker->>Redis: BRPOP job_queue_static
+        Static Worker->>Static Worker: Scan YARA + VirusTotal
+        alt success
+            Static Worker->>Redis: SET result:static:{id}
+        else échec scan
+            Static Worker->>Redis: SET result:static:{id} error
+        end
+    end
+
+    rect rgb(242, 238, 252)
+        Note over User,KVM/Cuckoo: Phase 3 — Analyse dynamique (async, parallèle)
+        Sandbox Controller->>Redis: BRPOP job_queue_sandbox
+        Sandbox Controller->>KVM/Cuckoo: Provisionner VM (Win/Linux)
+        KVM/Cuckoo->>KVM/Cuckoo: Exécution du malware
+        KVM/Cuckoo-->>Sandbox Controller: Logs
+        Sandbox Controller->>Redis: SET result:dynamic:{id}
+        Sandbox Controller->>KVM/Cuckoo: Destruction/Snapshot Revert VM
+    end
+
+    
+    rect rgb(255, 248, 220)
+        Note over User,KVM/Cuckoo: Phase 4 — Rapport final
+        User->>API: GET /report/{id}
+        API->>Redis: MGET result:static:{id} + result:dynamic:{id}
+        Redis-->>API: Données brutes JSON
+        API-->>User: Rapport agrégé (JSON/PDF)
+    end
+
+
+```
+
+README.md
+3 Ko
+
+
+
+
 # Projet d'analyse de malware
 
 ## Présentation
