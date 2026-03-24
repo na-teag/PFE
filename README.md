@@ -81,9 +81,6 @@ sequenceDiagram
 
 ```
 
-README.md
-3 Ko
-
 
 
 
