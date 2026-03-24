@@ -3,31 +3,31 @@ set -euo pipefail
 
 URL="http://192.168.122.2:8000/"
 VM_K3S="k3s.qcow2"
-VM_EBPF="sandbox-ebpf"
+#VM_EBPF="sandbox-ebpf"
 
 # Ajouter les droits d'éxecution pour tout les scripts
 sudo chmod +x infra/cuckoo3/install.sh
 sudo chmod +x infra/packer/linux/dynamic-worker/build_vm.sh
 sudo chmod +x script/*
-sudo chmod +x services/sandbox-controller/ebpf/analysis/run_analysis.sh
+#sudo chmod +x services/sandbox-controller/ebpf/analysis/run_analysis.sh
 
 # Vérifier qu'il y a suffisament de place
 ./script/check_storage.sh $VM_K3S $VM_EBPF
 
 # Installer terraform si absent
-if ! terraform --version >/dev/null 2>&1; then
-    echo -e "\n#################################\n### Installation de Terraform ###\n#################################"
-    wget -O - https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(grep -oP '(?<=UBUNTU_CODENAME=).*' /etc/os-release || lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
-    sudo apt update
-    sudo apt install terraform
-fi
+#if ! terraform --version >/dev/null 2>&1; then
+#    echo -e "\n#################################\n### Installation de Terraform ###\n#################################"
+#    wget -O - https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+#    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(grep -oP '(?<=UBUNTU_CODENAME=).*' /etc/os-release || lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+#    sudo apt update
+#    sudo apt install terraform
+#fi
 
 # Lancer terraform
-cd infra/terraform
-terraform init
+#cd infra/terraform
+#terraform init
 #terraform apply -auto-approve
-cd ../..
+#cd ../..
 
 # Installation de la vm k3s (si terraform ne fonctionne pas)
 ./script/install-vm-k3s.sh $VM_K3S # Temps d'installation (hors téléchargement) : 4-5mn
