@@ -16,6 +16,7 @@ RED='\e[31m'
 ORANGE='\e[33m'
 GREEN='\e[32m'
 NC='\e[0m'
+INETSIM_IP="192.168.30.200"
 
 #########################
 ##### Flight checks #####
@@ -142,6 +143,10 @@ if ! grep -q "info_dump_path" ~/.cuckoocwd/conf/cuckoo.yaml; then
 else
     echo "Node config already exists"
 fi
+echo -e "\n### Setting INetSim as default gateway###"
+sed -i 's/route: none/route: inetsim/' ~/.cuckoocwd/conf/routing.yaml
+sed -i 's/inetsim: 192.168.1.1/inetsim: $INETSIM_IP/' ~/.cuckoocwd/conf/routing.yaml
+
 EOF
 }
 
@@ -169,10 +174,18 @@ cd /home/$username/vmcloak
 source venv/bin/activate
 echo -e "\n### Creating qcow2 image ###"
 vmcloak --debug init --win10x64 --hddsize 128 --cpus 2 --ramsize 4096 --network 192.168.30.0/24 --vm qemu --vrde --vrde-port 1 --ip 192.168.30.2 --iso-mount /mnt/win10x64 win10base br0
-echo -e "\n### Installing software on VM ###"
-vmcloak --debug install win10base --recommended
+echo -e "\n### Installing Hardened Software & Anti-VM bypass ###"
+vmcloak --debug install win10base \
+    disable_uac \
+    disable_defender \
+    disable_updates \
+    human_activity \
+    office \
+    adobe_reader \
+    wallpaper \
+    chrome
 echo -e "\n### Generating snapshots ###"
-vmcloak --debug snapshot --count 3 win10base win10_ 192.168.30.10
+vmcloak --debug snapshot --count 3 win10base win10_ 192.168.30.11
 EOF
 }
 
@@ -568,12 +581,28 @@ generate_section_header "Creating helper scripts under $(pwd)"
 
 touch "$(pwd)/script/helper_script.sh" && chmod u+x "$(pwd)/script/helper_script.sh"
 cat <<EOT > "$(pwd)/script/helper_script.sh"
-echo -e "\n### Bringing up network bridge ###"
+#!/bin/bash
 sudo /home/$username/vmcloak/bin/vmcloak-qemubridge br0 192.168.30.1/24
-echo -e "\n### Mounting ISO ###"
-sudo mount -o loop,ro /home/$username/win10x64.iso /mnt/win10x64
-EOT
 
+echo -e "\n### Mounting ISO ###"
+sudo mkdir -p /mnt/win10x64
+sudo mount -o loop,ro /home/$username/win10x64.iso /mnt/win10x64
+
+sudo sysctl -w net.ipv4.ip_forward=1
+sudo iptables -F FORWARD
+sudo iptables -t nat -F PREROUTING
+
+# INTERCEPTION : Tout le trafic Web et DNS est envoyé vers INetSim
+sudo iptables -t nat -A PREROUTING -i br0 -p tcp --dport 80 -j DNAT --to-destination $INETSIM_IP:80
+sudo iptables -t nat -A PREROUTING -i br0 -p tcp --dport 443 -j DNAT --to-destination $INETSIM_IP:443
+sudo iptables -t nat -A PREROUTING -i br0 -p udp --dport 53 -j DNAT --to-destination $INETSIM_IP:53
+
+# ISOLATION : On interdit aux VMs de sortir du bridge vers Internet
+sudo iptables -A FORWARD -i br0 -o br0 -j ACCEPT
+sudo iptables -A FORWARD -i br0 -j REJECT
+
+echo -e "Configuration terminée. Les VMs sont isolées et redirigées vers $INETSIM_IP"
+EOT
 
 
 ######################
