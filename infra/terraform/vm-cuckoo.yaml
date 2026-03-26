@@ -1,0 +1,34 @@
+#cloud-config
+hostname: cuckoo
+ssh_pwauth: True
+keyboard:
+  layout: fr
+  variant: ""
+users:
+  - name: cuckoo
+    groups: sudo
+    shell: /bin/bash
+    passwd: "$6$8HnNkXiciaai5RDJ$6sEe5zHc.uMcs3S62tamFUWDPY/Foey/krrTxPqRsLf6.WgE9IY/bs0fd2wEiw39z4qWzcgTetNVBr3VRiq8n."
+    lock_passwd: false
+    ssh_authorized_keys:
+      - __SSH_KEY__
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - git
+  - python3.10
+  - python3.10-venv
+  - python3-pip
+  - python3.10-distutils
+  - qemu-system-x86
+  - qemu-utils
+  - tcpdump
+  - libvirt-daemon-system
+  - build-essential
+  - genisoimage
+  - nginx
+  - libjpeg-dev
+  - zlib1g-dev
+  - libpng-dev
