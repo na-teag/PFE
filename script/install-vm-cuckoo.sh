@@ -131,9 +131,9 @@ done
 echo "cloud-init terminé !"
 
 echo "Transfert du script d'installation de Cuckoo3..."
-scp -i "$USER_KEY" "$INSTALL_CUCKOO_SCRIPT" cuckoo@$IP_VM:/home/cuckoo/install_cuckoo.sh
+scp -i "$USER_KEY" "$INSTALL_CUCKOO_SCRIPT" cuckoo@$IP_VM:/home/cuckoo/install-cuckoo.sh
 
 echo "Lancement de l'installation sur la VM..."
-ssh -t -i "$USER_KEY" cuckoo@$IP_VM 'chmod +x ~/install_cuckoo.sh && sudo ~/install_cuckoo.sh'
+ssh -t -i "$USER_KEY" cuckoo@$IP_VM 'chmod +x ~/install-cuckoo.sh && sudo ~/install-cuckoo.sh'
 
 echo "Installation de Cuckoo3 terminée !"
