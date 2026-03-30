@@ -158,7 +158,6 @@ download_images_for() {
 echo -e "\n### Downloading images ###"
 cd /home/$username/vmcloak
 source venv/bin/activate
-read TEST
 [ ! -s /home/$username/win10x64.iso ] && vmcloak isodownload --win10x64 --download-to /home/$username/win10x64.iso
 
 EOF
@@ -579,6 +578,7 @@ sudo systemctl start cuckoo.service
 
 generate_section_header "Creating helper scripts under $(pwd)"
 
+mkdir -p /home/cuckoo/script
 touch "$(pwd)/script/helper_script.sh" && chmod u+x "$(pwd)/script/helper_script.sh"
 cat <<EOT > "$(pwd)/script/helper_script.sh"
 #!/bin/bash
