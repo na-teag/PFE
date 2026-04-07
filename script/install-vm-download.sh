@@ -87,12 +87,6 @@ users:
     ssh_authorized_keys:
       - __SSH_KEY__
 
-ssh_pwauth: true
-chpasswd:
-  list: |
-    analyst:infected
-  expire: false
-
 keyboard:
   layout: fr
   variant: azerty
