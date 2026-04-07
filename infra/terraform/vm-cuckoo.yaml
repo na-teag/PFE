@@ -32,3 +32,4 @@ packages:
   - libjpeg-dev
   - zlib1g-dev
   - libpng-dev
+  - iptables-persistent

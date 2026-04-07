@@ -7,7 +7,7 @@ set -euo pipefail
 VM_NAME="cuckoo"
 VOL_NAME="${1:-cuckoo.qcow2}"
 POOL="default"
-IP_VM="192.168.122.3"  # IP fixe si tu veux
+IP_VM="192.168.122.3"
 IMG="/var/lib/libvirt/images/jammy-server-cloudimg-amd64.img"
 
 USER_SSH_DIR="$HOME/.ssh/kvm"

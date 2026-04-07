@@ -584,3 +584,44 @@ EOT
 #run_as_cuckoo "$username" "$(run_cuckoo_for "$username")"
 
 # End of script
+
+# Apply network isolation on the Cuckoo VM
+echo "Applying network isolation..."
+
+# Reset
+iptables -F
+iptables -X
+
+# Default policy
+iptables -P INPUT DROP
+iptables -P OUTPUT DROP
+iptables -P FORWARD DROP
+
+# Allow loopback
+iptables -A INPUT -i lo -j ACCEPT
+iptables -A OUTPUT -o lo -j ACCEPT
+
+iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+# Allow SSH only from management network
+iptables -A INPUT -p tcp -s 192.168.122.0/24 --dport 22 -j ACCEPT
+
+# Allow libvirt network (virbr0)
+iptables -A INPUT -s 192.168.123.0/24 -j ACCEPT
+iptables -A OUTPUT -d 192.168.123.0/24 -j ACCEPT
+
+# Allow Cuckoo network
+iptables -A INPUT -s 192.168.30.0/24 -j ACCEPT
+iptables -A OUTPUT -d 192.168.30.0/24 -j ACCEPT
+
+# Block malware VMs from accessing external networks
+iptables -A FORWARD -s 192.168.30.0/24 -j DROP
+
+iptables -A INPUT -p tcp --dport 80 -j ACCEPT
+iptables -A INPUT -p tcp --dport 8080 -j ACCEPT
+
+# Persist rules
+sudo netfilter-persistent save
+
+echo "Network isolation applied"
