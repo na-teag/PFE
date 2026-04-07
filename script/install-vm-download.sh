@@ -114,7 +114,13 @@ runcmd:
   - sed -i "s/^#*dns_default_ip.*/dns_default_ip $STATIC_IP/" /etc/inetsim/inetsim.conf
   
   # Démarrage du service
+  - systemctl enable inetsim
   - systemctl restart inetsim
+
+  # Rediriger tout le DNS vers INetSim
+- iptables -t nat -A PREROUTING -p udp --dport 53 -j REDIRECT --to-port 53
+- iptables -t nat -A PREROUTING -p tcp --dport 53 -j REDIRECT --to-port 53
+  
 EOF
 
 # Remplacer le placeholder SSH_KEY par la vraie clé
