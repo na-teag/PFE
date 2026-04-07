@@ -327,6 +327,34 @@ echo -e "\n### Adding Cuckoo permission to tcpdump profile in apparmor ###"
 sudo sed -i 's|audit deny @{HOME}/.\*/\*\* mrwkl,|audit deny @{HOME}/.[^c]\*/\*\* mrwkl,\n  audit deny @{HOME}/.c[^u]\*/\*\* mrwkl,\n  audit deny @{HOME}/.cu[^c]\*/\*\* mrwkl,\n  audit deny @{HOME}/.cuc[^k]\*/\*\* mrwkl,\n  audit deny @{HOME}/.cuck[^o]\*/\*\* mrwkl,\n  audit deny @{HOME}/.cucko[^o]\*/\*\* mrwkl,\n  audit deny @{HOME}/.cuckoo[^c]\*/\*\* mrwkl,\n  audit deny @{HOME}/.cuckooc[^w]\*/\*\* mrwkl,\n  audit deny @{HOME}/.cuckoocw[^d]\*/\*\* mrwkl,\n  audit deny @{HOME}/.cuckoocwd?\*/\*\* mrwkl,|g' /etc/apparmor.d/usr.bin.tcpdump
 sudo apparmor_parser -r /etc/apparmor.d/usr.bin.tcpdump
 
+#############################
+##### Setup persistent br0 ##
+#############################
+
+echo -e "\n### Creating persistent bridge br0 ###"
+
+NETPLAN_FILE="/etc/netplan/02-br0.yaml"
+
+sudo tee $NETPLAN_FILE > /dev/null <<EOF
+network:
+  version: 2
+  renderer: networkd
+  bridges:
+    br0:
+      interfaces: []
+      addresses: [192.168.30.1/24]
+      dhcp4: no
+      parameters:
+        stp: false
+        forward-delay: 0
+EOF
+
+sudo chmod 600 $NETPLAN_FILE
+sudo chown root:root $NETPLAN_FILE
+
+sudo netplan apply
+echo "Bridge br0 created and persisted via Netplan"
+
 ######################
 ##### Create VMs #####
 ######################
