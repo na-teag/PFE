@@ -153,7 +153,6 @@ download_images_for() {
 echo -e "\n### Downloading images ###"
 cd /home/$username/vmcloak
 source venv/bin/activate
-read TEST
 [ ! -s /home/$username/win10x64.iso ] && vmcloak isodownload --win10x64 --download-to /home/$username/win10x64.iso
 
 EOF
@@ -327,6 +326,34 @@ sudo setcap cap_net_raw,cap_net_admin=eip /usr/bin/tcpdump
 echo -e "\n### Adding Cuckoo permission to tcpdump profile in apparmor ###"
 sudo sed -i 's|audit deny @{HOME}/.\*/\*\* mrwkl,|audit deny @{HOME}/.[^c]\*/\*\* mrwkl,\n  audit deny @{HOME}/.c[^u]\*/\*\* mrwkl,\n  audit deny @{HOME}/.cu[^c]\*/\*\* mrwkl,\n  audit deny @{HOME}/.cuc[^k]\*/\*\* mrwkl,\n  audit deny @{HOME}/.cuck[^o]\*/\*\* mrwkl,\n  audit deny @{HOME}/.cucko[^o]\*/\*\* mrwkl,\n  audit deny @{HOME}/.cuckoo[^c]\*/\*\* mrwkl,\n  audit deny @{HOME}/.cuckooc[^w]\*/\*\* mrwkl,\n  audit deny @{HOME}/.cuckoocw[^d]\*/\*\* mrwkl,\n  audit deny @{HOME}/.cuckoocwd?\*/\*\* mrwkl,|g' /etc/apparmor.d/usr.bin.tcpdump
 sudo apparmor_parser -r /etc/apparmor.d/usr.bin.tcpdump
+
+#############################
+##### Setup persistent br0 ##
+#############################
+
+echo -e "\n### Creating persistent bridge br0 ###"
+
+NETPLAN_FILE="/etc/netplan/02-br0.yaml"
+
+sudo tee $NETPLAN_FILE > /dev/null <<EOF
+network:
+  version: 2
+  renderer: networkd
+  bridges:
+    br0:
+      interfaces: []
+      addresses: [192.168.30.1/24]
+      dhcp4: no
+      parameters:
+        stp: false
+        forward-delay: 0
+EOF
+
+sudo chmod 600 $NETPLAN_FILE
+sudo chown root:root $NETPLAN_FILE
+
+sudo netplan apply
+echo "Bridge br0 created and persisted via Netplan"
 
 ######################
 ##### Create VMs #####
@@ -566,6 +593,7 @@ sudo systemctl start cuckoo.service
 
 generate_section_header "Creating helper scripts under $(pwd)"
 
+mkdir -p /home/cuckoo/script
 touch "$(pwd)/script/helper_script.sh" && chmod u+x "$(pwd)/script/helper_script.sh"
 cat <<EOT > "$(pwd)/script/helper_script.sh"
 echo -e "\n### Bringing up network bridge ###"
@@ -584,3 +612,44 @@ EOT
 #run_as_cuckoo "$username" "$(run_cuckoo_for "$username")"
 
 # End of script
+
+# Apply network isolation on the Cuckoo VM
+echo "Applying network isolation..."
+
+# Reset
+iptables -F
+iptables -X
+
+# Default policy
+iptables -P INPUT DROP
+iptables -P OUTPUT DROP
+iptables -P FORWARD DROP
+
+# Allow loopback
+iptables -A INPUT -i lo -j ACCEPT
+iptables -A OUTPUT -o lo -j ACCEPT
+
+iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+# Allow SSH only from management network
+iptables -A INPUT -p tcp -s 192.168.122.0/24 --dport 22 -j ACCEPT
+
+# Allow libvirt network (virbr0)
+iptables -A INPUT -s 192.168.123.0/24 -j ACCEPT
+iptables -A OUTPUT -d 192.168.123.0/24 -j ACCEPT
+
+# Allow Cuckoo network
+iptables -A INPUT -s 192.168.30.0/24 -j ACCEPT
+iptables -A OUTPUT -d 192.168.30.0/24 -j ACCEPT
+
+# Block malware VMs from accessing external networks
+iptables -A FORWARD -s 192.168.30.0/24 -j DROP
+
+iptables -A INPUT -p tcp --dport 80 -j ACCEPT
+iptables -A INPUT -p tcp --dport 8080 -j ACCEPT
+
+# Persist rules
+sudo netfilter-persistent save
+
+echo "Network isolation applied"
