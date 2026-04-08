@@ -129,7 +129,7 @@ echo -e "\n### Migration de la base de données ###"
 cuckoomigrate database all
 
 echo -e "\\n### Correction du chemin node info dump ###"
-NODE_DIR="~/.cuckoocwd/operational"
+NODE_DIR="\$HOME/.cuckoocwd/operational"
 mkdir -p "\$NODE_DIR"
 touch "\$NODE_DIR/node_info.json"
 chmod 666 "\$NODE_DIR/node_info.json"
@@ -270,7 +270,7 @@ generate_section_header "Installation des dépendances système"
     DEBIAN_FRONTEND=noninteractive apt-get update
     DEBIAN_FRONTEND=noninteractive apt-get install -yq build-essential \
         software-properties-common \
-    git \
+        git \
         unzip \
         libhyperscan5 libhyperscan-dev \
         libjpeg8-dev zlib1g-dev p7zip-full rar unace-nonfree cabextract \
@@ -279,7 +279,8 @@ generate_section_header "Installation des dépendances système"
         libssl-dev libcapstone-dev \
         genisoimage qemu-system-common qemu-utils qemu-system-x86 \
         uwsgi uwsgi-plugin-python3 \
-        nginx
+        nginx \
+        iptables-persistent
 
 ###################################################
 ##### Installation de la version Python supportée #####
