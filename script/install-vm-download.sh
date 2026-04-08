@@ -108,18 +108,22 @@ runcmd:
   - echo 'XKBVARIANT=azerty' >> /etc/default/keyboard
   - setupcon -k --force || true
   - localectl set-keymap fr || true
+
+  - echo "127.0.0.1 inetsim" >> /etc/hosts
+
+  - systemctl stop systemd-resolved
+  - systemctl disable systemd-resolved
+  - systemctl mask systemd-resolved
+  - rm -f /etc/resolv.conf
+  - echo "nameserver 192.168.122.15" > /etc/resolv.conf
   
   # Configuration INetSim
   - sed -i 's/^#*service_bind_address.*/service_bind_address 0.0.0.0/' /etc/inetsim/inetsim.conf
-  - sed -i "s/^#*dns_default_ip.*/dns_default_ip $STATIC_IP/" /etc/inetsim/inetsim.conf
-  
-  # Démarrage du service
-  - systemctl enable inetsim
-  - systemctl restart inetsim
+  - sed -i "s/^#*dns_default_ip.*/dns_default_ip 192.168.122.15\nstart_dns_service 1/" /etc/inetsim/inetsim.conf
 
-  # Rediriger tout le DNS vers INetSim
-- iptables -t nat -A PREROUTING -p udp --dport 53 -j REDIRECT --to-port 53
-- iptables -t nat -A PREROUTING -p tcp --dport 53 -j REDIRECT --to-port 53
+  - systemctl enable inetsim
+  - systemctl start inetsim
+  - systemctl restart inetsim
   
 EOF
 
@@ -140,6 +144,25 @@ ethernets:
       addresses: [8.8.8.8]
 EOF
 
+cat > /tmp/cloudinit/download/meta-data <<EOF
+instance-id: iid-local01
+local-hostname: download
+EOF
+
+mkdir -p /tmp/cloudinit/download
+cp "$TMP_USERDATA" /tmp/cloudinit/download/user-data
+cp "$TMP_NETCONFIG" /tmp/cloudinit/download/network-config
+
+
+xorriso -as genisoimage \
+  -output /tmp/cloudinit/download/cloudinit.iso \
+  -volid cidata \
+  -joliet -rock \
+  /tmp/cloudinit/download/user-data \
+  /tmp/cloudinit/download/network-config \
+  /tmp/cloudinit/download/meta-data
+
+
 echo -e "\n#############################\n### Installation de la VM ###\n#############################"
 
 virt-install \
@@ -150,12 +173,18 @@ virt-install \
   --cpu host \
   --os-variant ubuntu22.04 \
   --disk size=10,backing_store="/var/lib/libvirt/images/$IMAGE_NAME",bus=virtio \
-  --import \
+  --disk path=/tmp/cloudinit/download/cloudinit.iso,device=cdrom \
   --cloud-init user-data="$TMP_USERDATA",network-config="$TMP_NETCONFIG" \
   --network network=default,model=virtio \
-  --noautoconsole
+  --noautoconsole \
+  --features smm.state=on \
+  --boot uefi,loader.secure=yes
 
 echo "VM $VM_NAME installée avec succès."
+
+echo "Démarrage de la VM..."
+sleep 5
+virsh start "$VM_NAME"
 
 echo "Attente de la VM pour SSH..."
 until ssh -o StrictHostKeyChecking=no -i ~/.ssh/kvm/id_ed25519 download@$STATIC_IP 'echo SSH OK' &>/dev/null; do
@@ -171,3 +200,5 @@ until ssh -o StrictHostKeyChecking=no -i ~/.ssh/kvm/id_ed25519 download@$STATIC_
     sleep 5
 done
 echo "cloud-init terminé !"
+echo "Pour accéder à la VM :"
+echo "ssh -o StrictHostKeyChecking=no -i ~/.ssh/kvm/id_ed25519 download@$STATIC_IP"
