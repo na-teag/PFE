@@ -33,10 +33,10 @@ sudo chmod +x script/*
 ./script/install-vm-k3s.sh $VM_K3S # Temps d'installation (hors téléchargement) : 4-5mn
 
 # Installation de la vm linux
-./infra/packer/linux/dynamic-worker/build_vm.sh $VM_EBPF
+#./infra/packer/linux/dynamic-worker/build_vm.sh $VM_EBPF
 
 # Installation et mise en route de Cuckoo3 et service WEB/API
-./script/install_cuckoo.sh
+./script/install-vm-cuckoo.sh
 
 
 # lancer le service sandbox controller
@@ -51,12 +51,12 @@ pip install -r services/sandbox-controller/ebpf/requirements.txt
 uvicorn main:app --app-dir services/sandbox-controller/ebpf --host 0.0.0.0 --port 7070 --log-level warning --no-access-log &
 
 # éteindre la golden VM
-virsh shutdown "$VM_EBPF"
-while [ "$(virsh domstate "$VM_EBPF")" != "shut off" ]; do
-    echo -e "\n\nAttente de l'arrêt de la VM..."
-    sleep 1
-done
-virsh autostart --disable "$VM_EBPF"
+#virsh shutdown "$VM_EBPF"
+#while [ "$(virsh domstate "$VM_EBPF")" != "shut off" ]; do
+#    echo -e "\n\nAttente de l'arrêt de la VM..."
+#    sleep 1
+#done
+#virsh autostart --disable "$VM_EBPF"
 
 
 
@@ -100,9 +100,5 @@ if ! command -v firefox >/dev/null 2>&1; then
   sudo apt update && sudo apt install -y firefox
 fi
 firefox --new-tab "$URL" &
-
-# restart services to reload config
-sudo systemctl restart cuckoo-api
-sudo systemctl restart cuckoo
 
 echo "setup terminé."

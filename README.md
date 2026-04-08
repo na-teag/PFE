@@ -103,8 +103,8 @@ Elle permet de soumettre un fichier, d’effectuer une analyse statique et dynam
 
 ### Installation et déploiement automatisé du projet :
 ```bash
-git clone https://github.com/na-teag/projet-analyse-malware.git
-cd projet-analyse-malware
+git clone https://github.com/na-teag/PFE.git
+cd PFE
 ./setup.sh
 ```
 
