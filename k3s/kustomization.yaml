@@ -11,6 +11,7 @@ resources:
   - worker-static-deployment.yaml
   - worker-dynamic-deployment.yaml
   - sandbox-controller-deployment.yaml
+  - api-ingress.yaml
 
 #secretGenerator:
 #  - name: vt-credentials
