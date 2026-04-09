@@ -83,8 +83,4 @@ if ! command -v firefox >/dev/null 2>&1; then
 fi
 firefox --new-tab "$URL" &
 
-# restart services to reload config
-sudo systemctl restart cuckoo-api
-sudo systemctl restart cuckoo
-
 echo "setup terminé."

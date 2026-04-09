@@ -16,7 +16,7 @@ USER_KEY_PUB="$USER_KEY.pub"
 
 INSTALL_CUCKOO_SCRIPT="$(pwd)/infra/cuckoo3/install.sh"
 
-USERDATA_TEMPLATE="$(pwd)/infra/terraform/vm-cuckoo.yaml"
+USERDATA_TEMPLATE="$(pwd)/infra/cuckoo3/vm-cuckoo.yaml"
 USERDATA_FILE="/tmp/cuckoo3-user-data.yaml"
 
 ########################################
@@ -103,7 +103,7 @@ virt-install \
   --cpu host \
   --os-variant ubuntu22.04 \
   --disk size=40,backing_store="$IMG",pool="$POOL" \
-  --cloud-init user-data="$USERDATA_FILE",network-config="$(pwd)/infra/terraform/cuckoo-network-config.yaml" \
+  --cloud-init user-data="$USERDATA_FILE",network-config="$(pwd)/infra/cuckoo3/cuckoo-network-config.yaml" \
   --network network=default,model=virtio \
   --noautoconsole
 
