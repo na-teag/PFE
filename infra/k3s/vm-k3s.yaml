@@ -1,0 +1,20 @@
+#cloud-config
+hostname: k3s
+ssh_pwauth: True
+disable_root: true
+packages:
+  - curl
+  - sudo
+  - git
+keyboard:
+  layout: fr
+  variant: ""
+users:
+  - name: k3s
+    groups: sudo
+    shell: /bin/bash
+    passwd: "$6$8HnNkXiciaai5RDJ$6sEe5zHc.uMcs3S62tamFUWDPY/Foey/krrTxPqRsLf6.WgE9IY/bs0fd2wEiw39z4qWzcgTetNVBr3VRiq8n."
+    lock_passwd: false
+    ssh_authorized_keys:
+      - __SSH_KEY__
+
