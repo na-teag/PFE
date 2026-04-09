@@ -40,27 +40,49 @@ sed -i 's|CLASS="--class gnu-linux --class gnu --class os"|CLASS="--class gnu-li
 echo -e "/etc/grub.d/10_linux modifié.\n"
 
 
-# TODO default ou pas default ? i.e. concerne aussi le recovery mode ou pas ?
-#/etc/default/grub
-#GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"
-#iommu=force
-#l1tf=full,force
-#page_poison=on
-#pti=on
-#slab_nomerge=yes
-#slub_debug=FZP
-#spec_store_bypass_disable=seccomp
-#spectre_v2=on
-#mds=full,nosmt
-#mce=0
-#page_alloc.shuffle=1
-#rng_core.default_quality=500
-#security=yama
-#ipv6.disable =1
+
+
+# Options à ajouter dans GRUB_CMDLINE_LINUX_DEFAULT dans /etc/default/grub
+OPTS=(
+  "iommu=force"
+  "l1tf=full,force"
+  "page_poison=on"
+  "pti=on"
+  "slab_nomerge=yes"
+  "slub_debug=FZP"
+  "spec_store_bypass_disable=seccomp"
+  "spectre_v2=on"
+  "mds=full,nosmt"
+  "mce=0"
+  "page_alloc.shuffle=1"
+  "rng_core.default_quality=500"
+  "security=yama"
+  "ipv6.disable=1"
+)
+FILE="/etc/default/grub"
+# Backup
+cp "$FILE" "${FILE}.bak"
+CURRENT=$(grep '^GRUB_CMDLINE_LINUX_DEFAULT=' "$FILE" | cut -d'"' -f2)
+# ajouter les nouveaux et enlever les doublons
+for opt in "${OPTS[@]}"; do
+  if ! echo "$CURRENT" | grep -qw "$opt"; then
+    CURRENT="$CURRENT $opt"
+  fi
+done
+# enlever espaces
+CURRENT=$(echo "$CURRENT" | xargs)
+# remplacer
+if grep -q '^GRUB_CMDLINE_LINUX_DEFAULT=' "$FILE"; then
+  sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT=\"$CURRENT\"|" "$FILE"
+else
+  # ajouter
+  echo "GRUB_CMDLINE_LINUX_DEFAULT=\"$CURRENT\"" >> "$FILE"
+fi
 
 
 
-/etc/sysctl.d/99-PFE-kernel-hardening.conf
+
+
 cat > "/etc/sysctl.d/99-PFE-kernel-hardening.conf" <<'EOF'
 # Restreint l'accès au buffer dmesg (équivalent à
 # CONFIG_SECURITY_DMESG_RESTRICT=y)
@@ -191,6 +213,29 @@ fs.protected_symlinks =1
 # conserver des accès à des fichiers obsolètes
 fs.protected_hardinks =1
 EOF
+
+
+
+
+cat > "/etc/profile.d/auto-logout.sh" <<'EOF'
+TMOUT=600
+readonly TMOUT
+export TMOUT
+EOF
+
+
+if grep -qE "^[#]*\s*ClientAliveInterval\b" /etc/ssh/sshd_config; then
+  sed -i -E "s|^[#]*\s*ClientAliveInterval\b.*|ClientAliveInterval 300|" /etc/ssh/sshd_config
+else
+  echo "ClientAliveInterval 300" >> /etc/ssh/sshd_config
+fi
+
+if grep -qE "^[#]*\s*ClientAliveCountMax\b" /etc/ssh/sshd_config; then
+  sed -i -E "s|^[#]*\s*ClientAliveCountMax\b.*|ClientAliveCountMax 0|" /etc/ssh/sshd_config
+else
+  echo "ClientAliveCountMax 0" >> /etc/ssh/sshd_config
+fi
+
 
 
 

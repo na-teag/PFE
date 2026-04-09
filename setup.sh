@@ -14,26 +14,8 @@ sudo chmod +x script/*
 # Vérifier qu'il y a suffisament de place
 ./script/check_storage.sh $VM_K3S $VM_EBPF
 
-# Installer terraform si absent
-#if ! terraform --version >/dev/null 2>&1; then
-#    echo -e "\n#################################\n### Installation de Terraform ###\n#################################"
-#    wget -O - https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
-#    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(grep -oP '(?<=UBUNTU_CODENAME=).*' /etc/os-release || lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
-#    sudo apt update
-#    sudo apt install terraform
-#fi
-
-# Lancer terraform
-#cd infra/terraform
-#terraform init
-#terraform apply -auto-approve
-#cd ../..
-
 # Installation de la vm k3s (si terraform ne fonctionne pas)
 ./script/install-vm-k3s.sh $VM_K3S # Temps d'installation (hors téléchargement) : 4-5mn
-
-# Installation de la vm linux
-#./infra/packer/linux/dynamic-worker/build_vm.sh $VM_EBPF
 
 # Installation et mise en route de Cuckoo3 et service WEB/API
 ./script/install-vm-cuckoo.sh
