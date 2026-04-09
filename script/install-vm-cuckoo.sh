@@ -137,3 +137,10 @@ echo "Lancement de l'installation sur la VM..."
 ssh -t -i "$USER_KEY" cuckoo@$IP_VM 'chmod +x ~/install_cuckoo.sh && sudo ~/install_cuckoo.sh'
 
 echo "Installation de Cuckoo3 terminée !"
+
+# Copier la clé de l'api Cuckoo
+ssh -i $USER_KEY cuckoo@$IP_VM "cat /home/cuckoo/cuckoo_api_key.txt" > $(pwd)/cuckoo_api_key.txt
+chmod 600 $(pwd)/cuckoo_api_key.txt
+
+#Supprimer la clé de l'api Cuckoo de la VM
+ssh -i "$USER_KEY" cuckoo@$IP_VM "shred -u /home/cuckoo/cuckoo_api_key.txt"

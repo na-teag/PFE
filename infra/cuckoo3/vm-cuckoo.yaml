@@ -17,6 +17,7 @@ package_update: true
 package_upgrade: true
 
 packages:
+  - curl
   - git
   - python3.10
   - python3.10-venv
