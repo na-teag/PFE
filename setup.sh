@@ -7,7 +7,7 @@ NAMESPACE="malware-analysis"
 SSH_KEY="$HOME/.ssh/kvm/id_ed25519"
 SSH_TARGET="k3s@${IP}"
 CERT_DIR="./certs"
-URL="http://192.168.122.2:8000/"
+URL="https://192.168.122.2/"
 #VM_EBPF="sandbox-ebpf"
 
 # Ajouter les droits d'éxecution pour tout les scripts
@@ -51,7 +51,7 @@ echo -e "\n\n"
 echo "Merci de patienter jusqu'au démarrage complet des services sur la VM..."
 echo
 while true; do
-    STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL" || echo "000")
+    STATUS=$(curl -sk -o /dev/null -w "%{http_code}" "$URL" || echo "000")
     if [[ "$STATUS" == "200" ]]; then
         echo "Services disponibles."
         break
@@ -135,6 +135,6 @@ sudo update-ca-certificates
 if ! command -v firefox >/dev/null 2>&1; then
   sudo apt update && sudo apt install -y firefox
 fi
-firefox --new-tab "https://${IP}/" &
+firefox --new-tab "$URL" &
 
 echo "setup terminé."
