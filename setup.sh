@@ -1,8 +1,13 @@
 #!/bin/bash
 set -euo pipefail
 
-URL="http://192.168.122.2:8000/"
 VM_K3S="k3s.qcow2"
+IP="192.168.122.2"
+NAMESPACE="malware-analysis"
+SSH_KEY="$HOME/.ssh/kvm/id_ed25519"
+SSH_TARGET="k3s@${IP}"
+CERT_DIR="./certs"
+URL="http://192.168.122.2:8000/"
 #VM_EBPF="sandbox-ebpf"
 
 # Ajouter les droits d'éxecution pour tout les scripts
@@ -18,8 +23,7 @@ sudo chmod +x script/*
 ./script/install-vm-k3s.sh $VM_K3S # Temps d'installation (hors téléchargement) : 4-5mn
 
 # Installation et mise en route de Cuckoo3 et service WEB/API
-./script/install-vm-cuckoo.sh
-
+#./script/install-vm-cuckoo.sh
 
 # lancer le service sandbox controller
 echo "Lancement du service sandbox controller..."
@@ -73,14 +77,64 @@ kubectl delete pod -n malware-analysis -l app=sandbox-controller
 echo ok
 '"
 
+########################################
+# Création du certificat TLS si nécessaire
+########################################
+mkdir -p "$CERT_DIR"
+echo "=== Génération du certificat TLS ==="
+if [[ ! -f "$CERT_DIR/tls.crt" || ! -f "$CERT_DIR/tls.key" ]]; then
+    openssl req -x509 -nodes \
+    -newkey rsa:4096 \
+    -keyout "${CERT_DIR}/tls.key" \
+    -out    "${CERT_DIR}/tls.crt" \
+    -days   365 \
+    -subj   "/CN=${IP}/O=MalwareAnalysis" \
+    -addext "subjectAltName=IP:${IP}"
+fi
+
+# 2. Pousser le Secret TLS sur K3s
+echo "=== Déploiement du Secret TLS ==="
+scp -i "$SSH_KEY" "${CERT_DIR}/tls.crt" "${CERT_DIR}/tls.key" "${SSH_TARGET}:/tmp/"
+ssh -i "$SSH_KEY" "$SSH_TARGET" "
+  kubectl create secret tls api-tls \
+    --cert=/tmp/tls.crt \
+    --key=/tmp/tls.key \
+    -n ${NAMESPACE} \
+    --dry-run=client -o yaml | kubectl apply -f - && \
+  rm -f /tmp/tls.crt /tmp/tls.key
+"
+
+
+echo "=== Configuration de Traefik sur le port 443 ==="
+ssh -i "$SSH_KEY" "$SSH_TARGET" '
+  TRAEFIK_SVC=$(kubectl get svc -n kube-system -l app.kubernetes.io/name=traefik -o name | head -1)
+  kubectl patch "$TRAEFIK_SVC" -n kube-system --type=merge -p '"'"'{
+    "spec": {
+      "type": "LoadBalancer",
+      "ports": [
+        {"name": "web", "port": 80, "targetPort": "web", "protocol": "TCP"},
+        {"name": "websecure", "port": 443, "targetPort": "websecure", "protocol": "TCP"}
+      ]
+    }
+  }'"'"'
+  echo "Traefik sur port 443"
+  '
+
+ssh -i ~/.ssh/kvm/id_ed25519 k3s@192.168.122.2 \
+  "kubectl patch svc argocd-server -n argocd --type=merge -p '{\"spec\":{\"type\":\"NodePort\"}}'"
+
 # Afficher les informations de connexion à argocd
 echo -e "\n\n"
 ssh k3s@192.168.122.2 -i ~/.ssh/kvm/id_ed25519 'echo "service ArgoCD : https://$(hostname -I | awk "{print \$1}"):$(kubectl get svc argocd-server -n argocd -o jsonpath="{.spec.ports[?(@.port==443)].nodePort}")"; echo "id : admin"; echo "pwd : $(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)"'
+
+# Faire confiance au certificat localement
+sudo cp "${CERT_DIR}/tls.crt" /usr/local/share/ca-certificates/malware-analysis.crt 
+sudo update-ca-certificates
 
 # afficher l'interface graphique du projet sur firefox
 if ! command -v firefox >/dev/null 2>&1; then
   sudo apt update && sudo apt install -y firefox
 fi
-firefox --new-tab "$URL" &
+firefox --new-tab "https://${IP}/" &
 
 echo "setup terminé."
