@@ -222,51 +222,51 @@ Vérifier l'API
 kubectl get svc -n malware-analysis api
 
 # Vérifier son statut
-curl http://<API-IP>:8000/health
+curl -k https://192.168.122.2/health
 ```
 
 Envoi d'un fichier à analyser
 ```bash
-curl -X POST http://<API_IP>:8000/api/submit \
+curl -k -X POST https://192.168.122.2/api/submit \
   -F "file=@sample.exe" \
   -F "sandbox_os=windows"
 ```
 
 Vérifier le retour des résultats d'un job précis en format JSON
 ```bash
-curl http://<API_IP>:8000/api/result/<job_id>
+curl -k https://192.168.122.2/api/result/<job_id>
 
 # Télécharger le fichier d'analyse en JSON
-curl -O -J http://<API_IP>:8000/api/result/<job_id>/download
+curl -k -O -J https://192.168.122.2/api/result/<job_id>/download
 ```
 
 Obtenir le rapport d'un job précis en format JSON
 ```bash
-curl http://<API_IP>:8000/api/report/<job_id>
+curl -k https://192.168.122.2/api/report/<job_id>
 
 # Télécharger le rapport d'analyse en JSON
-curl -O -J http://<API_IP>:8000/api/report/<job_id>/download
+curl -k -O -J https://192.168.122.2/api/report/<job_id>/download
 ```
 
 À noter que le rapport correspond à une synthèse des résultats statiques et dynamiques, tandis que le résultat brut contient l’ensemble des données collectées.
 
 Télécharger le rapport d'un job précis en format pdf
 ```bash
-curl -O -J http://<API_IP>:8000/api/report/<job_id>/pdf
+curl -k -O -J https://192.168.122.2/api/report/<job_id>/pdf
 ```
 
 Vérifier la liste de toutes les analyses (jobs) avec leurs statuts
 ```bash
-curl http://<API_IP>:8000/api/jobs
+curl -k https://192.168.122.2/api/jobs
 ```
 
 Supprimer complètement le job
 ```bash
-curl -X DELETE http://<API_IP>:8000/api/jobs/<job_id>
+curl -k -X DELETE https://192.168.122.2/api/jobs/<job_id>
 ```
 
-Pour toutes les commandes précédentes, il est également possible de voir les résultats directement sur l'interface web de l'API depuis cette url : http://<API_IP>:8000/.
-Pour voir la documentation Swagger, il faut la consulter à cette url : http://<API_IP>:8000/docs.
+Pour toutes les commandes précédentes, il est également possible de voir les résultats directement sur l'interface web de l'API depuis cette url : https://192.168.122.2/.
+Pour voir la documentation Swagger, il faut la consulter à cette url : https://192.168.122.2/docs.
 
 
 ### Vérification et gestion de Redis

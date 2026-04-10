@@ -143,9 +143,9 @@ Pré-requis :
 
 Par défaut, les services sont exposés via la VM k3s connectée au réseau libvirt via l'interface vribr0.
 
-- Interface web API : http://192.168.122.2:8000/
+- Interface web API : https://192.168.122.2/
 
-- Documentation Swagger : http://192.168.122.2:8000/docs
+- Documentation Swagger : https://192.168.122.2/docs
 
 L’interface web permet de soumettre des fichiers, de suivre les analyses et de consulter les rapports directement depuis le navigateur.
 La VM k3s utilise l'adresse IP statique 192.168.122.2 configurée via cloud-init. 
