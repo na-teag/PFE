@@ -1,283 +1,518 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
-    <meta charset="UTF-8" />
-    <title>Malware Analysis Platform</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: #f4f6f8;
-            margin: 0;
-            padding: 20px;
-        }
-        h1 {
-            color: #2F5597;
-        }
-        section {
-            background: #fff;
-            padding: 16px;
-            margin-bottom: 20px;
-            border-radius: 6px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-        }
-        button {
-            background: #2F5597;
-            color: white;
-            border: none;
-            padding: 8px 12px;
-            cursor: pointer;
-            border-radius: 4px;
-        }
-        button.danger {
-            background: #c0392b;
-        }
-        button.secondary {
-            background: #555;
-        }
-        input[type="file"], input[type="text"] {
-            margin: 8px 0;
-        }
-        pre {
-            background: #0f172a;
-            color: #e5e7eb;
-            padding: 12px;
-            overflow-x: auto;
-            border-radius: 6px;
-            font-size: 13px;
-            line-height: 1.4;
-        }
-        .json-key { color: #60a5fa; }
-        .json-string { color: #34d399; }
-        .json-number { color: #fbbf24; }
-        .json-boolean { color: #f472b6; }
-        .json-null { color: #9ca3af; }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        th, td {
-            border-bottom: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-        }
-        th {
-            background: #E9EFF7;
-        }
-        .actions button {
-            margin-right: 6px;
-        }
-        .badge {
-            padding: 3px 8px;
-            border-radius: 12px;
-            font-size: 12px;
-            color: white;
-            background: #374151;
-        }
-        .badge.queued { background: #6b7280; }
-        .badge.completed { background: #16a34a; }
-        .badge.failed { background: #dc2626; }
-        .selected {
-            background-color: #a5b4fc;
-        }
-        .error {
-            color: #e91f08;
-        }
-    </style>
+<meta charset="UTF-8" />
+<title>Malware Analysis Platform</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body { font-family: Arial, sans-serif; background: #eef2f7; color: #1e293b; min-height: 100vh; }
+
+header {
+  background: #2F5597;
+  padding: 14px 24px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+header .title { font-size: 17px; font-weight: 600; color: #ffffff; letter-spacing: 0.01em; }
+.health-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.3); display: inline-block; transition: background 0.3s; }
+.health-dot.ok { background: #4ade80; }
+.health-dot.err { background: #f87171; }
+.health-label { font-size: 12px; color: rgba(255,255,255,0.75); display: flex; align-items: center; gap: 6px; }
+
+.layout { display: grid; grid-template-columns: 380px 1fr; gap: 0; height: calc(100vh - 53px); }
+
+.sidebar { background: #ffffff; border-right: 2px solid #d1dff5; display: flex; flex-direction: column; overflow: hidden; }
+
+.panel { padding: 16px; border-bottom: 1px solid #d1dff5; }
+.panel-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #2F5597; margin-bottom: 12px; }
+
+.file-drop {
+  border: 1.5px dashed #a8c0e8; border-radius: 8px; padding: 20px;
+  text-align: center; cursor: pointer;
+  transition: border-color 0.2s, background 0.2s; background: #f0f5fc;
+}
+.file-drop:hover, .file-drop.drag { border-color: #2F5597; background: #dbeafe; }
+.file-drop input { display: none; }
+.file-drop .drop-icon { font-size: 24px; margin-bottom: 6px; }
+.file-drop .drop-text { font-size: 13px; color: #6b8bbf; }
+.file-drop .drop-name { font-size: 13px; color: #2F5597; margin-top: 4px; font-weight: 600; }
+
+.form-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+
+select {
+  flex: 1; background: #f0f5fc; border: 1px solid #a8c0e8;
+  color: #1e293b; padding: 7px 10px; border-radius: 6px; font-size: 13px; outline: none;
+}
+select:focus { border-color: #2F5597; }
+
+.btn {
+  padding: 7px 14px; border-radius: 6px; border: 1px solid transparent;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: background 0.15s, transform 0.1s; white-space: nowrap;
+}
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-primary { background: #2F5597; color: white; border-color: #2F5597; }
+.btn-primary:hover:not(:disabled) { background: #1e3f7a; }
+.btn-danger { background: #dc2626; color: white; border-color: #dc2626; }
+.btn-danger:hover:not(:disabled) { background: #b91c1c; }
+.btn-secondary { background: #eef2f7; color: #2F5597; border-color: #a8c0e8; font-weight: 500; }
+.btn-secondary:hover:not(:disabled) { background: #d1dff5; }
+.btn-secondary.active-view { background: #2F5597; color: white; border-color: #2F5597; font-weight: 600; }
+
+.submit-result { margin-top: 10px; font-size: 12px; color: #94a3b8; min-height: 18px; }
+.submit-result.error { color: #dc2626; }
+.submit-result.ok { color: #16a34a; }
+
+.search-box {
+  padding: 10px 16px;
+  border-bottom: 1px solid #d1dff5;
+  background: #f8faff;
+}
+.search-input {
+  width: 100%; background: #ffffff; border: 1px solid #a8c0e8;
+  color: #1e293b; padding: 6px 10px 6px 30px; border-radius: 6px;
+  font-size: 13px; outline: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236b8bbf' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 9px center;
+}
+.search-input:focus { border-color: #2F5597; }
+.search-input::placeholder { color: #a8c0e8; }
+
+.jobs-header {
+  padding: 10px 16px 8px;
+  border-bottom: 1px solid #d1dff5;
+  background: #f8faff;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.jobs-header-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #2F5597; }
+.jobs-header-count { font-size: 12px; color: #6b8bbf; }
+
+.jobs-list { flex: 1; overflow-y: auto; }
+.jobs-list::-webkit-scrollbar { width: 4px; }
+.jobs-list::-webkit-scrollbar-thumb { background: #a8c0e8; border-radius: 2px; }
+
+.job-row {
+  display: flex; align-items: center; padding: 10px 16px;
+  border-bottom: 1px solid #eef2f7; cursor: pointer; transition: background 0.15s; gap: 10px;
+}
+.job-row:hover { background: #f0f5fc; }
+.job-row.active { background: #dbeafe; border-left: 3px solid #2F5597; padding-left: 13px; }
+
+.job-info { flex: 1; min-width: 0; }
+.job-name { font-size: 13px; font-weight: 500; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.job-name mark { background: #fef08a; color: #1e293b; border-radius: 2px; padding: 0 1px; }
+.job-id { font-size: 11px; color: #6b8bbf; font-family: monospace; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.badges { display: flex; gap: 4px; flex-shrink: 0; }
+.badge { padding: 2px 7px; border-radius: 10px; font-size: 11px; font-weight: 500; }
+.badge.queued { background: #eef2f7; color: #64748b; }
+.badge.completed { background: #dcfce7; color: #16a34a; }
+.badge.failed { background: #fee2e2; color: #dc2626; }
+.badge.running { background: #dbeafe; color: #2563eb; }
+
+.empty-jobs { padding: 32px 16px; text-align: center; color: #a8c0e8; font-size: 13px; }
+
+.main { overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; background: #eef2f7; }
+.main::-webkit-scrollbar { width: 4px; }
+.main::-webkit-scrollbar-thumb { background: #a8c0e8; border-radius: 2px; }
+
+.card { background: #ffffff; border: 1px solid #d1dff5; border-radius: 10px; padding: 16px; box-shadow: 0 1px 4px rgba(47,85,151,0.07); }
+.card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.card-title { font-size: 13px; font-weight: 600; color: #2F5597; text-transform: uppercase; letter-spacing: 0.06em; }
+
+.verdict-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.verdict-cell { background: #f0f5fc; border: 1px solid #d1dff5; border-radius: 8px; padding: 12px; }
+.verdict-label { font-size: 12px; color: #6b8bbf; margin-bottom: 4px; font-weight: 500; }
+.verdict-value { font-size: 22px; font-weight: 700; color: #1e293b; }
+.verdict-value.malicious { color: #dc2626; }
+.verdict-value.clean { color: #16a34a; }
+
+.iocs-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.ioc-group { background: #f0f5fc; border: 1px solid #d1dff5; border-radius: 8px; padding: 12px; }
+.ioc-label { font-size: 11px; color: #2F5597; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+.ioc-item { font-size: 12px; font-family: monospace; color: #334155; padding: 3px 0; border-bottom: 1px solid #d1dff5; word-break: break-all; }
+.ioc-item:last-child { border-bottom: none; }
+.ioc-empty { font-size: 12px; color: #a8c0e8; font-style: italic; }
+
+.actions-bar { display: flex; gap: 8px; flex-wrap: wrap; }
+
+pre.json-viewer {
+  background: #0f172a; border: 1px solid #d1dff5; border-radius: 8px; padding: 14px;
+  overflow-x: auto; font-size: 12px; line-height: 1.6;
+  font-family: "Fira Code", "Cascadia Code", monospace;
+  max-height: 400px; overflow-y: auto; color: #94a3b8;
+}
+pre.json-viewer::-webkit-scrollbar { width: 4px; height: 4px; }
+pre.json-viewer::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
+
+.json-key { color: #60a5fa; }
+.json-string { color: #34d399; }
+.json-number { color: #fbbf24; }
+.json-boolean { color: #f472b6; }
+.json-null { color: #6b7280; }
+
+.placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #a8c0e8; gap: 10px; font-size: 14px; }
+.placeholder-icon { font-size: 40px; }
+
+.spinner {
+  display: inline-block; width: 14px; height: 14px;
+  border: 2px solid #d1dff5; border-top-color: #2F5597;
+  border-radius: 50%; animation: spin 0.7s linear infinite;
+  vertical-align: middle; margin-right: 6px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.error-msg { color: #dc2626; font-size: 13px; }
+</style>
 </head>
 <body>
 
-<h1>Malware Analysis Platform</h1>
+<header>
+  <div class="title">Malware Analysis Platform</div>
+  <div class="health-label">
+    <span class="health-dot" id="healthDot"></span>
+    <span id="healthLabel">Checking...</span>
+  </div>
+</header>
 
-<section>
-    <h2>Health</h2>
-    <button onclick="checkHealth()">Check API Health</button>
-    <pre id="health"></pre>
-</section>
+<div class="layout">
 
-<section>
-    <h2>Submit File</h2>
-    <input type="file" id="fileInput" />
-    <br/>
-    <label for="osSelect">Target OS:</label>
-    <select id="osSelect">
-        <option value="windows">Windows 10</option>
-        <option value="linux">Linux</option>
-    </select>
-    <br/>
-    <button onclick="submitFile()">Submit</button>
-    <pre id="submitResult"></pre>
-</section>
+  <div class="sidebar">
+    <div class="panel">
+      <div class="panel-title">Submit file</div>
+      <div class="file-drop" id="dropZone" onclick="document.getElementById('fileInput').click()">
+        <input type="file" id="fileInput" onchange="onFileSelected()" />
+        <div class="drop-icon">📁</div>
+        <div class="drop-text">Click or drag a file here</div>
+        <div class="drop-name" id="fileName"></div>
+      </div>
+      <div class="form-row">
+        <select id="osSelect">
+          <option value="windows">Windows 10</option>
+          <option value="linux">Linux</option>
+        </select>
+        <button class="btn btn-primary" id="submitBtn" onclick="submitFile()" disabled>Submit</button>
+      </div>
+      <div class="submit-result" id="submitResult"></div>
+    </div>
 
-<section>
-    <h2>Jobs</h2>
-    <button onclick="loadJobs()">Refresh Jobs</button>
-    <table>
-        <thead>
-        <tr>
-            <th>Job ID</th>
-            <th>File</th>
-            <th>Static</th>
-            <th>Dynamic</th>
-            <th>Actions</th>
-        </tr>
-        </thead>
-        <tbody id="jobs"></tbody>
-    </table>
-</section>
+    <div class="jobs-header">
+      <span class="jobs-header-label">Jobs</span>
+      <span id="jobCount" class="jobs-header-count"></span>
+    </div>
+    <div class="search-box">
+      <input class="search-input" id="searchInput" type="text" placeholder="Search by filename..." oninput="filterJobs()" />
+    </div>
+    <div class="jobs-list" id="jobsList">
+      <div class="empty-jobs">No jobs yet</div>
+    </div>
+  </div>
 
-<section>
-    <h2>Result / Report Viewer</h2>
-    <input type="text" id="jobIdInput" placeholder="Job ID" size="50"/>
-    <br/><br/>
-    <button onclick="getResult()">Print JSON Result</button>
-    <button onclick="getReport()">Print JSON Report</button>
-    <button onclick="downloadResult()">Download JSON Result</button>
-    <button onclick="downloadPDF()">Download PDF Report</button>
-    <button class="danger" onclick="deleteJob()">Delete Job</button>
-    <pre id="output"></pre>
-</section>
+  <div class="main" id="mainContent">
+    <div class="placeholder">
+      <div class="placeholder-icon">🔍</div>
+      <div>Select a job to view results</div>
+    </div>
+  </div>
+
+</div>
 
 <script>
+const MAX_FILE_SIZE = 50 * 1024 * 1024;
+const ALLOWED_EXT = [".exe",".dll",".pdf",".doc",".docx",".zip",".ps1",".sh",".bat",".js",".py",".elf"];
+
+let currentJobId = null;
+let currentView = "report";
+let refreshInterval = null;
+let selectedFile = null;
+let allJobs = [];
+
+async function safeFetch(url, opts = {}) {
+  try { return await fetch(url, opts); }
+  catch(e) { throw new Error("API inaccessible"); }
+}
+
 async function checkHealth() {
-    const r = await fetch("/health");
-    const data = await r.json();
-    document.getElementById("health").innerHTML = syntaxHighlight(data);
+  const dot = document.getElementById("healthDot");
+  const lbl = document.getElementById("healthLabel");
+  try {
+    const r = await safeFetch("/health");
+    if (r.ok) { dot.className = "health-dot ok"; lbl.textContent = "API healthy"; }
+    else { dot.className = "health-dot err"; lbl.textContent = "API error"; }
+  } catch { dot.className = "health-dot err"; lbl.textContent = "Unreachable"; }
 }
 
-async function submitFile() {
-    const f = document.getElementById("fileInput").files[0];
-    const os = document.getElementById("osSelect").value;
-    if (!f) return alert("Select a file");
-    const fd = new FormData();
-    fd.append("file", f);
-    fd.append("sandbox_os", os);
-    const r = await fetch("/api/submit", { method: "POST", body: fd });
-    const data = await r.json();
-    if (!r.ok) {
-        document.getElementById("submitResult").innerHTML = `<div class="error">Error: ${data.detail}</div>`;
-        return;
-    }
-    document.getElementById("submitResult").innerHTML = syntaxHighlight(data);
-    loadJobs();
+function onFileSelected() {
+  const f = document.getElementById("fileInput").files[0];
+  if (!f) return;
+  const ext = "." + f.name.split(".").pop().toLowerCase();
+  const nameEl = document.getElementById("fileName");
+  const btn = document.getElementById("submitBtn");
+  const result = document.getElementById("submitResult");
+  if (f.size > MAX_FILE_SIZE) {
+    nameEl.textContent = ""; result.textContent = "File too large (max 50MB)";
+    result.className = "submit-result error"; btn.disabled = true; selectedFile = null; return;
+  }
+  if (!ALLOWED_EXT.includes(ext)) {
+    nameEl.textContent = ""; result.textContent = "File type not allowed: " + ext;
+    result.className = "submit-result error"; btn.disabled = true; selectedFile = null; return;
+  }
+  selectedFile = f; nameEl.textContent = f.name; result.textContent = ""; btn.disabled = false;
 }
 
-
-async function loadJobs() {
-    const r = await fetch("/api/jobs");
-    const data = await r.json();
-    const tbody = document.getElementById("jobs");
-    tbody.innerHTML = "";
-    data.jobs.forEach(j => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-  <td>${j.job_id}</td>
-  <td>${j.file_name}</td>
-  <td><span class="badge ${j.status_static}">${j.status_static}</span></td>
-  <td><span class="badge ${j.status_dynamic}">${j.status_dynamic}</span></td>
-  <td class="actions">
-    <button onclick="setJob('${j.job_id}', this)">Select</button>
-  </td>
-`;
-        tbody.appendChild(tr);
-    });
-}
-
-function resetSelectedButton() {
-    const selectedButton = document.querySelector(".actions button.selected");
-    if (selectedButton) {
-        selectedButton.classList.remove("selected");
-    }
-}
-
-function setJob(id, btn) {
-    const jobIdInput = document.getElementById("jobIdInput");
-    if (jobIdInput.value !== id) {
-        jobIdInput.value = id;
-    }
-    resetSelectedButton();
-    btn.classList.add("selected");
-}
-
-document.getElementById("jobIdInput").addEventListener("input", function() {
-    resetSelectedButton();
+const dropZone = document.getElementById("dropZone");
+dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("drag"); });
+dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag"));
+dropZone.addEventListener("drop", e => {
+  e.preventDefault(); dropZone.classList.remove("drag");
+  if (e.dataTransfer.files.length) {
+    document.getElementById("fileInput").files = e.dataTransfer.files;
+    onFileSelected();
+  }
 });
 
-async function getResult() {
-    const id = document.getElementById("jobIdInput").value;
-    if (!id) return alert("Please select a job");
-    const r = await fetch(`/api/result/${id}`);
+async function submitFile() {
+  if (!selectedFile) return;
+  const btn = document.getElementById("submitBtn");
+  const result = document.getElementById("submitResult");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Submitting...';
+  result.textContent = ""; result.className = "submit-result";
+  try {
+    const fd = new FormData();
+    fd.append("file", selectedFile);
+    fd.append("sandbox_os", document.getElementById("osSelect").value);
+    const r = await safeFetch("/api/submit", { method: "POST", body: fd });
     const data = await r.json();
     if (!r.ok) {
-        document.getElementById("output").innerHTML = `<div class="error">Error: ${data.detail}`;
-        return;
+      result.textContent = "Error: " + (data.detail || r.status);
+      result.className = "submit-result error";
+    } else {
+      result.textContent = "Submitted: " + (data.job_id || "ok");
+      result.className = "submit-result ok";
+      document.getElementById("fileName").textContent = "";
+      selectedFile = null; document.getElementById("fileInput").value = "";
+      loadJobs();
     }
-    document.getElementById("output").innerHTML = syntaxHighlight(data);
+  } catch(e) {
+    result.textContent = e.message; result.className = "submit-result error";
+  } finally {
+    btn.disabled = false; btn.textContent = "Submit";
+  }
 }
 
-async function getReport() {
-    const id = document.getElementById("jobIdInput").value;
-    if (!id) return alert("Please select a job");
-    const r = await fetch(`/api/report/${id}`);
+async function loadJobs() {
+  try {
+    const r = await safeFetch("/api/jobs");
+    const data = await r.json();
+    allJobs = data.jobs || [];
+    renderJobsList();
+  } catch {}
+}
+
+function filterJobs() {
+  renderJobsList();
+}
+
+function renderJobsList() {
+  const query = (document.getElementById("searchInput").value || "").toLowerCase().trim();
+  const filtered = query ? allJobs.filter(j => j.file_name.toLowerCase().includes(query)) : allJobs;
+
+  document.getElementById("jobCount").textContent =
+    query ? `${filtered.length}/${allJobs.length}` : `${allJobs.length} job${allJobs.length !== 1 ? "s" : ""}`;
+
+  const list = document.getElementById("jobsList");
+  if (!filtered.length) {
+    list.innerHTML = `<div class="empty-jobs">${query ? 'No results for "' + escHtml(query) + '"' : "No jobs yet"}</div>`;
+    return;
+  }
+  list.innerHTML = "";
+  filtered.forEach(j => {
+    const div = document.createElement("div");
+    div.className = "job-row" + (j.job_id === currentJobId ? " active" : "");
+    const highlightedName = query
+      ? escHtml(j.file_name).replace(new RegExp(escRegex(escHtml(query)), "gi"), m => `<mark>${m}</mark>`)
+      : escHtml(j.file_name);
+    div.innerHTML = `
+      <div class="job-info">
+        <div class="job-name">${highlightedName}</div>
+        <div class="job-id">${escHtml(j.job_id)}</div>
+      </div>
+      <div class="badges">
+        <span class="badge ${j.status_static}">${j.status_static}</span>
+        <span class="badge ${j.status_dynamic}">${j.status_dynamic}</span>
+      </div>`;
+    div.onclick = () => selectJob(j.job_id);
+    list.appendChild(div);
+  });
+}
+
+function escRegex(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function selectJob(id) {
+  currentJobId = id;
+  currentView = "report";
+  renderJobsList();
+  loadReport(id);
+}
+
+async function loadReport(id) {
+  const main = document.getElementById("mainContent");
+  main.innerHTML = '<div class="placeholder"><div class="spinner" style="width:24px;height:24px;border-width:3px;"></div><div>Loading...</div></div>';
+  try {
+    const r = await safeFetch(`/api/report/${id}`);
     const data = await r.json();
     if (!r.ok) {
-        document.getElementById("output").innerHTML = `<div class="error">Error: ${data.detail}`;
-        return;
+      main.innerHTML = `<div class="card"><div class="error-msg">Error: ${escHtml(data.detail || r.status)}</div></div>`;
+      return;
     }
-    document.getElementById("output").innerHTML = syntaxHighlight(data);
+    renderReport(id, data);
+  } catch(e) {
+    main.innerHTML = `<div class="card"><div class="error-msg">${escHtml(e.message)}</div></div>`;
+  }
 }
 
-function downloadResult() {
-    const id = document.getElementById("jobIdInput").value;
-    if (!id) return alert("Please select a job");
-    window.open(`/api/result/${id}/download`);
+function renderReport(id, data) {
+  const main = document.getElementById("mainContent");
+  const v = data.verdict || {};
+  const iocs = data.iocs || {};
+  const isMalicious = v.malicious === true || v.malicious === "true";
+
+  main.innerHTML = `
+    <div class="card">
+      <div class="card-header"><div class="card-title">Verdict</div></div>
+      <div class="verdict-grid">
+        <div class="verdict-cell">
+          <div class="verdict-label">Malicious</div>
+          <div class="verdict-value ${isMalicious ? 'malicious' : 'clean'}">${isMalicious ? "Yes" : "No"}</div>
+        </div>
+        <div class="verdict-cell">
+          <div class="verdict-label">Score</div>
+          <div class="verdict-value">${v.score != null ? v.score : "-"}</div>
+        </div>
+        <div class="verdict-cell">
+          <div class="verdict-label">Confidence</div>
+          <div class="verdict-value">${v.confidence != null ? v.confidence : "-"}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-title">IOCs</div></div>
+      <div class="iocs-grid">
+        ${renderIOCGroup("IPs", iocs.ips)}
+        ${renderIOCGroup("Domains", iocs.domains)}
+        ${renderIOCGroup("URLs", iocs.urls)}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-title">Actions</div></div>
+      <div class="actions-bar">
+        <button class="btn btn-secondary" id="btnResult" onclick="showResult('${id}')">JSON Result</button>
+        <button class="btn btn-secondary active-view" id="btnReport" onclick="showReport('${id}')">JSON Report</button>
+        <button class="btn btn-secondary" onclick="window.open('/api/result/${id}/download')">Download Result</button>
+        <button class="btn btn-secondary" onclick="window.open('/api/report/${id}/pdf')">Download PDF</button>
+        <button class="btn btn-danger" onclick="deleteJob('${id}')">Delete Job</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-title">Raw JSON</div></div>
+      <pre class="json-viewer" id="jsonViewer">${syntaxHighlight(data)}</pre>
+    </div>
+  `;
 }
 
-function downloadPDF() {
-    const id = document.getElementById("jobIdInput").value;
-    if (!id) return alert("Please select a job");
-    window.open(`/api/report/${id}/pdf`);
+function setActiveViewBtn(view) {
+  currentView = view;
+  const btnResult = document.getElementById("btnResult");
+  const btnReport = document.getElementById("btnReport");
+  if (!btnResult || !btnReport) return;
+  btnResult.classList.toggle("active-view", view === "result");
+  btnReport.classList.toggle("active-view", view === "report");
 }
 
-async function deleteJob() {
-    const id = document.getElementById("jobIdInput").value;
-    if (!id) return alert("Please select a job");
-    if (!confirm("Delete job?")) return;
-    const r = await fetch(`/api/jobs/${id}`, { method: "DELETE" });
+async function showResult(id) {
+  setActiveViewBtn("result");
+  try {
+    const r = await safeFetch(`/api/result/${id}`);
     const data = await r.json();
-    if (!r.ok) {
-        document.getElementById("output").innerHTML = `<div class="error">Error: ${data.detail}`;
-        return;
-    }
-    document.getElementById("output").innerHTML = syntaxHighlight(data);
-    loadJobs();
+    const el = document.getElementById("jsonViewer");
+    if (el) el.innerHTML = r.ok ? syntaxHighlight(data) : `<span class="error-msg">Error: ${escHtml(data.detail)}</span>`;
+  } catch(e) {
+    const el = document.getElementById("jsonViewer");
+    if (el) el.innerHTML = `<span class="error-msg">${escHtml(e.message)}</span>`;
+  }
 }
 
-loadJobs();
+async function showReport(id) {
+  setActiveViewBtn("report");
+  try {
+    const r = await safeFetch(`/api/report/${id}`);
+    const data = await r.json();
+    const el = document.getElementById("jsonViewer");
+    if (el) el.innerHTML = r.ok ? syntaxHighlight(data) : `<span class="error-msg">Error: ${escHtml(data.detail)}</span>`;
+  } catch(e) {
+    const el = document.getElementById("jsonViewer");
+    if (el) el.innerHTML = `<span class="error-msg">${escHtml(e.message)}</span>`;
+  }
+}
+
+async function deleteJob(id) {
+  if (!confirm(`Supprimer le job ${id} et tous ses résultats ?`)) return;
+  try {
+    const r = await safeFetch(`/api/jobs/${id}`, { method: "DELETE" });
+    if (r.ok) {
+      currentJobId = null;
+      document.getElementById("mainContent").innerHTML = '<div class="placeholder"><div class="placeholder-icon">🔍</div><div>Select a job to view results</div></div>';
+      loadJobs();
+    } else {
+      const data = await r.json();
+      alert("Error: " + (data.detail || r.status));
+    }
+  } catch(e) { alert(e.message); }
+}
+
+function renderIOCGroup(label, items) {
+  const arr = Array.isArray(items) ? items : [];
+  return `<div class="ioc-group">
+    <div class="ioc-label">${label}</div>
+    ${arr.length ? arr.map(i => `<div class="ioc-item">${escHtml(i)}</div>`).join("") : '<div class="ioc-empty">none</div>'}
+  </div>`;
+}
+
+function escHtml(s) {
+  return String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
 
 function syntaxHighlight(json) {
-    if (typeof json !== "string") {
-        json = JSON.stringify(json, null, 2);
+  if (typeof json !== "string") json = JSON.stringify(json, null, 2);
+  json = json.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  return json.replace(
+    /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(\.\d+)?([eE][+\-]?\d+)?)/g,
+    m => {
+      let cls = "json-number";
+      if (/^"/.test(m)) cls = /:$/.test(m) ? "json-key" : "json-string";
+      else if (/true|false/.test(m)) cls = "json-boolean";
+      else if (/null/.test(m)) cls = "json-null";
+      return `<span class="${cls}">${m}</span>`;
     }
-    json = json
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
-    return json.replace(
-        /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(\.\d+)?([eE][+\-]?\d+)?)/g,
-        match => {
-            let cls = "json-number";
-            if (/^"/.test(match)) {
-                cls = /:$/.test(match) ? "json-key" : "json-string";
-            } else if (/true|false/.test(match)) {
-                cls = "json-boolean";
-            } else if (/null/.test(match)) {
-                cls = "json-null";
-            }
-            return `<span class="${cls}">${match}</span>`;
-        }
-    );
+  );
 }
-</script>
 
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) clearInterval(refreshInterval);
+  else { loadJobs(); refreshInterval = setInterval(loadJobs, 5000); }
+});
+
+checkHealth();
+setInterval(checkHealth, 30000);
+loadJobs();
+refreshInterval = setInterval(loadJobs, 5000);
+</script>
 </body>
 </html>
