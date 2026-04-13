@@ -132,7 +132,7 @@ echo -e "\\n### Correction du chemin node info dump ###"
 NODE_DIR="\$HOME/.cuckoocwd/operational"
 mkdir -p "\$NODE_DIR"
 touch "\$NODE_DIR/node_info.json"
-chmod 666 "\$NODE_DIR/node_info.json"
+chmod 644 "\$NODE_DIR/node_info.json"
 
 # Patch cuckoo.yaml avec la config node
 if ! grep -q "info_dump_path" ~/.cuckoocwd/conf/cuckoo.yaml; then
