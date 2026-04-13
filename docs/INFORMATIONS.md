@@ -207,6 +207,15 @@ https://localhost:8080
 ## Tests et validations des services
 Les services s’exécutent exclusivement dans le cluster Kubernetes.
 
+### Authentification
+
+L’API nécessite une clé API valide pour toutes les requêtes (sauf `/health`).  
+Elle doit être incluse dans le header HTTP suivant :
+
+```bash
+-H "x-api-key: <API_KEY>"
+```
+
 Vérifier la sandbox-controller
 ```bash
 # Trouver l'adresse IP de la sandbox
@@ -215,6 +224,7 @@ kubectl get svc -n malware-analysis sandbox-controller
 # Vérifier son statut
 curl http://<SANDBOX-IP>:9000/health 
 ```
+
 
 Vérifier l'API
 ```bash
@@ -229,43 +239,45 @@ Envoi d'un fichier à analyser
 ```bash
 curl -k -X POST https://192.168.122.2/api/submit \
   -F "file=@sample.exe" \
-  -F "sandbox_os=windows"
+  -F "sandbox_os=windows" \
+  -H "x-api-key: <API_KEY>"
 ```
 
 Vérifier le retour des résultats d'un job précis en format JSON
 ```bash
-curl -k https://192.168.122.2/api/result/<job_id>
+curl -k https://192.168.122.2/api/result/<job_id> -H "x-api-key: <API_KEY>"
 
 # Télécharger le fichier d'analyse en JSON
-curl -k -O -J https://192.168.122.2/api/result/<job_id>/download
+curl -k -O -J https://192.168.122.2/api/result/<job_id>/download -H "x-api-key: <API_KEY>"
 ```
 
 Obtenir le rapport d'un job précis en format JSON
 ```bash
-curl -k https://192.168.122.2/api/report/<job_id>
+curl -k https://192.168.122.2/api/report/<job_id> -H "x-api-key: <API_KEY>"
 
 # Télécharger le rapport d'analyse en JSON
-curl -k -O -J https://192.168.122.2/api/report/<job_id>/download
+curl -k -O -J https://192.168.122.2/api/report/<job_id>/download -H "x-api-key: <API_KEY>"
 ```
 
 À noter que le rapport correspond à une synthèse des résultats statiques et dynamiques, tandis que le résultat brut contient l’ensemble des données collectées.
 
 Télécharger le rapport d'un job précis en format pdf
 ```bash
-curl -k -O -J https://192.168.122.2/api/report/<job_id>/pdf
+curl -k -O -J https://192.168.122.2/api/report/<job_id>/pdf -H "x-api-key: <API_KEY>"
 ```
 
 Vérifier la liste de toutes les analyses (jobs) avec leurs statuts
 ```bash
-curl -k https://192.168.122.2/api/jobs
+curl -k https://192.168.122.2/api/jobs -H "x-api-key: <API_KEY>"
 ```
 
 Supprimer complètement le job
 ```bash
-curl -k -X DELETE https://192.168.122.2/api/jobs/<job_id>
+curl -k -X DELETE https://192.168.122.2/api/jobs/<job_id> -H "x-api-key: <API_KEY>"
 ```
 
 Pour toutes les commandes précédentes, il est également possible de voir les résultats directement sur l'interface web de l'API depuis cette url : https://192.168.122.2/.
+A noter également qu'il ne faut pas oublier la clé API dans chacune des commandes précendentes sinon l'accès sera refusé.
 Pour voir la documentation Swagger, il faut la consulter à cette url : https://192.168.122.2/docs.
 
 

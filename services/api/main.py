@@ -18,6 +18,8 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfgen import canvas as pdf_canvas
 from reportlab.platypus import KeepTogether
 import secrets
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379")
@@ -70,8 +72,8 @@ def verify_session(token: str) -> bool:
 def delete_session(token: str):
     redis_client.delete(f"session:{token}")
 
-def format_ts(ts: str) -> str:
-    return datetime.fromisoformat(ts).strftime("%Y-%m-%d %H:%M:%S")
+def format_ts(dt: datetime) -> str:
+    return dt.strftime("%Y-%m-%d %H:%M:%S")
 
 def verify_api_key(api_key: str):
     if not API_KEY:
@@ -146,7 +148,7 @@ async def submit(file: UploadFile = File(...), sandbox_os: str = Form(...), auth
     "file_name": file.filename,
     "file_path": str(path),
     "os": sandbox_os,
-    "submitted_at": format_ts(datetime.utcnow().isoformat()),
+    "submitted_at": format_ts(datetime.now(ZoneInfo("Europe/Paris"))),
     "status_static": "queued",
     "status_dynamic": "queued",
   }
@@ -392,7 +394,7 @@ def build_unified_report(job_id: str, meta: dict, static_raw: str | None, dynami
         })
 
     timestamps = {
-        "generated_at": format_ts(datetime.utcnow().isoformat()),
+        "generated_at": format_ts(datetime.now(ZoneInfo("Europe/Paris"))),
     }
     
     if engine_type == "cuckoo3":
