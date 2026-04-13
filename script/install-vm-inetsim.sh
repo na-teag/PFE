@@ -44,7 +44,7 @@ cat <<EOF > "$TMP_USERDATA"
 #cloud-config
 hostname: inetsim
 users:
-  - name: cuckoo
+  - name: inetsim
     sudo: ALL=(ALL) NOPASSWD:ALL
     ssh_authorized_keys:
       - $(cat "$SSH_KEY_PATH")
@@ -103,7 +103,7 @@ virt-install \
 echo "------------------------------------------------------"
 echo "Deployment started! "
 echo "Please wait 3 minutes for it to finish everything."
-echo "Then check with: ssh -i ${SSH_KEY_PATH%.*} cuckoo@$STATIC_IP"
+echo "Then check with: ssh -i ${SSH_KEY_PATH%.*} inetsim@$STATIC_IP"
 echo "------------------------------------------------------"
 
 rm "$TMP_USERDATA" "$TMP_NETCONFIG"
