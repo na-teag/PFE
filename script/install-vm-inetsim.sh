@@ -9,29 +9,36 @@ LIBVIRT_DIR="/var/lib/libvirt/images"
 STATIC_IP="192.168.30.200"
 SSH_KEY_PATH="$HOME/.ssh/kvm/id_ed25519.pub"
 
-# --- Configuration des chemins ---
-PROJECT_DIR="/data/PFE"
-STORAGE_DIR="$PROJECT_DIR/vms"
-mkdir -p "$STORAGE_DIR"
-
-echo "### [1/4] Vérification de l'image de base ###"
-
-# Automatisation du téléchargement de l'image
-if [ ! -f "$LIBVIRT_DIR/$IMAGE_NAME" ]; then
-    echo "Image introuvable. Téléchargement de Ubuntu Jammy (22.04)..."
-    sudo wget -O "$LIBVIRT_DIR/$IMAGE_NAME" "$IMAGE_URL"
-    sudo chmod 644 "$LIBVIRT_DIR/$IMAGE_NAME"
-else
-    echo "L'image $IMAGE_NAME est déjà présente."
+# --- 1. Host Infrastructure Check ---
+if ! virsh net-info analysis &>/dev/null; then
+    echo "Creating 'analysis' network on the host..."
+    cat <<EOF > /tmp/analysis-net.xml
+<network>
+  <name>analysis</name>
+  <bridge name='br0' stp='on' delay='0'/>
+  <ip address='192.168.30.1' netmask='255.255.255.0'/>
+</network>
+EOF
+    sudo virsh net-define /tmp/analysis-net.xml
+    sudo virsh net-start analysis
+    sudo virsh net-autostart analysis
 fi
 
-echo "### [2/4] Nettoyage de l'ancienne infrastructure ###"
+# Ensure the host actually has the IP to talk to the VM
+sudo ip addr add 192.168.30.1/24 dev br0 2>/dev/null || true
+
+echo "### [1/4] Preparing Base Image ###"
+if [ ! -f "$LIBVIRT_DIR/$IMAGE_NAME" ]; then
+    sudo wget -O "$LIBVIRT_DIR/$IMAGE_NAME" "$IMAGE_URL"
+    sudo chmod 644 "$LIBVIRT_DIR/$IMAGE_NAME"
+fi
+
+echo "### [2/4] Cleaning Old Instances ###"
 sudo virsh destroy "$VM_NAME" 2>/dev/null || true
 sudo virsh undefine "$VM_NAME" --remove-all-storage 2>/dev/null || true
 
-echo "### [3/4] Préparation de la configuration Cloud-init ###"
+echo "### [3/4] Generating Autonomous Cloud-init ###"
 
-# --- Cloud-init : User Data ---
 TMP_USERDATA=$(mktemp)
 cat <<EOF > "$TMP_USERDATA"
 #cloud-config
@@ -43,47 +50,43 @@ users:
       - $(cat "$SSH_KEY_PATH")
 
 package_update: true
-packages:
-  - inetsim
-  - net-tools
 
 runcmd:
-  # Correction de l'erreur sudo
-  - echo "127.0.0.1 inetsim" >> /etc/hosts
+  #Add INetSim Repository & GPG Key
+  - wget -qO - https://www.inetsim.org/inetsim-archive-signing-key.asc | gpg --dearmor -o /usr/share/keyrings/inetsim-archive-keyring.gpg
+  - echo "deb [signed-by=/usr/share/keyrings/inetsim-archive-keyring.gpg] http://www.inetsim.org/debian/ binary/" > /etc/apt/sources.list.d/inetsim.list
+  
+  - apt-get update
+  - apt-get install -y inetsim net-tools
 
-  # Neutralisation définitive de systemd-resolved pour libérer le port 53
+  # Kill systemd-resolved (Liberate Port 53)
   - systemctl stop systemd-resolved
   - systemctl disable systemd-resolved
   - systemctl mask systemd-resolved
   - rm -f /etc/resolv.conf
   - echo "nameserver 8.8.8.8" > /etc/resolv.conf
 
-  # Configuration INetSim (Regex robuste pour les bind addresses)
+  - echo "127.0.0.1 inetsim" >> /etc/hosts
+
   - sed -i 's/^#*service_bind_address.*/service_bind_address 0.0.0.0/' /etc/inetsim/inetsim.conf
   - sed -i "s/^#*dns_default_ip.*/dns_default_ip $STATIC_IP/" /etc/inetsim/inetsim.conf
 
-  # Démarrage du service
   - systemctl restart inetsim
 EOF
 
-# --- Cloud-init : Network Config ---
 TMP_NETCONFIG=$(mktemp)
 cat <<EOF > "$TMP_NETCONFIG"
 version: 2
 ethernets:
   enp1s0:
+    dhcp4: yes
+  enp2s0:               
     dhcp4: no
     addresses:
-      - $STATIC_IP/24
-    nameservers:
-      addresses: [8.8.8.8, 8.8.4.4]
-    routes:
-      - to: default
-        via: 192.168.122.1
+      - 192.168.30.200/24
 EOF
 
-echo "### [4/4] Déploiement de la VM avec virt-install ###"
-sudo chmod 777 "$STORAGE_DIR" 2>/dev/null || true
+echo "### [4/4] Deploying VM ###"
 virt-install \
   --connect qemu:///system \
   --name "$VM_NAME" \
@@ -93,14 +96,14 @@ virt-install \
   --os-variant ubuntu22.04 \
   --disk size=10,backing_store="$LIBVIRT_DIR/$IMAGE_NAME",bus=virtio \
   --cloud-init user-data="$TMP_USERDATA",network-config="$TMP_NETCONFIG" \
-  --network network=default,model=virtio \
+  --network network=default,model=virtio,mac=52:54:00:00:00:01 \
+  --network network=analysis,model=virtio,mac=52:54:00:00:00:02 \
   --noautoconsole
 
 echo "------------------------------------------------------"
-echo "VM $VM_NAME déployée avec succès !"
-echo "IP statique : $STATIC_IP"
-echo "Attendez 2-3 minutes pour la fin du setup interne."
-echo "Connexion : ssh -i ${SSH_KEY_PATH%.*} cuckoo@$STATIC_IP"
+echo "Deployment started! "
+echo "Please wait 3 minutes for it to finish everything."
+echo "Then check with: ssh -i ${SSH_KEY_PATH%.*} cuckoo@$STATIC_IP"
 echo "------------------------------------------------------"
 
 rm "$TMP_USERDATA" "$TMP_NETCONFIG"

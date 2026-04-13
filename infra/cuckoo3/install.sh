@@ -143,7 +143,7 @@ else
 fi
 echo -e "\n### Définition d'INetSim comme passerelle par défaut ###"
 sed -i 's/route: none/route: inetsim/' ~/.cuckoocwd/conf/routing.yaml
-sed -i 's/inetsim: 192.168.1.1/inetsim: $INETSIM_IP/' ~/.cuckoocwd/conf/routing.yaml
+sed -i 's/inetsim: 192.168.1.1/inetsim: 192.168.30.200/' ~/.cuckoocwd/conf/routing.yaml
 
 EOF
 }
@@ -181,6 +181,17 @@ vmcloak --debug install win10base \
     adobe_reader \
     wallpaper \
     chrome
+
+echo "### Vérification de la connectivité vers INetSim ###"
+virsh domifaddr win10base 2>/dev/null || true
+
+# Verify INetSim is responding on DNS
+if ! nc -zvu 192.168.30.200 53 -w 3; then
+    echo "ERREUR: INetSim n'est pas joignable sur 192.168.30.200:53"
+    echo "Vérifiez que la VM inetsim est démarrée : virsh list --all"
+    exit 1
+fi
+echo "INetSim est joignable. Lancement des snapshots..."
 echo -e "\n### Génération des snapshots ###"
 vmcloak --debug snapshot --count 3 win10base win10_ 192.168.30.11
 EOF
@@ -317,7 +328,7 @@ echo -e "\n### Ajout de l'utilisateur au groupe kvm ###"
 sudo adduser $username kvm && sudo chmod 666 /dev/kvm
 
 echo -e "\n### Configuration de tcpdump pour $username ###"
-sudo groupadd pcap
+sudo groupadd -f pcap
 sudo adduser $username pcap
 sudo chgrp pcap /usr/bin/tcpdump
 sudo setcap cap_net_raw,cap_net_admin=eip /usr/bin/tcpdump
@@ -341,7 +352,6 @@ network:
   bridges:
     br0:
       interfaces: []
-      addresses: [192.168.30.1/24]
       dhcp4: no
       parameters:
         stp: false
@@ -353,6 +363,10 @@ sudo chown root:root $NETPLAN_FILE
 
 sudo netplan apply
 echo "Bridge br0 created and persisted via Netplan"
+
+echo "net.ipv4.ip_forward=1" | sudo tee /etc/sysctl.d/99-cuckoo-forward.conf
+sudo sysctl -p /etc/sysctl.d/99-cuckoo-forward.conf
+echo "IP forwarding enabled and persisted"
 
 ###########################
 ##### Création des VMs #####
@@ -388,7 +402,7 @@ run_as_cuckoo "$username" "$(configure_vms_for "$username")"
 generate_section_header "Configuration de l'interface Web Cuckoo3"
 
 echo -e "\n### Configuration réseau du Web ###"
-sudo sed -i 's/allowed_subnets: 127.0.0.0\/8,10.0.0.0\/8/allowed_subnets: 127.0.0.0\/8,10.0.0.0\/8,192.168.68.0\/24/g' /home/$username/.cuckoocwd/conf/web/web.yaml
+sudo sed -i 's/allowed_subnets: 127.0.0.0\/8,10.0.0.0\/8/allowed_subnets: 127.0.0.0\/8,10.0.0.0\/8,192.168.122.0\/24/g' /home/$username/.cuckoocwd/conf/web/web.yaml
 sudo sed -i "s|# STATIC_ROOT = \"\"|STATIC_ROOT = \"$cuckoo_web_static_root\"|g" /home/$username/.cuckoocwd/web/web_local_settings.py
 
 echo -e "\n### Création du dossier des fichiers statiques ###"
@@ -398,8 +412,8 @@ sudo adduser www-data "$username"
 run_as_cuckoo "$username" "$(configure_cuckoo_for "$username")"
 
 # Nettoyage Nginx
-sudo rm /etc/nginx/sites-enabled/cuckoo-web.conf 2&>/dev/null
-sudo rm /etc/nginx/sites-enabled/default 2&>/dev/null
+sudo rm /etc/nginx/sites-enabled/cuckoo-web.conf 2>/dev/null
+sudo rm /etc/nginx/sites-enabled/default 2>/dev/null
 
 echo -e "\n### Création du service Systemd ASGI (Daphne) ###"
 sudo cat <<EOF > /etc/systemd/system/cuckoo-web.service
@@ -545,39 +559,71 @@ sudo systemctl start cuckoo.service
 generate_section_header "Création des scripts utilitaires dans $(pwd)"
 
 mkdir -p /home/cuckoo/script
-cat <<EOT > "$(pwd)/script/helper_script.sh"
+cat <<'EOT' > "/home/cuckoo/script/helper_script.sh"
 #!/bin/bash
-# Script pour réinitialiser le réseau et le montage après un redémarrage
-sudo /home/$username/vmcloak/bin/vmcloak-qemubridge br0 192.168.30.1/24
+set -euo pipefail
 
-echo -e "\n### Montage de l'ISO ###"
-sudo mkdir -p /mnt/win10x64
-sudo mount -o loop,ro /home/$username/win10x64.iso /mnt/win10x64
+INETSIM_IP="192.168.30.200"
+ANALYSIS_BRIDGE="br0"          # bridge VMCloak dans la Cuckoo VM
+ANALYSIS_NET="192.168.30.0/24"
 
+echo "=== [1/4] IP Forwarding ==="
+sysctl -w net.ipv4.ip_forward=1
 
-sudo sysctl -w net.ipv4.ip_forward=1
-sudo iptables -F FORWARD
-sudo iptables -t nat -F PREROUTING
+echo "=== [2/4] Remontage bridge VMCloak ==="
+/home/cuckoo/vmcloak/bin/vmcloak-qemubridge br0 192.168.30.1/24
+mkdir -p /etc/qemu
+echo "allow br0" > /etc/qemu/bridge.conf
+chmod u+s /usr/lib/qemu/qemu-bridge-helper
 
-# INTERCEPTION : Tout le trafic Web et DNS est envoyé vers INetSim
-sudo iptables -t nat -A PREROUTING -i br0 -p tcp --dport 80 -j DNAT --to-destination $INETSIM_IP:80
-sudo iptables -t nat -A PREROUTING -i br0 -p tcp --dport 443 -j DNAT --to-destination $INETSIM_IP:443
-sudo iptables -t nat -A PREROUTING -i br0 -p udp --dport 53 -j DNAT --to-destination $INETSIM_IP:53
+echo "=== [3/4] Montage ISO ==="
+mkdir -p /mnt/win10x64
+mountpoint -q /mnt/win10x64 || mount -o loop,ro /home/cuckoo/win10x64.iso /mnt/win10x64
 
-# ISOLATION : On interdit aux VMs de sortir du bridge vers Internet
-sudo iptables -A FORWARD -i br0 -o br0 -j ACCEPT
-sudo iptables -A FORWARD -i br0 -j REJECT
+echo "=== [4/4] Règles iptables ==="
+iptables -F FORWARD
+iptables -t nat -F
 
-echo -e "Configuration terminée. Les VMs sont isolées et redirigées vers $INETSIM_IP"
+# Autoriser trafic ESTABLISHED
+iptables -A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+# Autoriser trafic direct vers INetSim
+iptables -A FORWARD -i $ANALYSIS_BRIDGE -d $INETSIM_IP -j ACCEPT
+
+# MASQUERADE pour que INetSim puisse répondre correctement
+ANALYSIS_NIC=$(ip route | awk '/192.168.30/ {print $3; exit}')
+iptables -t nat -A POSTROUTING -o $ANALYSIS_NIC -j MASQUERADE
+# Autoriser le retour du trafic depuis INetSim vers les VMs Windows
+iptables -A FORWARD -i $ANALYSIS_NIC -o $ANALYSIS_BRIDGE -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+# DNAT — Rediriger tout le trafic des VMs Windows vers INetSim
+iptables -t nat -A PREROUTING -i $ANALYSIS_BRIDGE -s $ANALYSIS_NET \
+  ! -d $INETSIM_IP -p udp --dport 53 -j DNAT --to-destination $INETSIM_IP:53
+iptables -t nat -A PREROUTING -i $ANALYSIS_BRIDGE -s $ANALYSIS_NET \
+  ! -d $INETSIM_IP -p tcp --dport 53 -j DNAT --to-destination $INETSIM_IP:53
+iptables -t nat -A PREROUTING -i $ANALYSIS_BRIDGE -s $ANALYSIS_NET \
+  ! -d $INETSIM_IP -p tcp --dport 80 -j DNAT --to-destination $INETSIM_IP:80
+iptables -t nat -A PREROUTING -i $ANALYSIS_BRIDGE -s $ANALYSIS_NET \
+  ! -d $INETSIM_IP -p tcp --dport 443 -j DNAT --to-destination $INETSIM_IP:443
+iptables -t nat -A PREROUTING -i $ANALYSIS_BRIDGE -s $ANALYSIS_NET \
+  ! -d $INETSIM_IP -p tcp -m multiport --dports 21,25,110,143,465,587,6667 \
+  -j DNAT --to-destination $INETSIM_IP
+
+# Bloquer tout le reste (pas d'internet pour les VMs Windows)
+iptables -A FORWARD -i $ANALYSIS_BRIDGE -j REJECT --reject-with icmp-net-prohibited
+
+echo "Configuration réseau Cuckoo terminée."
 EOT
+chmod +x /home/cuckoo/script/helper_script.sh
 
-
+: <<'COMMENT'
 # Apply network isolation on the Cuckoo VM
 echo "Applying network isolation..."
 
 # Reset
-iptables -F
-iptables -X
+iptables -F INPUT
+iptables -F OUTPUT
+iptables -F FORWARD
 
 # Default policy
 iptables -P INPUT DROP
@@ -612,3 +658,5 @@ iptables -A INPUT -p tcp --dport 8080 -j ACCEPT
 sudo netfilter-persistent save
 
 echo "Network isolation applied"
+
+COMMENT
