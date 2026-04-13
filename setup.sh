@@ -69,9 +69,12 @@ echo
 # lire la clé Cuckoo API depuis un fichier local (sur ta machine)
 CUCKOO_API_KEY="$(cat "$(pwd)/cuckoo_api_key.txt")"
 
+#générer la clé API
+API_KEY=$(openssl rand -base64 32)
+
 ssh-keyscan -H 192.168.122.2 >> "$HOME/.ssh/known_hosts"
-ssh -i ~/.ssh/kvm/id_ed25519 k3s@192.168.122.2 "VT_KEY='$VT_KEY' CUCKOO_KEY='$CUCKOO_API_KEY' bash -c '
-kubectl patch secret vt-credentials -n malware-analysis --type=merge -p \"{\\\"stringData\\\":{\\\"VIRUSTOTAL_API_KEY\\\":\\\"\$VT_KEY\\\",\\\"CUCKOO_API_KEY\\\":\\\"\$CUCKOO_KEY\\\"}}\"
+ssh -i ~/.ssh/kvm/id_ed25519 k3s@192.168.122.2 "VT_KEY='$VT_KEY' CUCKOO_KEY='$CUCKOO_API_KEY' API_KEY='$API_KEY' bash -c '
+kubectl patch secret vt-credentials -n malware-analysis --type=merge -p \"{\\\"stringData\\\":{\\\"VIRUSTOTAL_API_KEY\\\":\\\"\$VT_KEY\\\",\\\"CUCKOO_API_KEY\\\":\\\"\$CUCKOO_KEY\\\",\\\"API_KEY\\\":\\\"\$API_KEY\\\"}}\"
 kubectl delete pod -n malware-analysis -l app=worker-static
 kubectl delete pod -n malware-analysis -l app=sandbox-controller
 echo ok
@@ -123,9 +126,37 @@ ssh -i "$SSH_KEY" "$SSH_TARGET" '
 ssh -i ~/.ssh/kvm/id_ed25519 k3s@192.168.122.2 \
   "kubectl patch svc argocd-server -n argocd --type=merge -p '{\"spec\":{\"type\":\"NodePort\"}}'"
 
+# On crée un service pour forcer le bon redéploiement d'argocd à chaque redémarrage de la vm
+cat << 'EOF' | ssh -i ~/.ssh/kvm/id_ed25519 k3s@192.168.122.2 'cat > /tmp/fix-argocd.sh'
+cat > /etc/systemd/system/fix-argocd.service << 'UNIT'
+[Unit]
+Description=Fix argocd-repo-server after boot
+After=k3s.service
+Wants=k3s.service
+
+[Service]
+Type=oneshot
+Environment=KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+ExecStart=/bin/bash -c 'until /usr/local/bin/kubectl get nodes --request-timeout=5s >/dev/null 2>&1; do echo "Attente k3s..."; sleep 5; done; sleep 10; /usr/local/bin/kubectl rollout restart deployment argocd-repo-server -n argocd'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+systemctl daemon-reload
+systemctl enable fix-argocd.service
+echo "Service créé et activé."
+EOF
+
+ssh -t -i ~/.ssh/kvm/id_ed25519 k3s@192.168.122.2 'sudo bash /tmp/fix-argocd.sh && rm /tmp/fix-argocd.sh'
+
 # Afficher les informations de connexion à argocd
 echo -e "\n\n"
 ssh k3s@192.168.122.2 -i ~/.ssh/kvm/id_ed25519 'echo "service ArgoCD : https://$(hostname -I | awk "{print \$1}"):$(kubectl get svc argocd-server -n argocd -o jsonpath="{.spec.ports[?(@.port==443)].nodePort}")"; echo "id : admin"; echo "pwd : $(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)"'
+
+# Afficher la clé API
+echo "API KEY: $API_KEY"
 
 # Faire confiance au certificat localement
 sudo cp "${CERT_DIR}/tls.crt" /usr/local/share/ca-certificates/malware-analysis.crt 

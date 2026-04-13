@@ -5,27 +5,60 @@
 <title>Malware Analysis Platform</title>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
 body { font-family: Arial, sans-serif; background: #eef2f7; color: #1e293b; min-height: 100vh; }
 
+/* LOGIN */
+.login-overlay {
+  position: fixed; inset: 0; background: #2F5597;
+  display: flex; align-items: center; justify-content: center; z-index: 100;
+}
+.login-box {
+  background: #fff; border-radius: 12px; padding: 36px 32px; width: 340px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+}
+.login-title { font-size: 18px; font-weight: 700; color: #2F5597; margin-bottom: 4px; }
+.login-sub { font-size: 13px; color: #6b8bbf; margin-bottom: 24px; }
+.login-label { font-size: 12px; font-weight: 600; color: #2F5597; margin-bottom: 6px; display: block; }
+.login-input {
+  width: 100%; border: 1px solid #a8c0e8; border-radius: 6px;
+  padding: 9px 12px; font-size: 14px; outline: none; margin-bottom: 14px;
+  transition: border-color 0.15s;
+}
+.login-input:focus { border-color: #2F5597; }
+.login-error { font-size: 12px; color: #dc2626; margin-bottom: 12px; min-height: 16px; }
+.login-btn {
+  width: 100%; background: #2F5597; color: white; border: none;
+  border-radius: 6px; padding: 10px; font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: background 0.15s; display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.login-btn:hover:not(:disabled) { background: #1e3f7a; }
+.login-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* HEADER */
 header {
-  background: #2F5597;
-  padding: 14px 24px;
+  background: #2F5597; padding: 14px 24px;
   display: flex; align-items: center; justify-content: space-between;
 }
-header .title { font-size: 17px; font-weight: 600; color: #ffffff; letter-spacing: 0.01em; }
+header .title { font-size: 17px; font-weight: 600; color: #fff; letter-spacing: 0.01em; }
+.header-right { display: flex; align-items: center; gap: 16px; }
 .health-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.3); display: inline-block; transition: background 0.3s; }
 .health-dot.ok { background: #4ade80; }
 .health-dot.err { background: #f87171; }
 .health-label { font-size: 12px; color: rgba(255,255,255,0.75); display: flex; align-items: center; gap: 6px; }
+.logout-btn {
+  font-size: 12px; color: rgba(255,255,255,0.8); background: none;
+  border: 1px solid rgba(255,255,255,0.35); border-radius: 5px;
+  padding: 4px 10px; cursor: pointer; transition: background 0.15s;
+}
+.logout-btn:hover { background: rgba(255,255,255,0.15); color: white; }
 
+/* LAYOUT */
 .layout { display: grid; grid-template-columns: 380px 1fr; gap: 0; height: calc(100vh - 53px); }
-
-.sidebar { background: #ffffff; border-right: 2px solid #d1dff5; display: flex; flex-direction: column; overflow: hidden; }
-
+.sidebar { background: #fff; border-right: 2px solid #d1dff5; display: flex; flex-direction: column; overflow: hidden; }
 .panel { padding: 16px; border-bottom: 1px solid #d1dff5; }
 .panel-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #2F5597; margin-bottom: 12px; }
 
+/* FILE DROP */
 .file-drop {
   border: 1.5px dashed #a8c0e8; border-radius: 8px; padding: 20px;
   text-align: center; cursor: pointer;
@@ -36,7 +69,6 @@ header .title { font-size: 17px; font-weight: 600; color: #ffffff; letter-spacin
 .file-drop .drop-icon { font-size: 24px; margin-bottom: 6px; }
 .file-drop .drop-text { font-size: 13px; color: #6b8bbf; }
 .file-drop .drop-name { font-size: 13px; color: #2F5597; margin-top: 4px; font-weight: 600; }
-
 .form-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
 
 select {
@@ -45,6 +77,7 @@ select {
 }
 select:focus { border-color: #2F5597; }
 
+/* BUTTONS */
 .btn {
   padding: 7px 14px; border-radius: 6px; border: 1px solid transparent;
   font-size: 13px; font-weight: 600; cursor: pointer;
@@ -64,30 +97,28 @@ select:focus { border-color: #2F5597; }
 .submit-result.error { color: #dc2626; }
 .submit-result.ok { color: #16a34a; }
 
-.search-box {
-  padding: 10px 16px;
-  border-bottom: 1px solid #d1dff5;
-  background: #f8faff;
-}
-.search-input {
-  width: 100%; background: #ffffff; border: 1px solid #a8c0e8;
-  color: #1e293b; padding: 6px 10px 6px 30px; border-radius: 6px;
-  font-size: 13px; outline: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236b8bbf' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: 9px center;
-}
-.search-input:focus { border-color: #2F5597; }
-.search-input::placeholder { color: #a8c0e8; }
-
+/* JOBS */
 .jobs-header {
-  padding: 10px 16px 8px;
-  border-bottom: 1px solid #d1dff5;
-  background: #f8faff;
-  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 16px 8px; border-bottom: 1px solid #d1dff5;
+  background: #f8faff; display: flex; justify-content: space-between; align-items: center;
 }
 .jobs-header-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #2F5597; }
 .jobs-header-count { font-size: 12px; color: #6b8bbf; }
+
+.jobs-controls { padding: 8px 16px; border-bottom: 1px solid #d1dff5; background: #f8faff; display: flex; gap: 6px; }
+.search-input {
+  flex: 1; background: #fff; border: 1px solid #a8c0e8;
+  color: #1e293b; padding: 6px 10px 6px 30px; border-radius: 6px;
+  font-size: 13px; outline: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236b8bbf' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: 9px center;
+}
+.search-input:focus { border-color: #2F5597; }
+.search-input::placeholder { color: #a8c0e8; }
+.sort-select {
+  background: #fff; border: 1px solid #a8c0e8; color: #2F5597;
+  padding: 6px 8px; border-radius: 6px; font-size: 12px; outline: none; cursor: pointer;
+}
 
 .jobs-list { flex: 1; overflow-y: auto; }
 .jobs-list::-webkit-scrollbar { width: 4px; }
@@ -99,28 +130,47 @@ select:focus { border-color: #2F5597; }
 }
 .job-row:hover { background: #f0f5fc; }
 .job-row.active { background: #dbeafe; border-left: 3px solid #2F5597; padding-left: 13px; }
-
 .job-info { flex: 1; min-width: 0; }
 .job-name { font-size: 13px; font-weight: 500; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .job-name mark { background: #fef08a; color: #1e293b; border-radius: 2px; padding: 0 1px; }
-.job-id { font-size: 11px; color: #6b8bbf; font-family: monospace; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-.badges { display: flex; gap: 4px; flex-shrink: 0; }
+.job-meta { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+.job-id { font-size: 11px; color: #6b8bbf; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.job-date { font-size: 11px; color: #a8c0e8; white-space: nowrap; flex-shrink: 0; }
+.badges { display: flex; gap: 4px; flex-shrink: 0; flex-direction: column; align-items: flex-end; }
 .badge { padding: 2px 7px; border-radius: 10px; font-size: 11px; font-weight: 500; }
 .badge.queued { background: #eef2f7; color: #64748b; }
 .badge.completed { background: #dcfce7; color: #16a34a; }
 .badge.failed { background: #fee2e2; color: #dc2626; }
 .badge.running { background: #dbeafe; color: #2563eb; }
 
+/* PAGINATION */
+.pagination {
+  padding: 8px 16px; border-top: 1px solid #d1dff5;
+  background: #f8faff; display: flex; align-items: center; justify-content: space-between;
+  font-size: 12px; color: #6b8bbf;
+}
+.pagination-btns { display: flex; gap: 4px; }
+.page-btn {
+  padding: 3px 8px; border-radius: 4px; border: 1px solid #a8c0e8;
+  background: #fff; color: #2F5597; font-size: 12px; cursor: pointer;
+}
+.page-btn:hover:not(:disabled) { background: #d1dff5; }
+.page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.page-btn.current { background: #2F5597; color: white; border-color: #2F5597; }
+
 .empty-jobs { padding: 32px 16px; text-align: center; color: #a8c0e8; font-size: 13px; }
 
+/* MAIN */
 .main { overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; background: #eef2f7; }
 .main::-webkit-scrollbar { width: 4px; }
 .main::-webkit-scrollbar-thumb { background: #a8c0e8; border-radius: 2px; }
 
-.card { background: #ffffff; border: 1px solid #d1dff5; border-radius: 10px; padding: 16px; box-shadow: 0 1px 4px rgba(47,85,151,0.07); }
+.card { background: #fff; border: 1px solid #d1dff5; border-radius: 10px; padding: 16px; box-shadow: 0 1px 4px rgba(47,85,151,0.07); }
 .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .card-title { font-size: 13px; font-weight: 600; color: #2F5597; text-transform: uppercase; letter-spacing: 0.06em; }
+.auto-refresh-badge { font-size: 11px; color: #6b8bbf; display: flex; align-items: center; gap: 4px; }
+.pulse { width: 7px; height: 7px; border-radius: 50%; background: #f59e0b; animation: pulse 1.2s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
 
 .verdict-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .verdict-cell { background: #f0f5fc; border: 1px solid #d1dff5; border-radius: 8px; padding: 12px; }
@@ -146,7 +196,6 @@ pre.json-viewer {
 }
 pre.json-viewer::-webkit-scrollbar { width: 4px; height: 4px; }
 pre.json-viewer::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
-
 .json-key { color: #60a5fa; }
 .json-string { color: #34d399; }
 .json-number { color: #fbbf24; }
@@ -168,16 +217,30 @@ pre.json-viewer::-webkit-scrollbar-thumb { background: #334155; border-radius: 2
 </head>
 <body>
 
+<!-- LOGIN -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-box">
+    <div class="login-title">Malware Analysis Platform</div>
+    <div class="login-sub">Accès restreint — authentification requise</div>
+    <label class="login-label">Clé API</label>
+    <input class="login-input" type="password" id="loginInput" placeholder="••••••••" />
+    <div class="login-error" id="loginError"></div>
+    <button class="login-btn" id="loginBtn" onclick="doLogin()">Se connecter</button>
+  </div>
+</div>
+
 <header>
   <div class="title">Malware Analysis Platform</div>
-  <div class="health-label">
-    <span class="health-dot" id="healthDot"></span>
-    <span id="healthLabel">Checking...</span>
+  <div class="header-right">
+    <div class="health-label">
+      <span class="health-dot" id="healthDot"></span>
+      <span id="healthLabel">Checking...</span>
+    </div>
+    <button class="logout-btn" onclick="doLogout()">Déconnexion</button>
   </div>
 </header>
 
 <div class="layout">
-
   <div class="sidebar">
     <div class="panel">
       <div class="panel-title">Submit file</div>
@@ -201,11 +264,20 @@ pre.json-viewer::-webkit-scrollbar-thumb { background: #334155; border-radius: 2
       <span class="jobs-header-label">Jobs</span>
       <span id="jobCount" class="jobs-header-count"></span>
     </div>
-    <div class="search-box">
-      <input class="search-input" id="searchInput" type="text" placeholder="Search by filename..." oninput="filterJobs()" />
+    <div class="jobs-controls">
+      <input class="search-input" id="searchInput" type="text" placeholder="Search by filename..." oninput="onFilter()" />
+      <select class="sort-select" id="sortSelect" onchange="onFilter()">
+        <option value="date-desc">Date ↓</option>
+        <option value="date-asc">Date ↑</option>
+        <option value="name-asc">Nom A-Z</option>
+        <option value="name-desc">Nom Z-A</option>
+        <option value="status">Statut</option>
+      </select>
     </div>
-    <div class="jobs-list" id="jobsList">
-      <div class="empty-jobs">No jobs yet</div>
+    <div class="jobs-list" id="jobsList"><div class="empty-jobs">No jobs yet</div></div>
+    <div class="pagination" id="paginationBar" style="display:none;">
+      <span id="pageInfo"></span>
+      <div class="pagination-btns" id="pageBtns"></div>
     </div>
   </div>
 
@@ -215,34 +287,127 @@ pre.json-viewer::-webkit-scrollbar-thumb { background: #334155; border-radius: 2
       <div>Select a job to view results</div>
     </div>
   </div>
-
 </div>
 
 <script>
+// ─── CONFIG ───────────────────────────────────────────────
+const PAGE_SIZE = 20;
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 const ALLOWED_EXT = [".exe",".dll",".pdf",".doc",".docx",".zip",".ps1",".sh",".bat",".js",".py",".elf"];
 
+// ─── STATE ────────────────────────────────────────────────
 let currentJobId = null;
 let currentView = "report";
-let refreshInterval = null;
-let selectedFile = null;
 let allJobs = [];
+let filteredJobs = [];
+let currentPage = 1;
+let refreshInterval = null;
+let jobsAbortCtrl = null;
+let reportPollInterval = null;
+let selectedFile = null;
 
-async function safeFetch(url, opts = {}) {
-  try { return await fetch(url, opts); }
+// ─── FETCH avec gestion 401 ───────────────────────────────
+async function apiFetch(url, opts = {}) {
+  opts.credentials = "include"; // toujours envoyer le cookie session
+  let r;
+  try { r = await fetch(url, opts); }
   catch(e) { throw new Error("API inaccessible"); }
+
+  if (r.status === 401) {
+    // Session expirée → retour au login
+    showLogin("Session expirée, veuillez vous reconnecter.");
+    throw new Error("Unauthorized");
+  }
+  return r;
 }
 
+// ─── AUTH ─────────────────────────────────────────────────
+function showLogin(msg = "") {
+  stopAll();
+  document.getElementById("loginOverlay").style.display = "flex";
+  document.getElementById("loginInput").value = "";
+  document.getElementById("loginError").textContent = msg;
+}
+
+async function checkAuth() {
+  // Tente un appel protégé pour savoir si la session est valide
+  try {
+    const r = await fetch("/health", { credentials: "include" });
+    // /health est public, on teste /api/jobs à la place
+    const rj = await fetch("/api/jobs", { credentials: "include" });
+    if (rj.status === 401) {
+      showLogin();
+    } else {
+      document.getElementById("loginOverlay").style.display = "none";
+      start();
+    }
+  } catch {
+    showLogin();
+  }
+}
+
+async function doLogin() {
+  const val = document.getElementById("loginInput").value.trim();
+  if (!val) return;
+  const err = document.getElementById("loginError");
+  const btn = document.getElementById("loginBtn");
+  err.textContent = "";
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Connexion...';
+
+  try {
+    const r = await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ api_key: val }),
+      credentials: "include"
+    });
+    if (r.ok) {
+      document.getElementById("loginOverlay").style.display = "none";
+      start();
+    } else if (r.status === 429) {
+      err.textContent = "Trop de tentatives, réessayez dans 5 minutes.";
+    } else {
+      err.textContent = "Clé API incorrecte.";
+    }
+  } catch {
+    err.textContent = "Erreur réseau.";
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Se connecter";
+  }
+}
+
+async function doLogout() {
+  stopAll();
+  try {
+    await fetch("/api/logout", { method: "POST", credentials: "include" });
+  } catch {}
+  showLogin();
+}
+
+document.getElementById("loginInput").addEventListener("keydown", e => {
+  if (e.key === "Enter") doLogin();
+});
+
+// ─── HEALTH ───────────────────────────────────────────────
 async function checkHealth() {
   const dot = document.getElementById("healthDot");
   const lbl = document.getElementById("healthLabel");
   try {
-    const r = await safeFetch("/health");
-    if (r.ok) { dot.className = "health-dot ok"; lbl.textContent = "API healthy"; }
-    else { dot.className = "health-dot err"; lbl.textContent = "API error"; }
+    const r = await fetch("/health", { credentials: "include" });
+    if (r.ok) {
+      const data = await r.json();
+      const ok = data.status === "ok";
+      dot.className = "health-dot " + (ok ? "ok" : "err");
+      lbl.textContent = ok ? "API healthy" : "Redis dégradé";
+    } else {
+      dot.className = "health-dot err"; lbl.textContent = "API error";
+    }
   } catch { dot.className = "health-dot err"; lbl.textContent = "Unreachable"; }
 }
 
+// ─── FILE ─────────────────────────────────────────────────
 function onFileSelected() {
   const f = document.getElementById("fileInput").files[0];
   if (!f) return;
@@ -272,6 +437,7 @@ dropZone.addEventListener("drop", e => {
   }
 });
 
+// ─── SUBMIT ───────────────────────────────────────────────
 async function submitFile() {
   if (!selectedFile) return;
   const btn = document.getElementById("submitBtn");
@@ -283,7 +449,7 @@ async function submitFile() {
     const fd = new FormData();
     fd.append("file", selectedFile);
     fd.append("sandbox_os", document.getElementById("osSelect").value);
-    const r = await safeFetch("/api/submit", { method: "POST", body: fd });
+    const r = await apiFetch("/api/submit", { method: "POST", body: fd });
     const data = await r.json();
     if (!r.ok) {
       result.textContent = "Error: " + (data.detail || r.status);
@@ -293,86 +459,158 @@ async function submitFile() {
       result.className = "submit-result ok";
       document.getElementById("fileName").textContent = "";
       selectedFile = null; document.getElementById("fileInput").value = "";
-      loadJobs();
+      await loadJobs();
     }
   } catch(e) {
-    result.textContent = e.message; result.className = "submit-result error";
+    if (e.message !== "Unauthorized") {
+      result.textContent = e.message; result.className = "submit-result error";
+    }
   } finally {
     btn.disabled = false; btn.textContent = "Submit";
   }
 }
 
+// ─── JOBS ─────────────────────────────────────────────────
 async function loadJobs() {
+  if (jobsAbortCtrl) jobsAbortCtrl.abort();
+  jobsAbortCtrl = new AbortController();
   try {
-    const r = await safeFetch("/api/jobs");
+    const r = await fetch("/api/jobs", { credentials: "include", signal: jobsAbortCtrl.signal });
+    if (r.status === 401) { showLogin("Session expirée."); return; }
     const data = await r.json();
     allJobs = data.jobs || [];
-    renderJobsList();
-  } catch {}
+    applyFilterSort();
+  } catch(e) {
+    if (e.name !== "AbortError") console.error("loadJobs:", e);
+  }
 }
 
-function filterJobs() {
-  renderJobsList();
-}
+function onFilter() { currentPage = 1; applyFilterSort(); }
 
-function renderJobsList() {
+function applyFilterSort() {
   const query = (document.getElementById("searchInput").value || "").toLowerCase().trim();
-  const filtered = query ? allJobs.filter(j => j.file_name.toLowerCase().includes(query)) : allJobs;
+  const sort = document.getElementById("sortSelect").value;
+  let jobs = query ? allJobs.filter(j => j.file_name.toLowerCase().includes(query)) : [...allJobs];
+  jobs.sort((a, b) => {
+    if (sort === "date-desc") return (b.submitted_at || "") > (a.submitted_at || "") ? 1 : -1;
+    if (sort === "date-asc")  return (a.submitted_at || "") > (b.submitted_at || "") ? 1 : -1;
+    if (sort === "name-asc")  return a.file_name.localeCompare(b.file_name);
+    if (sort === "name-desc") return b.file_name.localeCompare(a.file_name);
+    if (sort === "status")    return (a.status_static + a.status_dynamic).localeCompare(b.status_static + b.status_dynamic);
+    return 0;
+  });
+  filteredJobs = jobs;
+  renderJobsList(query);
+}
+
+function renderJobsList(query = "") {
+  const total = filteredJobs.length;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  if (currentPage > totalPages) currentPage = totalPages;
+  const pageJobs = filteredJobs.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   document.getElementById("jobCount").textContent =
-    query ? `${filtered.length}/${allJobs.length}` : `${allJobs.length} job${allJobs.length !== 1 ? "s" : ""}`;
+    query ? `${total}/${allJobs.length}` : `${allJobs.length} job${allJobs.length !== 1 ? "s" : ""}`;
 
   const list = document.getElementById("jobsList");
-  if (!filtered.length) {
+  if (!pageJobs.length) {
     list.innerHTML = `<div class="empty-jobs">${query ? 'No results for "' + escHtml(query) + '"' : "No jobs yet"}</div>`;
-    return;
+  } else {
+    list.innerHTML = "";
+    pageJobs.forEach(j => {
+      const div = document.createElement("div");
+      div.className = "job-row" + (j.job_id === currentJobId ? " active" : "");
+      const highlightedName = query
+        ? escHtml(j.file_name).replace(new RegExp(escRegex(escHtml(query)), "gi"), m => `<mark>${m}</mark>`)
+        : escHtml(j.file_name);
+      const dateStr = j.submitted_at ? formatDate(j.submitted_at) : "";
+      div.dataset.jobId = j.job_id;
+      div.innerHTML = `
+        <div class="job-info">
+          <div class="job-name">${highlightedName}</div>
+          <div class="job-meta">
+            <div class="job-id">${escHtml(j.job_id)}</div>
+            ${dateStr ? `<div class="job-date">${escHtml(dateStr)}</div>` : ""}
+          </div>
+        </div>
+        <div class="badges">
+          <span class="badge ${escHtml(j.status_static)}">${escHtml(j.status_static)}</span>
+          <span class="badge ${escHtml(j.status_dynamic)}">${escHtml(j.status_dynamic)}</span>
+        </div>`;
+      div.addEventListener("click", () => selectJob(j.job_id));
+      list.appendChild(div);
+    });
   }
-  list.innerHTML = "";
-  filtered.forEach(j => {
-    const div = document.createElement("div");
-    div.className = "job-row" + (j.job_id === currentJobId ? " active" : "");
-    const highlightedName = query
-      ? escHtml(j.file_name).replace(new RegExp(escRegex(escHtml(query)), "gi"), m => `<mark>${m}</mark>`)
-      : escHtml(j.file_name);
-    div.innerHTML = `
-      <div class="job-info">
-        <div class="job-name">${highlightedName}</div>
-        <div class="job-id">${escHtml(j.job_id)}</div>
-      </div>
-      <div class="badges">
-        <span class="badge ${j.status_static}">${j.status_static}</span>
-        <span class="badge ${j.status_dynamic}">${j.status_dynamic}</span>
-      </div>`;
-    div.onclick = () => selectJob(j.job_id);
-    list.appendChild(div);
-  });
+
+  const paginationBar = document.getElementById("paginationBar");
+  if (totalPages <= 1) {
+    paginationBar.style.display = "none";
+  } else {
+    paginationBar.style.display = "flex";
+    document.getElementById("pageInfo").textContent = `Page ${currentPage}/${totalPages}`;
+    const pageBtns = document.getElementById("pageBtns");
+    pageBtns.innerHTML = "";
+    const addBtn = (label, page, isCurrent, disabled) => {
+      const b = document.createElement("button");
+      b.className = "page-btn" + (isCurrent ? " current" : "");
+      b.textContent = label; b.disabled = disabled || isCurrent;
+      b.addEventListener("click", () => { currentPage = page; renderJobsList(query); });
+      pageBtns.appendChild(b);
+    };
+    addBtn("←", currentPage - 1, false, currentPage === 1);
+    for (let p = Math.max(1, currentPage - 2); p <= Math.min(totalPages, currentPage + 2); p++) {
+      addBtn(p, p, p === currentPage, false);
+    }
+    addBtn("→", currentPage + 1, false, currentPage === totalPages);
+  }
 }
 
-function escRegex(s) {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
+// ─── SELECT / REPORT ──────────────────────────────────────
 function selectJob(id) {
-  currentJobId = id;
-  currentView = "report";
-  renderJobsList();
-  loadReport(id);
+  currentJobId = id; currentView = "report";
+  stopReportPoll(); applyFilterSort(); loadReport(id);
 }
 
 async function loadReport(id) {
   const main = document.getElementById("mainContent");
   main.innerHTML = '<div class="placeholder"><div class="spinner" style="width:24px;height:24px;border-width:3px;"></div><div>Loading...</div></div>';
   try {
-    const r = await safeFetch(`/api/report/${id}`);
+    const r = await apiFetch(`/api/report/${id}`);
     const data = await r.json();
     if (!r.ok) {
-      main.innerHTML = `<div class="card"><div class="error-msg">Error: ${escHtml(data.detail || r.status)}</div></div>`;
+      main.innerHTML = `<div class="card"><div class="error-msg">Error: ${escHtml(data.detail || String(r.status))}</div></div>`;
       return;
     }
     renderReport(id, data);
+    const isFinished = isJobFinished(data);
+    if (!isFinished) startReportPoll(id);
   } catch(e) {
-    main.innerHTML = `<div class="card"><div class="error-msg">${escHtml(e.message)}</div></div>`;
+    if (e.message !== "Unauthorized")
+      main.innerHTML = `<div class="card"><div class="error-msg">${escHtml(e.message)}</div></div>`;
   }
+}
+
+function isJobFinished(data) {
+  return (data.status_static === "completed" || data.status_static === "failed")
+      && (data.status_dynamic === "completed" || data.status_dynamic === "failed");
+}
+
+function startReportPoll(id) {
+  stopReportPoll();
+  reportPollInterval = setInterval(async () => {
+    try {
+      const r = await apiFetch(`/api/report/${id}`);
+      if (!r.ok) return;
+      const data = await r.json();
+      renderReport(id, data);
+      if (isJobFinished(data)) stopReportPoll();
+      await loadJobs();
+    } catch {}
+  }, 5000);
+}
+
+function stopReportPoll() {
+  if (reportPollInterval) { clearInterval(reportPollInterval); reportPollInterval = null; }
 }
 
 function renderReport(id, data) {
@@ -380,113 +618,147 @@ function renderReport(id, data) {
   const v = data.verdict || {};
   const iocs = data.iocs || {};
   const isMalicious = v.malicious === true || v.malicious === "true";
+  const finished = isJobFinished(data);
 
-  main.innerHTML = `
-    <div class="card">
-      <div class="card-header"><div class="card-title">Verdict</div></div>
-      <div class="verdict-grid">
-        <div class="verdict-cell">
-          <div class="verdict-label">Malicious</div>
-          <div class="verdict-value ${isMalicious ? 'malicious' : 'clean'}">${isMalicious ? "Yes" : "No"}</div>
-        </div>
-        <div class="verdict-cell">
-          <div class="verdict-label">Score</div>
-          <div class="verdict-value">${v.score != null ? v.score : "-"}</div>
-        </div>
-        <div class="verdict-cell">
-          <div class="verdict-label">Confidence</div>
-          <div class="verdict-value">${v.confidence != null ? v.confidence : "-"}</div>
-        </div>
-      </div>
-    </div>
+  // Verdict card
+  const verdictCard = makeCard("Verdict",
+    finished ? "" : `<div class="auto-refresh-badge"><div class="pulse"></div>Analyse en cours...</div>`,
+    `<div class="verdict-grid">
+      <div class="verdict-cell"><div class="verdict-label">Malicious</div><div class="verdict-value ${isMalicious ? 'malicious' : 'clean'}">${isMalicious ? "Yes" : "No"}</div></div>
+      <div class="verdict-cell"><div class="verdict-label">Score</div><div class="verdict-value">${v.score != null ? escHtml(String(v.score)) : "-"}</div></div>
+      <div class="verdict-cell"><div class="verdict-label">Confidence</div><div class="verdict-value">${v.confidence != null ? escHtml(String(v.confidence)) : "-"}</div></div>
+    </div>`
+  );
 
-    <div class="card">
-      <div class="card-header"><div class="card-title">IOCs</div></div>
-      <div class="iocs-grid">
-        ${renderIOCGroup("IPs", iocs.ips)}
-        ${renderIOCGroup("Domains", iocs.domains)}
-        ${renderIOCGroup("URLs", iocs.urls)}
-      </div>
-    </div>
+  // IOCs card
+  const iocsCard = makeCard("IOCs", "",
+    `<div class="iocs-grid">
+      ${renderIOCGroup("IPs", iocs.ips)}
+      ${renderIOCGroup("Domains", iocs.domains)}
+      ${renderIOCGroup("URLs", iocs.urls)}
+    </div>`
+  );
 
-    <div class="card">
-      <div class="card-header"><div class="card-title">Actions</div></div>
-      <div class="actions-bar">
-        <button class="btn btn-secondary" id="btnResult" onclick="showResult('${id}')">JSON Result</button>
-        <button class="btn btn-secondary active-view" id="btnReport" onclick="showReport('${id}')">JSON Report</button>
-        <button class="btn btn-secondary" onclick="window.open('/api/result/${id}/download')">Download Result</button>
-        <button class="btn btn-secondary" onclick="window.open('/api/report/${id}/pdf')">Download PDF</button>
-        <button class="btn btn-danger" onclick="deleteJob('${id}')">Delete Job</button>
-      </div>
-    </div>
+  // Actions card — addEventListener uniquement (XSS fix)
+  const actionsCard = document.createElement("div");
+  actionsCard.className = "card";
+  const actionsHeader = document.createElement("div");
+  actionsHeader.className = "card-header";
+  actionsHeader.innerHTML = '<div class="card-title">Actions</div>';
+  actionsCard.appendChild(actionsHeader);
+  const actionsBar = document.createElement("div");
+  actionsBar.className = "actions-bar";
 
-    <div class="card">
-      <div class="card-header"><div class="card-title">Raw JSON</div></div>
-      <pre class="json-viewer" id="jsonViewer">${syntaxHighlight(data)}</pre>
-    </div>
-  `;
+  const btnResult = makeBtn("JSON Result", "btn-secondary", () => showResult(id));
+  btnResult.id = "btnResult";
+  const btnReport = makeBtn("JSON Report", "btn-secondary active-view", () => showReport(id));
+  btnReport.id = "btnReport";
+  const btnDlResult = makeBtn("Download Result", "btn-secondary", () => window.open("/api/result/" + id + "/download"));
+  const btnDlPdf    = makeBtn("Download PDF",    "btn-secondary", () => window.open("/api/report/" + id + "/pdf"));
+  const btnDelete   = makeBtn("Delete Job",      "btn-danger",    () => deleteJob(id));
+
+  [btnResult, btnReport, btnDlResult, btnDlPdf, btnDelete].forEach(b => actionsBar.appendChild(b));
+  actionsCard.appendChild(actionsBar);
+
+  // JSON card
+  const jsonCard = makeCard("Raw JSON", "", "");
+  const pre = document.createElement("pre");
+  pre.className = "json-viewer"; pre.id = "jsonViewer";
+  pre.innerHTML = syntaxHighlight(data);
+  jsonCard.appendChild(pre);
+
+  main.innerHTML = "";
+  [verdictCard, iocsCard, actionsCard, jsonCard].forEach(c => main.appendChild(c));
+}
+
+function makeCard(title, headerExtra, bodyHTML) {
+  const card = document.createElement("div");
+  card.className = "card";
+  card.innerHTML = `<div class="card-header"><div class="card-title">${escHtml(title)}</div>${headerExtra}</div>${bodyHTML}`;
+  return card;
+}
+
+function makeBtn(label, classes, handler) {
+  const b = document.createElement("button");
+  b.className = "btn " + classes; b.textContent = label;
+  b.addEventListener("click", handler);
+  return b;
 }
 
 function setActiveViewBtn(view) {
   currentView = view;
-  const btnResult = document.getElementById("btnResult");
-  const btnReport = document.getElementById("btnReport");
-  if (!btnResult || !btnReport) return;
-  btnResult.classList.toggle("active-view", view === "result");
-  btnReport.classList.toggle("active-view", view === "report");
+  const bR = document.getElementById("btnResult");
+  const bRp = document.getElementById("btnReport");
+  if (!bR || !bRp) return;
+  bR.classList.toggle("active-view", view === "result");
+  bRp.classList.toggle("active-view", view === "report");
 }
 
 async function showResult(id) {
   setActiveViewBtn("result");
   try {
-    const r = await safeFetch(`/api/result/${id}`);
+    const r = await apiFetch(`/api/result/${id}`);
     const data = await r.json();
     const el = document.getElementById("jsonViewer");
     if (el) el.innerHTML = r.ok ? syntaxHighlight(data) : `<span class="error-msg">Error: ${escHtml(data.detail)}</span>`;
   } catch(e) {
     const el = document.getElementById("jsonViewer");
-    if (el) el.innerHTML = `<span class="error-msg">${escHtml(e.message)}</span>`;
+    if (el && e.message !== "Unauthorized") el.innerHTML = `<span class="error-msg">${escHtml(e.message)}</span>`;
   }
 }
 
 async function showReport(id) {
   setActiveViewBtn("report");
   try {
-    const r = await safeFetch(`/api/report/${id}`);
+    const r = await apiFetch(`/api/report/${id}`);
     const data = await r.json();
     const el = document.getElementById("jsonViewer");
     if (el) el.innerHTML = r.ok ? syntaxHighlight(data) : `<span class="error-msg">Error: ${escHtml(data.detail)}</span>`;
   } catch(e) {
     const el = document.getElementById("jsonViewer");
-    if (el) el.innerHTML = `<span class="error-msg">${escHtml(e.message)}</span>`;
+    if (el && e.message !== "Unauthorized") el.innerHTML = `<span class="error-msg">${escHtml(e.message)}</span>`;
   }
 }
 
 async function deleteJob(id) {
   if (!confirm(`Supprimer le job ${id} et tous ses résultats ?`)) return;
+  stopReportPoll();
   try {
-    const r = await safeFetch(`/api/jobs/${id}`, { method: "DELETE" });
+    const r = await apiFetch(`/api/jobs/${id}`, { method: "DELETE" });
     if (r.ok) {
       currentJobId = null;
       document.getElementById("mainContent").innerHTML = '<div class="placeholder"><div class="placeholder-icon">🔍</div><div>Select a job to view results</div></div>';
-      loadJobs();
+      await loadJobs();
     } else {
       const data = await r.json();
       alert("Error: " + (data.detail || r.status));
     }
-  } catch(e) { alert(e.message); }
+  } catch(e) { if (e.message !== "Unauthorized") alert(e.message); }
 }
 
+// ─── HELPERS ──────────────────────────────────────────────
 function renderIOCGroup(label, items) {
   const arr = Array.isArray(items) ? items : [];
   return `<div class="ioc-group">
-    <div class="ioc-label">${label}</div>
+    <div class="ioc-label">${escHtml(label)}</div>
     ${arr.length ? arr.map(i => `<div class="ioc-item">${escHtml(i)}</div>`).join("") : '<div class="ioc-empty">none</div>'}
   </div>`;
 }
 
+function formatDate(ts) {
+  try {
+    const d = new Date(ts);
+    return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })
+      + " " + d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  } catch { return ""; }
+}
+
 function escHtml(s) {
   return String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+function escRegex(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function syntaxHighlight(json) {
@@ -504,15 +776,32 @@ function syntaxHighlight(json) {
   );
 }
 
+function stopAll() {
+  clearInterval(refreshInterval); refreshInterval = null;
+  stopReportPoll();
+  if (jobsAbortCtrl) { jobsAbortCtrl.abort(); jobsAbortCtrl = null; }
+}
+
+// ─── VISIBILITY ───────────────────────────────────────────
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) clearInterval(refreshInterval);
-  else { loadJobs(); refreshInterval = setInterval(loadJobs, 5000); }
+  if (document.hidden) {
+    clearInterval(refreshInterval); stopReportPoll();
+  } else {
+    loadJobs(); refreshInterval = setInterval(loadJobs, 5000);
+    if (currentJobId) startReportPoll(currentJobId);
+  }
 });
 
-checkHealth();
-setInterval(checkHealth, 30000);
-loadJobs();
-refreshInterval = setInterval(loadJobs, 5000);
+// ─── BOOT ─────────────────────────────────────────────────
+function start() {
+  checkHealth();
+  setInterval(checkHealth, 30000);
+  loadJobs();
+  refreshInterval = setInterval(loadJobs, 5000);
+}
+
+// Vérifier si une session est déjà active au chargement
+checkAuth();
 </script>
 </body>
 </html>

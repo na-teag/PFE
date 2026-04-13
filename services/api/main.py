@@ -3,7 +3,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, Form
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Response, Header, Cookie, Depends, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from redis import Redis
@@ -17,10 +17,12 @@ from reportlab.platypus import Table, TableStyle, SimpleDocTemplate, Paragraph, 
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfgen import canvas as pdf_canvas
 from reportlab.platypus import KeepTogether
+import secrets
 
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379")
 RESULTS_PATH = Path(os.getenv("RESULTS_PATH", "/data/results"))
+API_KEY = os.getenv("API_KEY")
 MAX_SIZE = 50 * 1024 * 1024
 
 RESULTS_PATH.mkdir(parents=True, exist_ok=True)
@@ -54,9 +56,41 @@ class ResultResponse(BaseModel):
   static_result: Optional[dict]
   dynamic_result: Optional[dict]
 
+class LoginRequest(BaseModel):
+    api_key: str
+
+def create_session() -> str:
+    token = secrets.token_urlsafe(32)
+    redis_client.setex(f"session:{token}", 3600, "1")
+    return token
+
+def verify_session(token: str) -> bool:
+    return redis_client.exists(f"session:{token}") == 1
+
+def delete_session(token: str):
+    redis_client.delete(f"session:{token}")
 
 def format_ts(ts: str) -> str:
     return datetime.fromisoformat(ts).strftime("%Y-%m-%d %H:%M:%S")
+
+def verify_api_key(api_key: str):
+    if not API_KEY:
+        raise HTTPException(status_code=500, detail="API key not configured")
+
+    if api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+def verify_auth(
+    x_api_key: Optional[str] = Header(None),
+    session: Optional[str] = Cookie(None)
+):
+    if not API_KEY:
+        raise HTTPException(500, "API key not configured")
+    if x_api_key == API_KEY:
+        return True
+    if session and verify_session(session):
+        return True
+    raise HTTPException(401, "Unauthorized")
 
 @app.get("/health")
 def health():
@@ -67,9 +101,32 @@ def health():
     r_ok = False
   return {"status": "ok" if r_ok else "degraded", "redis": r_ok}
 
+@app.post("/api/login")
+def login(data: LoginRequest, response: Response, request: Request):
+    ip = request.client.host
+    key = f"login_attempts:{ip}"
+    attempts = redis_client.incr(key)
+    if attempts == 1:
+        redis_client.expire(key, 300)  # fenêtre de 5 minutes
+    if attempts > 10:
+        raise HTTPException(429, "Trop de tentatives, réessayez dans 5 minutes")
+    verify_api_key(data.api_key)
+    redis_client.delete(key)  # reset si succès
+    token = create_session()
+    response.set_cookie(key="session", value=token, httponly=True,
+                        secure=True, samesite="Lax", max_age=3600, path="/")
+    return {"status": "authenticated"}
+
+@app.post("/api/logout")
+def logout(response: Response, session: Optional[str] = Cookie(None),
+           auth: bool = Depends(verify_auth)):
+    if session:
+        delete_session(session)
+    response.delete_cookie(key="session", path="/")
+    return {"status": "logged out"}
 
 @app.post("/api/submit", response_model=SubmissionResponse)
-async def submit(file: UploadFile = File(...), sandbox_os: str = Form(...)):
+async def submit(file: UploadFile = File(...), sandbox_os: str = Form(...), auth: bool = Depends(verify_auth)):
   data = await file.read()
   if len(data) > MAX_SIZE:
     raise HTTPException(413, "File too large")
@@ -106,7 +163,7 @@ async def submit(file: UploadFile = File(...), sandbox_os: str = Form(...)):
 
 
 @app.get("/api/result/{job_id}", response_model=ResultResponse)
-def result(job_id: str):
+def result(job_id: str, auth: bool = Depends(verify_auth)):
   job_raw = redis_client.get(f"job:{job_id}")
   if not job_raw:
     raise HTTPException(404, "job not found")
@@ -124,7 +181,7 @@ def result(job_id: str):
   )
 
 @app.get("/api/jobs")
-def list_jobs():
+def list_jobs(auth: bool = Depends(verify_auth)):
     jobs = []
 
     for key in redis_client.scan_iter("job:*"):
@@ -150,7 +207,7 @@ def list_jobs():
     }
 
 @app.delete("/api/jobs/{job_id}")
-def delete_job(job_id: str):
+def delete_job(job_id: str, auth: bool = Depends(verify_auth)):
     job_key = f"job:{job_id}"
 
     job_raw = redis_client.get(job_key)
@@ -177,7 +234,7 @@ def delete_job(job_id: str):
     return {"status": "deleted", "job_id": job_id}
 
 @app.get("/api/result/{job_id}/download")
-def download_result(job_id: str):
+def download_result(job_id: str, auth: bool = Depends(verify_auth)):
     job_raw = redis_client.get(f"job:{job_id}")
     if not job_raw:
         raise HTTPException(status_code=404, detail="job not found")
@@ -385,7 +442,7 @@ def build_unified_report(job_id: str, meta: dict, static_raw: str | None, dynami
     return report
 
 @app.get("/api/report/{job_id}")
-def get_report(job_id: str):
+def get_report(job_id: str, auth: bool = Depends(verify_auth)):
     job_raw = redis_client.get(f"job:{job_id}")
     if not job_raw:
         raise HTTPException(404, "job not found")
@@ -398,7 +455,7 @@ def get_report(job_id: str):
     return JSONResponse(report)
 
 @app.get("/api/report/{job_id}/download")
-def download_report(job_id: str):
+def download_report(job_id: str, auth: bool = Depends(verify_auth)):
     job_raw = redis_client.get(f"job:{job_id}")
     if not job_raw:
         raise HTTPException(404, "job not found")
@@ -448,7 +505,7 @@ def draw_header_footer(c: pdf_canvas.Canvas, doc, report):
 
 
 @app.get("/api/report/{job_id}/pdf")
-def download_report_pdf(job_id: str):
+def download_report_pdf(job_id: str, auth: bool = Depends(verify_auth)):
     job_raw = redis_client.get(f"job:{job_id}")
     if not job_raw:
         raise HTTPException(404, "job not found")
