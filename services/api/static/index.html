@@ -4,13 +4,17 @@
 <meta charset="UTF-8" />
 <title>Malware Analysis Platform</title>
 <style>
+/* Cacher tout le contenu au chargement */
+body > :not(.login-overlay) {
+  display: none;
+}
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: Arial, sans-serif; background: #eef2f7; color: #1e293b; min-height: 100vh; }
 
 /* LOGIN */
 .login-overlay {
   position: fixed; inset: 0; background: #2F5597;
-  display: flex; align-items: center; justify-content: center; z-index: 100;
+  display: none; align-items: center; justify-content: center; z-index: 100;
 }
 .login-box {
   background: #fff; border-radius: 12px; padding: 36px 32px; width: 340px;
@@ -39,7 +43,18 @@ header {
   background: #2F5597; padding: 14px 24px;
   display: flex; align-items: center; justify-content: space-between;
 }
-header .title { font-size: 17px; font-weight: 600; color: #fff; letter-spacing: 0.01em; }
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+header .title { 
+  font-size: 17px; 
+  font-weight: 600; 
+  color: #fff; 
+  letter-spacing: 0.01em;
+  margin: 0;
+}
 .header-right { display: flex; align-items: center; gap: 16px; }
 .health-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.3); display: inline-block; transition: background 0.3s; }
 .health-dot.ok { background: #4ade80; }
@@ -51,6 +66,12 @@ header .title { font-size: 17px; font-weight: 600; color: #fff; letter-spacing: 
   padding: 4px 10px; cursor: pointer; transition: background 0.15s;
 }
 .logout-btn:hover { background: rgba(255,255,255,0.15); color: white; }
+.home-btn {
+  font-size: 15px; color: rgba(255,255,255,0.8); background: none;
+  border: none; cursor: pointer; padding: 4px 8px;
+  border-radius: 5px; transition: background 0.15s;
+}
+.home-btn:hover { background: rgba(255,255,255,0.15); color: white; }
 
 /* LAYOUT */
 .layout { display: grid; grid-template-columns: 380px 1fr; gap: 0; height: calc(100vh - 53px); }
@@ -205,6 +226,89 @@ pre.json-viewer::-webkit-scrollbar-thumb { background: #334155; border-radius: 2
 .placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #a8c0e8; gap: 10px; font-size: 14px; }
 .placeholder-icon { font-size: 40px; }
 
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.kpi {
+  background: #f0f5fc;
+  border: 1px solid #d1dff5;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.kpi-label {
+  font-size: 11px;
+  color: #6b8bbf;
+}
+
+.kpi-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.kpi.danger .kpi-value { color: #ef4444; }
+.kpi.good .kpi-value { color: #22c55e; }
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.activity-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.activity-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  background: #f8faff;
+  cursor: pointer;
+}
+
+.activity-item:hover {
+  background: #eef2f7;
+}
+
+.activity-left .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.dot.completed { background: #22c55e; }
+.dot.failed { background: #ef4444; }
+.dot.queued { background: #2563eb; }
+
+.activity-main {
+  flex: 1;
+}
+
+.activity-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.activity-sub {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.activity-badges {
+  display: flex;
+  gap: 4px;
+}
+
 .spinner {
   display: inline-block; width: 14px; height: 14px;
   border: 2px solid #d1dff5; border-top-color: #2F5597;
@@ -221,22 +325,25 @@ pre.json-viewer::-webkit-scrollbar-thumb { background: #334155; border-radius: 2
 <div class="login-overlay" id="loginOverlay">
   <div class="login-box">
     <div class="login-title">Malware Analysis Platform</div>
-    <div class="login-sub">Accès restreint — authentification requise</div>
-    <label class="login-label">Clé API</label>
+    <div class="login-sub">Restricted access — Authentication required</div>
+    <label class="login-label">Enter your API key</label>
     <input class="login-input" type="password" id="loginInput" placeholder="••••••••" />
     <div class="login-error" id="loginError"></div>
-    <button class="login-btn" id="loginBtn" onclick="doLogin()">Se connecter</button>
+    <button class="login-btn" id="loginBtn" onclick="doLogin()">Login</button>
   </div>
 </div>
 
 <header>
-  <div class="title">Malware Analysis Platform</div>
+  <div class="header-left">
+    <button class="home-btn" onclick="goHome()" title="Dashboard">🏠</button>
+    <div class="title">Malware Analysis Platform</div>
+  </div>
   <div class="header-right">
     <div class="health-label">
       <span class="health-dot" id="healthDot"></span>
       <span id="healthLabel">Checking...</span>
     </div>
-    <button class="logout-btn" onclick="doLogout()">Déconnexion</button>
+    <button class="logout-btn" onclick="doLogout()">Logout</button>
   </div>
 </header>
 
@@ -269,9 +376,9 @@ pre.json-viewer::-webkit-scrollbar-thumb { background: #334155; border-radius: 2
       <select class="sort-select" id="sortSelect" onchange="onFilter()">
         <option value="date-desc">Date ↓</option>
         <option value="date-asc">Date ↑</option>
-        <option value="name-asc">Nom A-Z</option>
-        <option value="name-desc">Nom Z-A</option>
-        <option value="status">Statut</option>
+        <option value="name-asc">Name A-Z</option>
+        <option value="name-desc">Name Z-A</option>
+        <option value="status">Status</option>
       </select>
     </div>
     <div class="jobs-list" id="jobsList"><div class="empty-jobs">No jobs yet</div></div>
@@ -281,12 +388,7 @@ pre.json-viewer::-webkit-scrollbar-thumb { background: #334155; border-radius: 2
     </div>
   </div>
 
-  <div class="main" id="mainContent">
-    <div class="placeholder">
-      <div class="placeholder-icon">🔍</div>
-      <div>Select a job to view results</div>
-    </div>
-  </div>
+  <div class="main" id="mainContent"></div>
 </div>
 
 <script>
@@ -302,20 +404,27 @@ let allJobs = [];
 let filteredJobs = [];
 let currentPage = 1;
 let refreshInterval = null;
+let healthInterval = null;
 let jobsAbortCtrl = null;
 let reportPollInterval = null;
 let selectedFile = null;
+// ─── AJOUTER UN INTERVALLE DE RAFRAÎCHISSEMENT AUTOMATIQUE ──
+let dashboardRefreshInterval = null;
+let isRefreshing = false; // Éviter les appels concurrents
+let isLoggedIn = false;
 
 // ─── FETCH avec gestion 401 ───────────────────────────────
 async function apiFetch(url, opts = {}) {
   opts.credentials = "include"; // toujours envoyer le cookie session
   let r;
   try { r = await fetch(url, opts); }
-  catch(e) { throw new Error("API inaccessible"); }
+  catch(e) { throw new Error("API unavailable"); }
 
   if (r.status === 401) {
     // Session expirée → retour au login
-    showLogin("Session expirée, veuillez vous reconnecter.");
+    if (isLoggedIn) {
+      showLogin("Your session has expired. Please log in again");
+    }
     throw new Error("Unauthorized");
   }
   return r;
@@ -323,7 +432,11 @@ async function apiFetch(url, opts = {}) {
 
 // ─── AUTH ─────────────────────────────────────────────────
 function showLogin(msg = "") {
+  isLoggedIn = false;
   stopAll();
+  // Cacher le contenu principal
+  document.querySelector("header").style.display = "none";
+  document.querySelector(".layout").style.display = "none";
   document.getElementById("loginOverlay").style.display = "flex";
   document.getElementById("loginInput").value = "";
   document.getElementById("loginError").textContent = msg;
@@ -332,13 +445,32 @@ function showLogin(msg = "") {
 async function checkAuth() {
   // Tente un appel protégé pour savoir si la session est valide
   try {
-    const r = await fetch("/health", { credentials: "include" });
     // /health est public, on teste /api/jobs à la place
     const rj = await fetch("/api/jobs", { credentials: "include" });
     if (rj.status === 401) {
       showLogin();
     } else {
+      isLoggedIn = true;
       document.getElementById("loginOverlay").style.display = "none";
+      start();
+    }
+  } catch {
+    showLogin();
+  }
+}
+
+async function checkAuth() {
+  try {
+    const rj = await fetch("/api/jobs", { credentials: "include" });
+    if (rj.status === 401) {
+      // Afficher uniquement le login
+      showLogin();
+    } else {
+      // Tout afficher
+      isLoggedIn = true;
+      document.getElementById("loginOverlay").style.display = "none";
+      document.querySelector("header").style.display = "flex";
+      document.querySelector(".layout").style.display = "grid";
       start();
     }
   } catch {
@@ -354,6 +486,7 @@ async function doLogin() {
   err.textContent = "";
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>Connexion...';
+  stopAutoRefresh();
 
   try {
     const r = await fetch("/api/login", {
@@ -363,26 +496,29 @@ async function doLogin() {
       credentials: "include"
     });
     if (r.ok) {
+      isLoggedIn = true; 
       document.getElementById("loginOverlay").style.display = "none";
       start();
     } else if (r.status === 429) {
-      err.textContent = "Trop de tentatives, réessayez dans 5 minutes.";
+      err.textContent = "Too many attempts. Please try again in 5 minutes";
     } else {
-      err.textContent = "Clé API incorrecte.";
+      err.textContent = "API key invalid";
     }
   } catch {
-    err.textContent = "Erreur réseau.";
+    err.textContent = "Network error";
   } finally {
     btn.disabled = false;
-    btn.textContent = "Se connecter";
+    btn.textContent = "Login";
   }
 }
 
 async function doLogout() {
+  stopAutoRefresh();
   stopAll();
   try {
-    await fetch("/api/logout", { method: "POST", credentials: "include" });
+    await apiFetch("/api/logout", { method: "POST", credentials: "include" });
   } catch {}
+  isLoggedIn = false; 
   showLogin();
 }
 
@@ -400,7 +536,7 @@ async function checkHealth() {
       const data = await r.json();
       const ok = data.status === "ok";
       dot.className = "health-dot " + (ok ? "ok" : "err");
-      lbl.textContent = ok ? "API healthy" : "Redis dégradé";
+      lbl.textContent = ok ? "API healthy" : "Redis degraded";
     } else {
       dot.className = "health-dot err"; lbl.textContent = "API error";
     }
@@ -460,6 +596,10 @@ async function submitFile() {
       document.getElementById("fileName").textContent = "";
       selectedFile = null; document.getElementById("fileInput").value = "";
       await loadJobs();
+      if (!currentJobId) {
+        await renderDashboard();
+      }
+      startAutoRefresh();
     }
   } catch(e) {
     if (e.message !== "Unauthorized") {
@@ -476,7 +616,12 @@ async function loadJobs() {
   jobsAbortCtrl = new AbortController();
   try {
     const r = await fetch("/api/jobs", { credentials: "include", signal: jobsAbortCtrl.signal });
-    if (r.status === 401) { showLogin("Session expirée."); return; }
+    if (r.status === 401) { 
+      if (isLoggedIn){
+        showLogin("Your session has expired. Please log in again");
+      }
+      return; 
+    }
     const data = await r.json();
     allJobs = data.jobs || [];
     applyFilterSort();
@@ -567,8 +712,13 @@ function renderJobsList(query = "") {
 
 // ─── SELECT / REPORT ──────────────────────────────────────
 function selectJob(id) {
-  currentJobId = id; currentView = "report";
-  stopReportPoll(); applyFilterSort(); loadReport(id);
+  currentJobId = id; 
+  currentView = "report";
+    // Arrêter l'auto-refresh quand on regarde un job spécifique
+  stopAutoRefresh();
+  stopReportPoll(); 
+  applyFilterSort(); 
+  loadReport(id);
 }
 
 async function loadReport(id) {
@@ -602,9 +752,32 @@ function startReportPoll(id) {
       const r = await apiFetch(`/api/report/${id}`);
       if (!r.ok) return;
       const data = await r.json();
-      renderReport(id, data);
-      if (isJobFinished(data)) stopReportPoll();
-      await loadJobs();
+      if (currentView === "report") {
+        renderReport(id, data);
+      }
+      
+      // Si le job est terminé
+      if (isJobFinished(data)) {
+        stopReportPoll();
+        await loadJobs();
+        
+        if (!currentJobId) {
+          await renderDashboard();
+        } else {
+          applyFilterSort();
+        }
+        
+        // Vérifier si tous les jobs sont terminés
+        const allFinished = allJobs.every(job => 
+          (job.status_static === "completed" || job.status_static === "failed") &&
+          (job.status_dynamic === "completed" || job.status_dynamic === "failed")
+        );
+        
+        // Si tous les jobs sont terminés, arrêter l'auto-refresh
+        if (allFinished && allJobs.length > 0) {
+          stopAutoRefresh();
+        }
+      }
     } catch {}
   }, 5000);
 }
@@ -727,13 +900,26 @@ async function deleteJob(id) {
     const r = await apiFetch(`/api/jobs/${id}`, { method: "DELETE" });
     if (r.ok) {
       currentJobId = null;
-      document.getElementById("mainContent").innerHTML = '<div class="placeholder"><div class="placeholder-icon">🔍</div><div>Select a job to view results</div></div>';
       await loadJobs();
+      await renderDashboard();
+      
+      // Vérifier s'il reste des jobs en cours
+      const hasRunningJobs = allJobs.some(job => 
+        (job.status_static !== "completed" && job.status_static !== "failed") ||
+        (job.status_dynamic !== "completed" && job.status_dynamic !== "failed")
+      );
+      
+      // Arrêter l'auto-refresh si plus de jobs en cours
+      if (!hasRunningJobs) {
+        stopAutoRefresh();
+      }
     } else {
       const data = await r.json();
       alert("Error: " + (data.detail || r.status));
     }
-  } catch(e) { if (e.message !== "Unauthorized") alert(e.message); }
+  } catch(e) { 
+    if (e.message !== "Unauthorized") alert(e.message); 
+  }
 }
 
 // ─── HELPERS ──────────────────────────────────────────────
@@ -777,27 +963,551 @@ function syntaxHighlight(json) {
 }
 
 function stopAll() {
-  clearInterval(refreshInterval); refreshInterval = null;
+  clearInterval(refreshInterval); 
+  refreshInterval = null;
+   if (healthInterval) {
+    clearInterval(healthInterval);
+    healthInterval = null;
+  }
+  stopAutoRefresh();
   stopReportPoll();
-  if (jobsAbortCtrl) { jobsAbortCtrl.abort(); jobsAbortCtrl = null; }
+  if (jobsAbortCtrl) { 
+    jobsAbortCtrl.abort(); 
+    jobsAbortCtrl = null; 
+  }
 }
 
 // ─── VISIBILITY ───────────────────────────────────────────
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
-    clearInterval(refreshInterval); stopReportPoll();
+    // Ne rien faire quand l'onglet est caché
   } else {
-    loadJobs(); refreshInterval = setInterval(loadJobs, 5000);
-    if (currentJobId) startReportPoll(currentJobId);
+    // Quand l'onglet devient visible
+    if (currentJobId) {
+      startReportPoll(currentJobId);
+    } else {
+      // Recharger les données et vérifier si on doit redémarrer l'auto-refresh
+      loadJobs().then(() => {
+        if (!currentJobId) {
+          renderDashboard();
+          
+          // Vérifier s'il y a des jobs en cours
+          const hasRunningJobs = allJobs.some(job => 
+            (job.status_static !== "completed" && job.status_static !== "failed") ||
+            (job.status_dynamic !== "completed" && job.status_dynamic !== "failed")
+          );
+          
+          if (hasRunningJobs && !dashboardRefreshInterval) {
+            startAutoRefresh();
+          }
+        }
+      });
+    }
   }
 });
 
+function drawPipelineChart(running, completed, failed) {
+  const ctx = document.getElementById("statusChart");
+  if (!ctx) return;
+
+  const c = ctx.getContext("2d");
+  const w = ctx.width = 400;
+  const h = ctx.height = 200;
+  
+  // Effacer le canvas
+  c.clearRect(0, 0, w, h);
+  
+  // Titre du graphique
+  c.fillStyle = "#1e293b";
+  c.font = "bold 14px Arial";
+  c.textAlign = "center";
+  c.fillText("Pipeline status", w/2, 18);
+  
+  // Données
+  const data = [
+    { label: "Running", val: running, color: "#3b82f6" },
+    { label: "Completed", val: completed, color: "#22c55e" },
+    { label: "Failed", val: failed, color: "#ef4444" }
+  ];
+  
+  const max = Math.max(...data.map(d => d.val), 1);
+  const barWidth = w - 100;
+  const startY = 45;
+  
+  // Dessiner les barres
+  data.forEach((d, i) => {
+    const y = startY + i * 35;
+    const barLength = (d.val / max) * barWidth;
+    
+    // Barre
+    c.fillStyle = d.color;
+    c.fillRect(80, y, barLength, 18);
+    
+    // Label
+    c.fillStyle = "#475569";
+    c.font = "12px Arial";
+    c.textAlign = "left";
+    c.fillText(d.label, 10, y + 13);
+    
+    // Valeur
+    c.fillStyle = "#1e293b";
+    c.font = "bold 12px Arial";
+    c.fillText(d.val.toString(), 85 + barLength, y + 13);
+  });
+  
+  // Légende en bas
+  const legendY = h - 25;
+  const legendStartX = 30;
+  const legendSpacing = 100;
+  
+  data.forEach((d, i) => {
+    c.fillStyle = d.color;
+    c.fillRect(legendStartX + i * legendSpacing, legendY, 12, 12);
+    c.fillStyle = "#64748b";
+    c.font = "11px Arial";
+    c.textAlign = "left";
+    c.fillText(d.label, legendStartX + i * legendSpacing + 16, legendY + 10);
+  });
+}
+
+async function drawVerdictChart(jobs) {
+  const ctx = document.getElementById("trendChart");
+  if (!ctx) return;
+
+  const c = ctx.getContext("2d");
+  const w = ctx.width = 400;
+  const h = ctx.height = 200;
+  
+  // Effacer le canvas
+  c.clearRect(0, 0, w, h);
+  
+  // Titre du graphique
+  c.fillStyle = "#1e293b";
+  c.font = "bold 14px Arial";
+  c.textAlign = "center";
+  c.fillText("Malware detection", w/2, 18);
+  
+  let malicious = 0;
+  let clean = 0;
+
+  // Récupérer les verdicts pour tous les jobs terminés
+  const verdictPromises = jobs.map(async (j) => {
+    if (j.status_static === "completed" || j.status_static === "failed") {
+      try {
+        const r = await fetch(`/api/report/${j.job_id}`);
+        if (r.ok) {
+          const data = await r.json();
+          return data.verdict?.malicious === true || data.verdict?.malicious === "true";
+        }
+      } catch(e) {
+        console.debug(`Error retrieving the verdict for ${j.job_id}:`, e);
+      }
+    }
+    return null;
+  });
+
+  const results = await Promise.all(verdictPromises);
+  
+  results.forEach(isMalicious => {
+    if (isMalicious === true) {
+      malicious++;
+    } else if (isMalicious === false) {
+      clean++;
+    }
+  });
+
+  const total = malicious + clean;
+  const centerX = w / 2;
+  const centerY = h / 2 + 10;
+  const radius = 65;
+  
+  // Vérifier si aucun job n'existe
+  if (total === 0) {
+    // Dessiner un cercle gris clair complet
+    c.beginPath();
+    c.fillStyle = "#e5e7eb";
+    c.moveTo(centerX, centerY);
+    c.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    c.closePath();
+    c.fill();
+    
+    // Cercle intérieur blanc pour effet "donut"
+    c.beginPath();
+    c.fillStyle = "#fff";
+    c.arc(centerX, centerY, radius * 0.55, 0, Math.PI * 2);
+    c.fill();
+    
+    // Texte au centre
+    c.fillStyle = "#1e293b";
+    c.font = "bold 16px Arial";
+    c.textAlign = "center";
+    c.fillText("0%", centerX, centerY - 5);
+    c.font = "11px Arial";
+    c.fillStyle = "#64748b";
+    c.fillText("malicious rate", centerX, centerY + 12);
+    
+    // Légende
+    const legendX = w - 85;
+    const legendYStart = 45;
+    
+    c.fillStyle = "#ef4444";
+    c.fillRect(legendX, legendYStart, 12, 12);
+    c.fillStyle = "#475569";
+    c.font = "11px Arial";
+    c.textAlign = "left";
+    c.fillText("Malicious (0)", legendX + 18, legendYStart + 10);
+    
+    c.fillStyle = "#22c55e";
+    c.fillRect(legendX, legendYStart + 25, 12, 12);
+    c.fillStyle = "#475569";
+    c.fillText("Clean (0)", legendX + 18, legendYStart + 35);
+    
+    return;
+  }
+  
+  // Données pour le camembert (cas normal avec des jobs)
+  const data = [
+    { label: "Malicious", val: malicious, color: "#ef4444" },
+    { label: "Clean", val: clean, color: "#22c55e" }
+  ];
+  
+  // Dessiner le camembert
+  let start = -Math.PI / 2;
+  
+  data.forEach(d => {
+    const slice = (d.val / total) * Math.PI * 2;
+    c.beginPath();
+    c.fillStyle = d.color;
+    c.moveTo(centerX, centerY);
+    c.arc(centerX, centerY, radius, start, start + slice);
+    c.closePath();
+    c.fill();
+    start += slice;
+  });
+  
+  // Cercle intérieur blanc pour effet "donut"
+  c.beginPath();
+  c.fillStyle = "#fff";
+  c.arc(centerX, centerY, radius * 0.55, 0, Math.PI * 2);
+  c.fill();
+  
+  // Texte au centre
+  c.fillStyle = "#1e293b";
+  c.font = "bold 16px Arial";
+  c.textAlign = "center";
+  c.fillText(`${Math.round((malicious / total) * 100)}%`, centerX, centerY - 5);
+  c.font = "11px Arial";
+  c.fillStyle = "#64748b";
+  c.fillText("malicious rate", centerX, centerY + 12);
+  
+  // Légende à droite
+  const legendX = w - 85;
+  const legendYStart = 45;
+  
+  data.forEach((d, i) => {
+    c.fillStyle = d.color;
+    c.fillRect(legendX, legendYStart + i * 25, 12, 12);
+    c.fillStyle = "#475569";
+    c.font = "11px Arial";
+    c.textAlign = "left";
+    c.fillText(`${d.label} (${d.val})`, legendX + 18, legendYStart + i * 25 + 10);
+  });
+}
+
+async function renderDashboard() {
+  currentJobId = null;
+  const total = allJobs.length;
+
+  const running = allJobs.filter(j =>
+    j.status_static === "queued" || j.status_dynamic === "queued"
+  ).length;
+
+  const completed = allJobs.filter(j =>
+    j.status_static === "completed" && j.status_dynamic === "completed"
+  ).length;
+
+  const failed = allJobs.filter(j =>
+    j.status_static === "failed" || j.status_dynamic === "failed"
+  ).length;
+
+  const successRate = total ? Math.round((completed / total) * 100) : 0;
+
+  const recent = [...allJobs]
+    .sort((a,b) => (b.submitted_at > a.submitted_at ? 1 : -1))
+    .slice(0, 5);
+
+  const main = document.getElementById("mainContent");
+
+  // Afficher un indicateur de chargement pour le graphique
+  main.innerHTML = `
+    <!-- HEADER DASHBOARD -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Threat Overview</div>
+        <div class="auto-refresh-badge">
+          <div class="pulse"></div> Live
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="kpi-label">Total Jobs</div>
+          <div class="kpi-value">${total}</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Running</div>
+          <div class="kpi-value">${running}</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Completed</div>
+          <div class="kpi-value">${completed}</div>
+        </div>
+        <div class="kpi danger">
+          <div class="kpi-label">Failed</div>
+          <div class="kpi-value">${failed}</div>
+        </div>
+        <div class="kpi good">
+          <div class="kpi-label">Success Rate</div>
+          <div class="kpi-value">${successRate}%</div>
+        </div>
+        <div class="kpi danger">
+          <div class="kpi-label">Malicious Rate</div>
+          <div class="kpi-value" id="maliciousRateValue">--%</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GRAPHS -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Analytics</div>
+      </div>
+
+      <div class="charts-grid">
+        <div>
+          <canvas id="statusChart" width="400" height="200" style="width:100%; max-width:400px; height:auto;"></canvas>
+        </div>
+        <div>
+          <canvas id="trendChart" width="400" height="200" style="width:100%; max-width:400px; height:auto;"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- RECENT -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Recent Activity</div>
+      </div>
+
+      <div class="activity-feed">
+        ${
+          recent.length
+            ? recent.map(j => `
+              <div class="activity-item" onclick="selectJob('${j.job_id}')">
+                <div class="activity-left">
+                  <div class="dot ${j.status_dynamic}"></div>
+                </div>
+                <div class="activity-main">
+                  <div class="activity-title">${escHtml(j.file_name)}</div>
+                  <div class="activity-sub">
+                    ${escHtml(j.job_id)} • ${formatDate(j.submitted_at)}
+                  </div>
+                </div>
+                <div class="activity-badges">
+                  <span class="badge ${j.status_static}">${j.status_static}</span>
+                  <span class="badge ${j.status_dynamic}">${j.status_dynamic}</span>
+                </div>
+              </div>
+            `).join("")
+            : `<div class="empty-jobs">No activity yet</div>`
+        }
+      </div>
+    </div>
+
+    <!-- QUICK ACTIONS -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Quick Actions</div>
+      </div>
+
+      <div class="actions-bar">
+        <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+          Upload File
+        </button>
+        <button class="btn btn-secondary" onclick="loadJobs(); renderDashboard();">
+          Refresh Data
+        </button>
+      </div>
+    </div>
+  `;
+
+  drawPipelineChart(running, completed, failed);
+  
+  // Attendre que les verdicts soient chargés
+  await drawVerdictChart(allJobs);
+  
+  // Mettre à jour le taux de malveillance après chargement
+  const maliciousCount = await getMaliciousCount(allJobs);
+  const maliciousRate = total ? Math.round((maliciousCount / total) * 100) : 0;
+  const rateElement = document.getElementById("maliciousRateValue");
+  if (rateElement) rateElement.textContent = `${maliciousRate}%`;
+}
+
+// Fonction utilitaire pour compter les jobs malveillants
+async function getMaliciousCount(jobs) {
+  let malicious = 0;
+  const verdictPromises = jobs.map(async (j) => {
+    if (j.status_static === "completed" || j.status_static === "failed") {
+      try {
+        const r = await apiFetch(`/api/report/${j.job_id}`);
+        if (r.ok) {
+          const data = await r.json();
+          return data.verdict?.malicious === true || data.verdict?.malicious === "true";
+        }
+      } catch(e) {
+        console.debug(e);
+      }
+    }
+    return false;
+  });
+  
+  const results = await Promise.all(verdictPromises);
+  results.forEach(isMalicious => {
+    if (isMalicious) malicious++;
+  });
+  return malicious;
+}
+
 // ─── BOOT ─────────────────────────────────────────────────
-function start() {
-  checkHealth();
-  setInterval(checkHealth, 30000);
-  loadJobs();
-  refreshInterval = setInterval(loadJobs, 5000);
+async function start() {
+  document.querySelector("header").style.display = "flex";
+  document.querySelector(".layout").style.display = "grid";
+  
+  await checkHealth();
+  healthInterval = setInterval(checkHealth, 30000);
+
+  await loadJobs();
+  await renderDashboard(); // Ajouter await
+}
+
+function startAutoRefresh() {
+  // Ne pas démarrer si déjà en cours
+  if (dashboardRefreshInterval) return;
+  
+  dashboardRefreshInterval = setInterval(async () => {
+    // Ne pas rafraîchir si déjà en cours
+    if (!isRefreshing) {
+      isRefreshing = true;
+      
+      try {
+        // Récupérer les jobs actuels
+        const r = await fetch("/api/jobs", { credentials: "include" });
+        if (r.status === 401) { 
+          showLogin("Your session has expired. Please log in again"); 
+          isRefreshing = false;
+          return; 
+        }
+        const data = await r.json();
+        const newJobs = data.jobs || [];
+        
+        // Vérifier si des changements ont eu lieu
+        let hasChanges = false;
+        
+        // 1. Vérifier si le nombre de jobs a changé
+        if (newJobs.length !== allJobs.length) {
+          hasChanges = true;
+        } else {
+          // 2. Vérifier les changements de statut pour chaque job
+          for (let i = 0; i < newJobs.length; i++) {
+            const newJob = newJobs[i];
+            const oldJob = allJobs.find(j => j.job_id === newJob.job_id);
+            
+            if (!oldJob) {
+              hasChanges = true;
+              break;
+            }
+            
+            // Vérifier si les statuts ont changé
+            if (oldJob.status_static !== newJob.status_static || 
+                oldJob.status_dynamic !== newJob.status_dynamic) {
+              hasChanges = true;
+              break;
+            }
+          }
+        }
+        
+        // Si des changements sont détectés, mettre à jour
+        if (hasChanges) {
+          allJobs = newJobs; // Mettre à jour les jobs
+          applyFilterSort(); // Met à jour la sidebar (toujours nécessaire)
+          
+          // Rafraîchir le dashboard SEULEMENT si on est sur le dashboard
+          if (!currentJobId) {
+            await renderDashboard();
+          }
+          
+          // Vérifier si tous les jobs sont terminés
+          const allFinished = allJobs.every(job => 
+            (job.status_static === "completed" || job.status_static === "failed") &&
+            (job.status_dynamic === "completed" || job.status_dynamic === "failed")
+          );
+          
+          // Si tous les jobs sont terminés, arrêter l'auto-refresh
+          if (allFinished && allJobs.length > 0) {
+            console.debug("All jobs are complete, auto-refresh has stopped");
+            stopAutoRefresh();
+          }
+        }
+        
+      } catch(e) {
+        console.error("Auto-refresh error:", e);
+      } finally {
+        isRefreshing = false;
+      }
+    }
+  }, 3000);
+}
+
+function stopAutoRefresh() {
+  if (dashboardRefreshInterval) {
+    clearInterval(dashboardRefreshInterval);
+    dashboardRefreshInterval = null;
+  }
+}
+
+// Fonction pour récupérer le statut d'un job spécifique
+async function getJobStatus(jobId) {
+  try {
+    const r = await apiFetch(`/api/report/${jobId}`);
+    if (r.ok) {
+      const data = await r.json();
+      return {
+        status_static: data.status_static,
+        status_dynamic: data.status_dynamic
+      };
+    }
+  } catch(e) {
+    console.error(e);
+  }
+  return null;
+}
+
+function goHome() {
+  currentJobId = null;
+  stopReportPoll();
+  renderDashboard();
+  applyFilterSort();
+  
+  // Vérifier s'il y a des jobs en cours avant de redémarrer l'auto-refresh
+  const hasRunningJobs = allJobs.some(job => 
+    (job.status_static !== "completed" && job.status_static !== "failed") ||
+    (job.status_dynamic !== "completed" && job.status_dynamic !== "failed")
+  );
+  
+  // Redémarrer l'auto-refresh seulement s'il y a des jobs en cours
+  if (hasRunningJobs && !dashboardRefreshInterval) {
+    startAutoRefresh();
+  }
 }
 
 // Vérifier si une session est déjà active au chargement
