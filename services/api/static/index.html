@@ -393,7 +393,7 @@ pre.json-viewer::-webkit-scrollbar-thumb { background: #334155; border-radius: 2
 
 <script>
 // ─── CONFIG ───────────────────────────────────────────────
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 const ALLOWED_EXT = [".exe",".dll",".pdf",".doc",".docx",".zip",".ps1",".sh",".bat",".js",".py",".elf"];
 
@@ -795,7 +795,7 @@ function renderReport(id, data) {
 
   // Verdict card
   const verdictCard = makeCard("Verdict",
-    finished ? "" : `<div class="auto-refresh-badge"><div class="pulse"></div>Analyse en cours...</div>`,
+    finished ? "" : `<div class="auto-refresh-badge"><div class="pulse"></div>Analysis in progress...</div>`,
     `<div class="verdict-grid">
       <div class="verdict-cell"><div class="verdict-label">Malicious</div><div class="verdict-value ${isMalicious ? 'malicious' : 'clean'}">${isMalicious ? "Yes" : "No"}</div></div>
       <div class="verdict-cell"><div class="verdict-label">Score</div><div class="verdict-value">${v.score != null ? escHtml(String(v.score)) : "-"}</div></div>

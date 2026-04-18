@@ -20,14 +20,22 @@ from reportlab.platypus import KeepTogether
 import secrets
 from datetime import datetime
 from zoneinfo import ZoneInfo
-
+import re
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379")
 RESULTS_PATH = Path(os.getenv("RESULTS_PATH", "/data/results"))
 API_KEY = os.getenv("API_KEY")
 MAX_SIZE = 50 * 1024 * 1024
 
+FILENAME_REGEX = re.compile(r"^[a-zA-Z0-9._-]{1,100}$")
+
 RESULTS_PATH.mkdir(parents=True, exist_ok=True)
+
+# permissions strictes (Linux)
+try:
+    os.chmod(RESULTS_PATH, 0o700)
+except Exception:
+    pass  # on ignore sur Windows
 
 redis_client = Redis.from_url(REDIS_URL, decode_responses=True)
 
@@ -94,6 +102,12 @@ def verify_auth(
         return True
     raise HTTPException(401, "Unauthorized")
 
+def validate_job_id(job_id: str):
+    try:
+        uuid.UUID(job_id)
+    except ValueError:
+        raise HTTPException(400, "Invalid job_id format")
+
 @app.get("/health")
 def health():
   try:
@@ -111,12 +125,12 @@ def login(data: LoginRequest, response: Response, request: Request):
     if attempts == 1:
         redis_client.expire(key, 300)  # fenêtre de 5 minutes
     if attempts > 10:
-        raise HTTPException(429, "Trop de tentatives, réessayez dans 5 minutes")
+        raise HTTPException(429, "Too many attempts. Please try again in 5 minutes")
     verify_api_key(data.api_key)
     redis_client.delete(key)  # reset si succès
     token = create_session()
     response.set_cookie(key="session", value=token, httponly=True,
-                        secure=True, samesite="Lax", max_age=3600, path="/")
+                        secure=True, samesite="Strict", max_age=3600, path="/")
     return {"status": "authenticated"}
 
 @app.post("/api/logout")
@@ -128,25 +142,62 @@ def logout(response: Response, session: Optional[str] = Cookie(None),
     return {"status": "logged out"}
 
 @app.post("/api/submit", response_model=SubmissionResponse)
-async def submit(file: UploadFile = File(...), sandbox_os: str = Form(...), auth: bool = Depends(verify_auth)):
-  data = await file.read()
-  if len(data) > MAX_SIZE:
-    raise HTTPException(413, "File too large")
+async def submit(request: Request, file: UploadFile = File(...), sandbox_os: str = Form(...), auth: bool = Depends(verify_auth)):
+  ip = request.client.host
+  key = f"rate:submit:{ip}"
+  count = redis_client.incr(key)
+
+  if count == 1:
+    redis_client.expire(key, 60)
+
+  if count > 20:
+    raise HTTPException(429, "Too many submissions")
   valid = {"windows", "linux"}
   if sandbox_os not in valid:
     raise HTTPException(400, f"Invalid os value: {sandbox_os}, should be in {valid}")
-  h = hashlib.sha256(data).hexdigest()
   job_id = str(uuid.uuid4())
+  
+  if not file.filename or not FILENAME_REGEX.match(file.filename):
+    raise HTTPException(400, "Invalid filename")
 
-  path = RESULTS_PATH / f"{h}_{file.filename}"
-  with open(path, "wb") as f:
-    f.write(data)
+  allowed_ext = {".exe",".dll",".pdf",".doc",".docx",".zip",".ps1",".sh",".bat",".js",".py",".elf"}
+  ext = Path(file.filename).suffix.lower()
+
+  if ext not in allowed_ext:
+    raise HTTPException(400, f"Extension not allowed: {ext}")
+
+  tmp_path = RESULTS_PATH / f"tmp_{uuid.uuid4().hex}"
+
+  hasher = hashlib.sha256()
+  size = 0
+
+  try:
+    with open(tmp_path, "wb") as f:
+        while chunk := await file.read(1024 * 1024):
+            size += len(chunk)
+            if size > MAX_SIZE:
+                raise HTTPException(413, "File too large")
+
+            hasher.update(chunk)
+            f.write(chunk)
+
+    h = hasher.hexdigest()
+    final_path = RESULTS_PATH / h
+
+    if final_path.exists():
+        tmp_path.unlink()
+    else:
+        tmp_path.rename(final_path)
+
+  except Exception:
+    tmp_path.unlink(missing_ok=True)
+    raise
 
   meta = {
     "job_id": job_id,
     "file_hash": h,
     "file_name": file.filename,
-    "file_path": str(path),
+    "file_path": str(final_path),
     "os": sandbox_os,
     "submitted_at": format_ts(datetime.now(ZoneInfo("Europe/Paris")).isoformat()),
     "status_static": "queued",
@@ -166,6 +217,7 @@ async def submit(file: UploadFile = File(...), sandbox_os: str = Form(...), auth
 
 @app.get("/api/result/{job_id}", response_model=ResultResponse)
 def result(job_id: str, auth: bool = Depends(verify_auth)):
+  validate_job_id(job_id)
   job_raw = redis_client.get(f"job:{job_id}")
   if not job_raw:
     raise HTTPException(404, "job not found")
@@ -210,6 +262,7 @@ def list_jobs(auth: bool = Depends(verify_auth)):
 
 @app.delete("/api/jobs/{job_id}")
 def delete_job(job_id: str, auth: bool = Depends(verify_auth)):
+    validate_job_id(job_id)
     job_key = f"job:{job_id}"
 
     job_raw = redis_client.get(job_key)
@@ -222,6 +275,10 @@ def delete_job(job_id: str, auth: bool = Depends(verify_auth)):
     if file_path:
         try:
             path = Path(file_path)
+
+            if not path.resolve().is_relative_to(RESULTS_PATH.resolve()):
+                raise HTTPException(400, "Invalid file path")
+
             if path.exists():
                 path.unlink()
         except Exception as e:
@@ -237,6 +294,7 @@ def delete_job(job_id: str, auth: bool = Depends(verify_auth)):
 
 @app.get("/api/result/{job_id}/download")
 def download_result(job_id: str, auth: bool = Depends(verify_auth)):
+    validate_job_id(job_id)
     job_raw = redis_client.get(f"job:{job_id}")
     if not job_raw:
         raise HTTPException(status_code=404, detail="job not found")
@@ -445,6 +503,7 @@ def build_unified_report(job_id: str, meta: dict, static_raw: str | None, dynami
 
 @app.get("/api/report/{job_id}")
 def get_report(job_id: str, auth: bool = Depends(verify_auth)):
+    validate_job_id(job_id)
     job_raw = redis_client.get(f"job:{job_id}")
     if not job_raw:
         raise HTTPException(404, "job not found")
@@ -458,6 +517,7 @@ def get_report(job_id: str, auth: bool = Depends(verify_auth)):
 
 @app.get("/api/report/{job_id}/download")
 def download_report(job_id: str, auth: bool = Depends(verify_auth)):
+    validate_job_id(job_id)
     job_raw = redis_client.get(f"job:{job_id}")
     if not job_raw:
         raise HTTPException(404, "job not found")
@@ -508,6 +568,7 @@ def draw_header_footer(c: pdf_canvas.Canvas, doc, report):
 
 @app.get("/api/report/{job_id}/pdf")
 def download_report_pdf(job_id: str, auth: bool = Depends(verify_auth)):
+    validate_job_id(job_id)
     job_raw = redis_client.get(f"job:{job_id}")
     if not job_raw:
         raise HTTPException(404, "job not found")
