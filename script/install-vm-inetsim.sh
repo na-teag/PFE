@@ -15,8 +15,8 @@ if ! virsh net-info analysis &>/dev/null; then
     cat <<EOF > /tmp/analysis-net.xml
 <network>
   <name>analysis</name>
-  <bridge name='br0' stp='on' delay='0'/>
-  <ip address='192.168.30.1' netmask='255.255.255.0'/>
+  <forward mode="bridge"/>
+  <bridge name="br0"/>
 </network>
 EOF
     sudo virsh net-define /tmp/analysis-net.xml
