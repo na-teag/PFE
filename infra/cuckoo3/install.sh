@@ -170,7 +170,16 @@ echo -e "\n### Activation du venv pour VMCloak ###"
 cd /home/$username/vmcloak
 source venv/bin/activate
 echo -e "\n### Création de l'image qcow2 ###"
-vmcloak --debug init --win10x64 --hddsize 128 --cpus 2 --ramsize 4096 --network 192.168.30.0/24 --vm qemu --vrde --vrde-port 1 --ip 192.168.30.2 --iso-mount /mnt/win10x64 win10base br0
+vmcloak --debug init --win10x64 \
+    --hddsize 128 --cpus 2 --ramsize 4096 \
+    --network 192.168.30.0/24 \
+    --vm qemu \
+    --vrde --vrde-port 1 \
+    --ip 192.168.30.2 \
+    --iso-mount /mnt/win10x64 \
+    --cpu-model "Skylake-Client-v3" \
+    win10base br0
+
 echo -e "\n### Installation des logiciels, du Hardening et bypass anti-VM ###"
 vmcloak --debug install win10base \
     disable_uac \
@@ -180,7 +189,9 @@ vmcloak --debug install win10base \
     office \
     adobe_reader \
     wallpaper \
-    chrome
+    chrome \
+    remove_vm_artifacts \
+    rdpwrap
 
 echo "### Vérification de la connectivité vers INetSim ###"
 virsh domifaddr win10base 2>/dev/null || true
