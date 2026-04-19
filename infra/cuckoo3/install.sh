@@ -177,7 +177,6 @@ vmcloak --debug init --win10x64 \
     --vrde --vrde-port 1 \
     --ip 192.168.30.2 \
     --iso-mount /mnt/win10x64 \
-    --cpu-model "Skylake-Client-v3" \
     win10base br0
 
 echo -e "\n### Installation des logiciels, du Hardening et bypass anti-VM ###"
