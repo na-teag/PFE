@@ -10,6 +10,7 @@ from redis import Redis
 from fastapi.responses import StreamingResponse
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 import io
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
@@ -108,6 +109,27 @@ def validate_job_id(job_id: str):
     except ValueError:
         raise HTTPException(400, "Invalid job_id format")
 
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "connect-src 'self'; "
+        "form-action 'self'; "
+        "base-uri 'self'; "
+        "frame-ancestors 'none';"
+    )
+    
+    return response
+
 @app.get("/health")
 def health():
   try:
@@ -192,11 +214,13 @@ async def submit(request: Request, file: UploadFile = File(...), sandbox_os: str
   except Exception:
     tmp_path.unlink(missing_ok=True)
     raise
+  
+  safe_name = Path(file.filename).name
 
   meta = {
     "job_id": job_id,
     "file_hash": h,
-    "file_name": file.filename,
+    "file_name": safe_name,
     "file_path": str(final_path),
     "os": sandbox_os,
     "submitted_at": format_ts(datetime.now(ZoneInfo("Europe/Paris")).isoformat()),
@@ -221,7 +245,10 @@ def result(job_id: str, auth: bool = Depends(verify_auth)):
   job_raw = redis_client.get(f"job:{job_id}")
   if not job_raw:
     raise HTTPException(404, "job not found")
-  meta = json.loads(job_raw)
+  try:
+    meta = json.loads(job_raw)
+  except Exception:
+    raise HTTPException(500, "Corrupted data")
 
   static_raw = redis_client.get(f"result_static:{job_id}")
   dyn_raw = redis_client.get(f"result_dynamic:{job_id}")
@@ -269,14 +296,19 @@ def delete_job(job_id: str, auth: bool = Depends(verify_auth)):
     if not job_raw:
         raise HTTPException(404, "job not found")
 
-    meta = json.loads(job_raw)
+    try:
+        meta = json.loads(job_raw)
+    except Exception:
+        raise HTTPException(500, "Corrupted data")
 
     file_path = meta.get("file_path")
     if file_path:
         try:
-            path = Path(file_path)
+            path = Path(file_path).resolve()
+            results_path_resolved = RESULTS_PATH.resolve()
 
-            if not path.resolve().is_relative_to(RESULTS_PATH.resolve()):
+            # Vérifier que le fichier est bien dans RESULTS_PATH (ou un sous-dossier)
+            if results_path_resolved not in path.parents and path.parent != results_path_resolved:
                 raise HTTPException(400, "Invalid file path")
 
             if path.exists():
@@ -299,7 +331,10 @@ def download_result(job_id: str, auth: bool = Depends(verify_auth)):
     if not job_raw:
         raise HTTPException(status_code=404, detail="job not found")
 
-    meta = json.loads(job_raw)
+    try:
+        meta = json.loads(job_raw)
+    except Exception:
+        raise HTTPException(500, "Corrupted data")
 
     static_raw = redis_client.get(f"result_static:{job_id}")
     dynamic_raw = redis_client.get(f"result_dynamic:{job_id}")
@@ -313,6 +348,9 @@ def download_result(job_id: str, auth: bool = Depends(verify_auth)):
     }
 
     json_bytes = json.dumps(result, indent=2).encode("utf-8")
+
+    if len(json_bytes) > 5 * 1024 * 1024:
+        raise HTTPException(500, "Response too large")
 
     filename = f"analysis_{job_id}.json"
 
@@ -508,7 +546,11 @@ def get_report(job_id: str, auth: bool = Depends(verify_auth)):
     if not job_raw:
         raise HTTPException(404, "job not found")
 
-    meta = json.loads(job_raw)
+    try:
+        meta = json.loads(job_raw)
+    except Exception:
+        raise HTTPException(500, "Corrupted data")
+    
     static_raw = redis_client.get(f"result_static:{job_id}")
     dynamic_raw = redis_client.get(f"result_dynamic:{job_id}")
 
@@ -529,6 +571,10 @@ def download_report(job_id: str, auth: bool = Depends(verify_auth)):
     report = build_unified_report(job_id, meta, static_raw, dynamic_raw)
 
     json_bytes = json.dumps(report, indent=2).encode("utf-8")
+
+    if len(json_bytes) > 5 * 1024 * 1024:
+        raise HTTPException(500, "Response too large")
+
     filename = f"report_{job_id}.json"
 
     return StreamingResponse(
@@ -573,7 +619,11 @@ def download_report_pdf(job_id: str, auth: bool = Depends(verify_auth)):
     if not job_raw:
         raise HTTPException(404, "job not found")
 
-    meta = json.loads(job_raw)
+    try:
+        meta = json.loads(job_raw)
+    except Exception:
+        raise HTTPException(500, "Corrupted data")
+
     static_raw = redis_client.get(f"result_static:{job_id}")
     dynamic_raw = redis_client.get(f"result_dynamic:{job_id}")
 

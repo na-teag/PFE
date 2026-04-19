@@ -253,6 +253,7 @@ pre.json-viewer::-webkit-scrollbar-thumb { background: #334155; border-radius: 2
 
 .kpi.danger .kpi-value { color: #ef4444; }
 .kpi.good .kpi-value { color: #22c55e; }
+.kpi.running .kpi-value { color: #3b82f6; }
 
 .charts-grid {
   display: grid;
@@ -430,6 +431,11 @@ async function apiFetch(url, opts = {}) {
   return r;
 }
 
+function isValidUUID(uuid) {
+  const regex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return regex.test(uuid);
+}
+
 // ─── AUTH ─────────────────────────────────────────────────
 function showLogin(msg = "") {
   isLoggedIn = false;
@@ -440,23 +446,6 @@ function showLogin(msg = "") {
   document.getElementById("loginOverlay").style.display = "flex";
   document.getElementById("loginInput").value = "";
   document.getElementById("loginError").textContent = msg;
-}
-
-async function checkAuth() {
-  // Tente un appel protégé pour savoir si la session est valide
-  try {
-    // /health est public, on teste /api/jobs à la place
-    const rj = await fetch("/api/jobs", { credentials: "include" });
-    if (rj.status === 401) {
-      showLogin();
-    } else {
-      isLoggedIn = true;
-      document.getElementById("loginOverlay").style.display = "none";
-      start();
-    }
-  } catch {
-    showLogin();
-  }
 }
 
 async function checkAuth() {
@@ -551,6 +540,12 @@ function onFileSelected() {
   const nameEl = document.getElementById("fileName");
   const btn = document.getElementById("submitBtn");
   const result = document.getElementById("submitResult");
+  if (!f.type) {
+    result.textContent = "Unknown file type";
+    result.className = "submit-result error";
+    btn.disabled = true;
+    return;
+  }
   if (f.size > MAX_FILE_SIZE) {
     nameEl.textContent = ""; result.textContent = "File too large (max 50MB)";
     result.className = "submit-result error"; btn.disabled = true; selectedFile = null; return;
@@ -666,7 +661,7 @@ function renderJobsList(query = "") {
       const div = document.createElement("div");
       div.className = "job-row" + (j.job_id === currentJobId ? " active" : "");
       const highlightedName = query
-        ? escHtml(j.file_name).replace(new RegExp(escRegex(escHtml(query)), "gi"), m => `<mark>${m}</mark>`)
+        ? escHtml(j.file_name).replace(new RegExp(escRegex(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), "gi"), m => `<mark>${m}</mark>`)
         : escHtml(j.file_name);
       const dateStr = j.submitted_at ? formatDate(j.submitted_at) : "";
       div.dataset.jobId = j.job_id;
@@ -712,6 +707,10 @@ function renderJobsList(query = "") {
 
 // ─── SELECT / REPORT ──────────────────────────────────────
 function selectJob(id) {
+  if (!isValidUUID(id)) {
+    console.debug("Invalid job ID:", id);
+    return;
+  }
   currentJobId = id; 
   currentView = "report";
     // Arrêter l'auto-refresh quand on regarde un job spécifique
@@ -722,6 +721,10 @@ function selectJob(id) {
 }
 
 async function loadReport(id) {
+  if (!isValidUUID(id)) {
+    console.debug("Invalid job ID:", id);
+    return;
+  }
   const main = document.getElementById("mainContent");
   main.innerHTML = '<div class="placeholder"><div class="spinner" style="width:24px;height:24px;border-width:3px;"></div><div>Loading...</div></div>';
   try {
@@ -746,6 +749,10 @@ function isJobFinished(data) {
 }
 
 function startReportPoll(id) {
+  if (!isValidUUID(id)) {
+    console.debug("Invalid job ID:", id);
+    return;
+  }
   stopReportPoll();
   reportPollInterval = setInterval(async () => {
     try {
@@ -822,12 +829,16 @@ function renderReport(id, data) {
   const actionsBar = document.createElement("div");
   actionsBar.className = "actions-bar";
 
+  const openSafe = (url) => {
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
   const btnResult = makeBtn("JSON Result", "btn-secondary", () => showResult(id));
   btnResult.id = "btnResult";
   const btnReport = makeBtn("JSON Report", "btn-secondary active-view", () => showReport(id));
   btnReport.id = "btnReport";
-  const btnDlResult = makeBtn("Download Result", "btn-secondary", () => window.open("/api/result/" + id + "/download"));
-  const btnDlPdf    = makeBtn("Download PDF",    "btn-secondary", () => window.open("/api/report/" + id + "/pdf"));
+  const btnDlResult = makeBtn("Download Result", "btn-secondary", () => openSafe("/api/result/" + id + "/download"));
+  const btnDlPdf    = makeBtn("Download PDF",    "btn-secondary", () => openSafe("/api/report/" + id + "/pdf"));
   const btnDelete   = makeBtn("Delete Job",      "btn-danger",    () => deleteJob(id));
 
   [btnResult, btnReport, btnDlResult, btnDlPdf, btnDelete].forEach(b => actionsBar.appendChild(b));
@@ -868,6 +879,10 @@ function setActiveViewBtn(view) {
 }
 
 async function showResult(id) {
+  if (!isValidUUID(id)) {
+    console.debug("Invalid job ID:", id);
+    return;
+  }
   setActiveViewBtn("result");
   try {
     const r = await apiFetch(`/api/result/${id}`);
@@ -881,6 +896,10 @@ async function showResult(id) {
 }
 
 async function showReport(id) {
+  if (!isValidUUID(id)) {
+    console.debug("Invalid job ID:", id);
+    return;
+  }
   setActiveViewBtn("report");
   try {
     const r = await apiFetch(`/api/report/${id}`);
@@ -894,7 +913,11 @@ async function showReport(id) {
 }
 
 async function deleteJob(id) {
-  if (!confirm(`Supprimer le job ${id} et tous ses résultats ?`)) return;
+  if (!isValidUUID(id)) {
+    console.debug("Invalid job ID:", id);
+    return;
+  }
+  if (!confirm(`Delete job ${id} and all its results ?`)) return;
   stopReportPoll();
   try {
     const r = await apiFetch(`/api/jobs/${id}`, { method: "DELETE" });
@@ -1254,7 +1277,7 @@ async function renderDashboard() {
           <div class="kpi-label">Total Jobs</div>
           <div class="kpi-value">${total}</div>
         </div>
-        <div class="kpi">
+        <div class="kpi running">
           <div class="kpi-label">Running</div>
           <div class="kpi-value">${running}</div>
         </div>
@@ -1303,7 +1326,7 @@ async function renderDashboard() {
         ${
           recent.length
             ? recent.map(j => `
-              <div class="activity-item" onclick="selectJob('${j.job_id}')">
+              <div class="activity-item" onclick="if(isValidUUID('${j.job_id}')) selectJob('${j.job_id}')">
                 <div class="activity-left">
                   <div class="dot ${j.status_dynamic}"></div>
                 </div>
@@ -1473,23 +1496,6 @@ function stopAutoRefresh() {
     clearInterval(dashboardRefreshInterval);
     dashboardRefreshInterval = null;
   }
-}
-
-// Fonction pour récupérer le statut d'un job spécifique
-async function getJobStatus(jobId) {
-  try {
-    const r = await apiFetch(`/api/report/${jobId}`);
-    if (r.ok) {
-      const data = await r.json();
-      return {
-        status_static: data.status_static,
-        status_dynamic: data.status_dynamic
-      };
-    }
-  } catch(e) {
-    console.error(e);
-  }
-  return null;
 }
 
 function goHome() {
