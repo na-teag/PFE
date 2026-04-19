@@ -490,9 +490,12 @@ fi
 cuckoo api token --list 2>/dev/null | awk -F"|" '\''/sandbox-api/ {gsub(/^[ \t]+|[ \t]+$/, "", $6); print $6}'\''
 ')
 
-echo "Clé API Cuckoo : $API_KEY"
+
 echo "$API_KEY" > "$(pwd)/cuckoo_api_key.txt"
-echo "Clé API sauvegardée dans $(pwd)/cuckoo_api_key.txt"
+chown $username:$username "$(pwd)/cuckoo_api_key.txt"
+chmod 600 "$(pwd)/cuckoo_api_key.txt"
+echo "API key written to $(pwd)/cuckoo_api_key.txt"
+
 
 ###############################
 ##### Service API Cuckoo3 #####

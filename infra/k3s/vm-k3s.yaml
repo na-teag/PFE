@@ -1,6 +1,7 @@
 #cloud-config
 hostname: k3s
 ssh_pwauth: True
+disable_root: true
 packages:
   - curl
   - sudo
@@ -39,3 +40,4 @@ runcmd:
   - k3s kubectl apply -n argocd -f https://raw.githubusercontent.com/na-teag/PFE/refs/heads/main/infra/argocd/malware-analysis-app.yaml
   - |
     k3s kubectl patch svc argocd-server -n argocd -p '{"spec":{"type":"LoadBalancer"}}'
+

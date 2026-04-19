@@ -114,11 +114,13 @@ Le script setup.sh :
 
 - déploie une VM avec k3s et une VM avec ebpf via libvirt/virt-install
 
-- installe et configure [Cuckoo3 Sandbox](https://github.com/cert-ee/cuckoo3)
+- installe et configure [Cuckoo3 Sandbox](https://github.com/cert-ee/cuckoo3) sur une VM
+
+- déploie la VM qui héberge Cuckoo3
 
 - déploie les services Kubernetes
 
-- initialise les secrets (VirusTotal, Cuckoo API)
+- initialise les secrets (VirusTotal, Cuckoo API et la clé API)
 
 - ouvre automatiquement l’interface web
 
@@ -141,14 +143,16 @@ Pré-requis :
 
 ### Accès à l’interface
 
-Par défaut, les services sont exposés via la VM k3s connectée au réseau libvirt via l'interface vribr0.
+Par défaut, les services sont exposés via la VM k3s connectée au réseau libvirt via l'interface virbr0.
 
-- Interface web API : http://192.168.122.2:8000/
+- Interface web API : https://192.168.122.2/ 
+A noter qu'une clé API est requise pour accéder à l’interface web de l'API. Elle est générée à la fin du script d’installation.
 
-- Documentation Swagger : http://192.168.122.2:8000/docs
+- Documentation Swagger : https://192.168.122.2/docs
 
 L’interface web permet de soumettre des fichiers, de suivre les analyses et de consulter les rapports directement depuis le navigateur.
 La VM k3s utilise l'adresse IP statique 192.168.122.2 configurée via cloud-init. 
+La VM cuckoo utilise l'adresse IP statique 192.168.122.3 également configurée via cloud-init. 
 Cette configuration garantit un accès stable et reproductible aux services, indépendamment de la machine hôte ou des redémarrages.
 
 ### Documentation complète

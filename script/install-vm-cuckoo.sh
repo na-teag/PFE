@@ -16,8 +16,10 @@ USER_KEY_PUB="$USER_KEY.pub"
 
 INSTALL_CUCKOO_SCRIPT="$(pwd)/infra/cuckoo3/install.sh"
 
-USERDATA_TEMPLATE="$(pwd)/infra/terraform/vm-cuckoo.yaml"
-USERDATA_FILE="/tmp/cuckoo3-user-data.yaml"
+USERDATA_TEMPLATE="$(pwd)/infra/cuckoo3/vm-cuckoo.yaml"
+
+CLOUDINIT_DIR="/var/lib/libvirt/images/cloudinit/$VM_NAME"
+CLOUDINIT_ISO="$CLOUDINIT_DIR/cloudinit.iso"
 
 ########################################
 # Dépendances
@@ -91,9 +93,6 @@ mkdir -p "$USER_SSH_DIR"
 rm -f "$USER_KEY" "$USER_KEY_PUB"
 ssh-keygen -t ed25519 -f "$USER_KEY" -N "" -C ""
 
-# Remplacer __SSH_KEY__ dans le template YAML
-sed "s|__SSH_KEY__|$(cat "$USER_KEY_PUB")|" "$USERDATA_TEMPLATE" > "$USERDATA_FILE"
-
 ########################################
 # Télécharger image Ubuntu si nécessaire
 ########################################
@@ -103,7 +102,31 @@ if [ ! -f "$IMG" ]; then
 fi
 
 ########################################
-# Création VM
+# Créer ISO cloud-init
+########################################
+sudo mkdir -p "$CLOUDINIT_DIR"
+
+sed "s|__SSH_KEY__|$(cat "$USER_KEY_PUB")|" "$USERDATA_TEMPLATE" | \
+  sudo tee "$CLOUDINIT_DIR/user-data" > /dev/null
+
+sudo tee "$CLOUDINIT_DIR/meta-data" > /dev/null <<EOF
+instance-id: iid-local01
+local-hostname: $VM_NAME
+EOF
+
+sudo cp "$(pwd)/infra/cuckoo3/cuckoo-network-config.yaml" \
+  "$CLOUDINIT_DIR/network-config"
+
+sudo xorriso -as genisoimage \
+  -output "$CLOUDINIT_ISO" \
+  -volid cidata \
+  -joliet -rock \
+  "$CLOUDINIT_DIR/user-data" \
+  "$CLOUDINIT_DIR/meta-data" \
+  "$CLOUDINIT_DIR/network-config"
+
+########################################
+# Création de la VM avec UEFI + Secure Boot
 ########################################
 virt-install \
   --name "$VM_NAME" \
@@ -112,9 +135,12 @@ virt-install \
   --cpu host-passthrough,cache.mode=passthrough \
   --os-variant ubuntu22.04 \
   --disk size=40,backing_store="$IMG",pool="$POOL" \
-  --cloud-init user-data="$USERDATA_FILE",network-config="$(pwd)/infra/terraform/cuckoo-network-config.yaml" \
+  --disk path="$CLOUDINIT_ISO",device=cdrom \
   --network network=default,model=virtio,mac=52:54:00:00:00:03 \
   --network network=analysis,model=virtio,mac=52:54:00:00:00:04 \
+  --features smm.state=on \
+  --boot uefi,loader.secure=yes \
+  --machine q35 \
   --noautoconsole
 
 echo "VM '$VM_NAME' créée : $IP_VM"
@@ -124,7 +150,7 @@ echo "Connexion : ssh -i $USER_KEY cuckoo@$IP_VM"
 # Installer automatiquement Cuckoo3 via SSH
 ########################################
 
-ssh-keygen -f "$HOME/.ssh/known_hosts" -R 192.168.122.3 2>/dev/null || true
+ssh-keygen -f "$HOME/.ssh/known_hosts" -R $IP_VM 2>/dev/null || true
 
 echo "Attente de la VM pour SSH..."
 until ssh -o StrictHostKeyChecking=no -i "$USER_KEY" cuckoo@$IP_VM 'echo SSH OK' &>/dev/null; do
@@ -148,3 +174,11 @@ echo "Lancement de l'installation sur la VM..."
 ssh -t -i "$USER_KEY" cuckoo@$IP_VM 'chmod +x ~/install-cuckoo.sh && sudo ~/install-cuckoo.sh'
 
 echo "Installation de Cuckoo3 terminée !"
+
+# Copier la clé de l'api Cuckoo
+ssh -i $USER_KEY cuckoo@$IP_VM "cat /home/cuckoo/cuckoo_api_key.txt" > "$(pwd)/cuckoo_api_key.txt"
+chmod 600 "$(pwd)/cuckoo_api_key.txt"
+
+#Supprimer la clé de l'api Cuckoo de la VM
+ssh -i "$USER_KEY" cuckoo@$IP_VM "shred -u /home/cuckoo/cuckoo_api_key.txt"
+

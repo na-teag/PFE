@@ -6,7 +6,7 @@ metadata:
 spec:
   selector:
     app: api
-  type: LoadBalancer
+  type: ClusterIP
   ports:
     - name: http
       port: 8000
@@ -30,7 +30,7 @@ spec:
     spec:
       containers:
         - name: api
-          image: dockerhubmalware/malware-api:v11.2.3
+          image: dockerhubmalware/malware-api:v11.2.9
           imagePullPolicy: Always
           # Injection de toutes les variables d'environnement depuis le secret
           envFrom:
