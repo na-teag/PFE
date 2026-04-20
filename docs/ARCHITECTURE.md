@@ -34,7 +34,7 @@ end
 
 ```mermaid
 flowchart TD    
-    USER-->|curl -X POST http://API_IP:8000/api/submit -F ''file=@sample.exe'' -F ''sandbox_os=windows''|API
+    USER-->|curl -k -X POST https://192.168.122.2/api/submit -F ''file=@sample.exe'' -F ''sandbox_os=windows''|API
     subgraph worker1[worker static]
         tests[tests YARA]
     end
@@ -53,7 +53,7 @@ flowchart TD
     worker2 <-->|get result| controller_windows
     worker2 <-->|get result| controller_linux
     worker2 --> controller_linux[sandbox controller linux]
-    USER <-->|curl http://API_IP:8000/api/result/JOB_ID| API
+    USER <-->|curl -k https://192.168.122.2/api/result/JOB_ID| API
     API <-->|get job result| redis
     worker2 -->|send result| redis
     click VT "https://virustotal.com" "VirusTotal" _blank

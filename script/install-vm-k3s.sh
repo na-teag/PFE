@@ -67,10 +67,11 @@ if virsh vol-info --pool "$POOL" "$VOL_NAME" >/dev/null 2>&1; then
 fi
 
 # Générer une clé ssh
-echo -e "\n###############################################\n### création d'une clé SSH dans ~/.ssh/kvm/ ###\n###############################################"
 mkdir -p ~/.ssh/kvm/
-rm -f ~/.ssh/kvm/id_ed25519 ~/.ssh/kvm/id_ed25519.pub
-ssh-keygen -t ed25519 -f ~/.ssh/kvm/id_ed25519 -N "" -C ""
+if [ ! -f ~/.ssh/kvm/id_ed25519 ]; then
+    echo -e "\n###############################################\n### création d'une clé SSH dans ~/.ssh/kvm/ ###\n###############################################"
+    ssh-keygen -t ed25519 -f ~/.ssh/kvm/id_ed25519 -N "" -C ""
+fi
 ssh-keygen -f "$HOME/.ssh/known_hosts" -R 192.168.122.2 2>/dev/null || true
 
 # Temps d'installation (hors téléchargement) : 4-5mn
@@ -79,8 +80,26 @@ if [ ! -f "/var/lib/libvirt/images/jammy-server-cloudimg-amd64.img" ]; then
     curl -o jammy-server-cloudimg-amd64.img https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img
     sudo mv jammy-server-cloudimg-amd64.img /var/lib/libvirt/images/
 fi
-TMP_USERDATA="$(mktemp)"
-sed "s|__SSH_KEY__|$(cat ~/.ssh/kvm/id_ed25519.pub)|" "$(pwd)/infra/terraform/vm-k3s.yaml" > "$TMP_USERDATA"
+
+
+sudo mkdir -p /var/lib/libvirt/images/cloudinit/$VM_NAME
+sed "s|__SSH_KEY__|$(cat ~/.ssh/kvm/id_ed25519.pub)|" "$(pwd)/infra/$VM_NAME/vm-k3s.yaml" | sudo tee "/var/lib/libvirt/images/cloudinit/$VM_NAME/user-data" > /dev/null
+sudo tee /var/lib/libvirt/images/cloudinit/$VM_NAME/meta-data > /dev/null <<EOF
+instance-id: iid-local01
+local-hostname: $VM_NAME
+EOF
+sudo cp "$(pwd)/infra/$VM_NAME/network-config.yaml" /var/lib/libvirt/images/cloudinit/$VM_NAME/network-config
+
+echo -e "\n####################################\n### Création d'un ISO cloud-init ###\n####################################"
+sudo xorriso -as genisoimage \
+  -output /var/lib/libvirt/images/cloudinit/$VM_NAME/cloudinit.iso \
+  -volid cidata \
+  -joliet -rock \
+  /var/lib/libvirt/images/cloudinit/$VM_NAME/user-data \
+  /var/lib/libvirt/images/cloudinit/$VM_NAME/meta-data \
+  /var/lib/libvirt/images/cloudinit/$VM_NAME/network-config
+
+
 echo -e "\n#############################\n### installation de la VM ###\n#############################"
 virt-install \
   --connect qemu:///system \
@@ -91,9 +110,9 @@ virt-install \
   --os-variant ubuntu22.04 \
   --disk \
     size=9,backing_store="/var/lib/libvirt/images/jammy-server-cloudimg-amd64.img",bus=virtio \
-  --cloud-init \
-    user-data="$TMP_USERDATA",network-config="$(pwd)/infra/terraform/network-config.yaml" \
-  --network \
-    network=default,model=virtio \
+  --disk path=/var/lib/libvirt/images/cloudinit/$VM_NAME/cloudinit.iso,device=cdrom \
+  --features smm.state=on \
+  --boot uefi,loader.secure=yes \
+  --machine q35 \
   --noautoconsole
 echo "VM $VM_NAME installé avec succès."
