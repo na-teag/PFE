@@ -183,3 +183,4 @@ done
 echo "cloud-init terminé !"
 echo "Pour accéder à la VM :"
 echo "ssh -o StrictHostKeyChecking=no -i ~/.ssh/kvm/id_ed25519 download@$STATIC_IP"
+echo "pour envoyer un fichier à analyser : curl -k -X POST https://192.168.122.2/api/submit -F "file=@sample.exe" -F "sandbox_os=windows""
