@@ -134,7 +134,8 @@ virt-install \
   --vcpus 2 \
   --cpu host-passthrough,cache.mode=passthrough \
   --os-variant ubuntu22.04 \
-  --disk size=40,backing_store="$IMG",pool="$POOL" \
+  --import \
+  --disk size=25,backing_store="$IMG",pool="$POOL" \
   --disk path="$CLOUDINIT_ISO",device=cdrom \
   --network network=default,model=virtio,mac=52:54:00:00:00:03 \
   --network network=analysis,model=virtio,mac=52:54:00:00:00:04 \

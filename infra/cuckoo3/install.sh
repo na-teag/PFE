@@ -16,7 +16,7 @@ RED='\e[31m'
 ORANGE='\e[33m'
 GREEN='\e[32m'
 NC='\e[0m'
-INETSIM_IP="192.168.30.200"
+INETSIM_IP="192.168.40.200"
 
 #################################
 ##### Vérifications initiales ###
@@ -143,7 +143,7 @@ else
 fi
 echo -e "\n### Définition d'INetSim comme passerelle par défaut ###"
 sed -i 's/route: none/route: inetsim/' ~/.cuckoocwd/conf/routing.yaml
-sed -i 's/inetsim: 192.168.1.1/inetsim: 192.168.30.200/' ~/.cuckoocwd/conf/routing.yaml
+sed -i 's/inetsim: 192.168.1.1/inetsim: 192.168.40.200/' ~/.cuckoocwd/conf/routing.yaml
 
 EOF
 }
@@ -179,31 +179,19 @@ vmcloak --debug init --win10x64 \
     --iso-mount /mnt/win10x64 \
     win10base br0
 
-echo -e "\n### Installation des logiciels, du Hardening et bypass anti-VM ###"
+echo -e "\n### Installation des logiciels et configuration ###"
+vmcloak --debug install win10base --recommended
 vmcloak --debug install win10base \
-    disable_uac \
-    disable_defender \
-    disable_updates \
-    human_activity \
-    office \
-    adobe_reader \
+    dotnet:4.7.2 \
+    vcredist:2013 \
+    vcredist:2019 \
+    carootcert \
     wallpaper \
-    chrome \
-    remove_vm_artifacts \
-    rdpwrap
+    disableservices
 
-echo "### Vérification de la connectivité vers INetSim ###"
-virsh domifaddr win10base 2>/dev/null || true
 
-# Verify INetSim is responding on DNS
-if ! nc -zvu 192.168.30.200 53 -w 3; then
-    echo "ERREUR: INetSim n'est pas joignable sur 192.168.30.200:53"
-    echo "Vérifiez que la VM inetsim est démarrée : virsh list --all"
-    exit 1
-fi
-echo "INetSim est joignable. Lancement des snapshots..."
 echo -e "\n### Génération des snapshots ###"
-vmcloak --debug snapshot --count 3 win10base win10_ 192.168.30.11
+vmcloak --debug snapshot --count 2 win10base win10_ 192.168.30.11
 EOF
 }
 
@@ -456,9 +444,6 @@ if [[ $create_cuckoo_vms == "y" ]]; then
     echo -e "\n### Récupération des images pour VMCloak ###"
     run_as_cuckoo "$username" "$(download_images_for "$username")"
 
-    generate_section_header "Hardening des VMs (anti-détection hyperviseur)"
-    run_as_cuckoo "$username" "$(harden_vms_for "$username")"
-
     echo -e "\n### Activation de l'interface bridge et montage de l'ISO ###"
     sudo /home/$username/vmcloak/bin/vmcloak-qemubridge br0 192.168.30.1/24 && \
     sudo mkdir -p /etc/qemu/ && echo "allow br0" | sudo tee /etc/qemu/bridge.conf && \
@@ -467,6 +452,9 @@ if [[ $create_cuckoo_vms == "y" ]]; then
 
     echo -e "\n### Création des VMs et des snapshots ###"
     run_as_cuckoo "$username" "$(create_vms_for "$username")"
+
+    generate_section_header "Hardening des VMs (anti-détection hyperviseur)"
+    run_as_cuckoo "$username" "$(harden_vms_for "$username")"
 fi
 
 ##############################
@@ -647,7 +635,7 @@ cat <<'EOT' > "/home/cuckoo/script/helper_script.sh"
 #!/bin/bash
 set -euo pipefail
 
-INETSIM_IP="192.168.30.200"
+INETSIM_IP="192.168.40.200"
 ANALYSIS_BRIDGE="br0"          # bridge VMCloak dans la Cuckoo VM
 ANALYSIS_NET="192.168.30.0/24"
 
@@ -675,7 +663,7 @@ iptables -A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 iptables -A FORWARD -i $ANALYSIS_BRIDGE -d $INETSIM_IP -j ACCEPT
 
 # MASQUERADE pour que INetSim puisse répondre correctement
-ANALYSIS_NIC=$(ip route | awk '/192.168.30/ {print $3; exit}')
+ANALYSIS_NIC=$(ip route | awk '/192.168.40/ {print $3; exit}')
 iptables -t nat -A POSTROUTING -o $ANALYSIS_NIC -j MASQUERADE
 # Autoriser le retour du trafic depuis INetSim vers les VMs Windows
 iptables -A FORWARD -i $ANALYSIS_NIC -o $ANALYSIS_BRIDGE -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT

@@ -5,4 +5,4 @@ ethernets:
   enp2s0:
     dhcp4: no
     addresses:
-      - 192.168.30.1/24
+      - 192.168.40.2/24
