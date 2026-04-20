@@ -462,4 +462,4 @@ EOF
 
 echo -e "\nTerminé."
 
-shutdown -r now
+reboot
