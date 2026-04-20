@@ -83,7 +83,11 @@ fi
 
 
 sudo mkdir -p /var/lib/libvirt/images/cloudinit/$VM_NAME
+
+# appliquer la clé ssh au fichier de configuration user-data
 sed "s|__SSH_KEY__|$(cat ~/.ssh/kvm/id_ed25519.pub)|" "$(pwd)/infra/$VM_NAME/vm-k3s.yaml" | sudo tee "/var/lib/libvirt/images/cloudinit/$VM_NAME/user-data" > /dev/null
+
+# ajouter les autres fichiers de config
 sudo tee /var/lib/libvirt/images/cloudinit/$VM_NAME/meta-data > /dev/null <<EOF
 instance-id: iid-local01
 local-hostname: $VM_NAME

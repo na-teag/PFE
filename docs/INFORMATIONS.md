@@ -19,14 +19,6 @@ sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
 sudo chown $USER:$USER ~/.kube/config
 ```
 
-Installer Terraform :
-
-```bash
-wget -O - https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(grep -oP '(?<=UBUNTU_CODENAME=).*' /etc/os-release || lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
-sudo apt update && sudo apt install terraform
-```
-
 Installer KVM :
 ```bash
 sudo apt install -y qemu-kvm libvirt-daemon-system virtinst
@@ -41,14 +33,6 @@ sudo snap install packer --classic
 
 ## Commandes utiles Terraform et Kubernetes
 Utiliser terraform sans `sudo` : ```bash sudo usermod -aG libvirt $USER``` puis redémarrer
-
-Tester la configuration terraform sans l'appliquer : ```bash terraform plan ```
-
-Appliquer la configuration terraform : ```bash terraform apply```
-
-Pour effacer tout ce qui a été créé par terraform avant de relancer une configuration : ```bash terraform destroy```
-
-Supprimer une ressource spécifique : ```bash terraform destroy -target=libvirt_domain.k3s_master```
 
 Appliquer la configuration avec kubectl : ```bash kubectl apply -k k3s/```
 
