@@ -12,7 +12,7 @@ app = FastAPI(title="Sandbox Controller", version="1.0.0")
 
 # --- Cuckoo3 configuration ---
 
-CUCKOO_SUBMIT_URL = os.getenv("CUCKOO_SUBMIT_URL", "http://192.168.122.1:8080")
+CUCKOO_SUBMIT_URL = os.getenv("CUCKOO_SUBMIT_URL", "http://192.168.122.3:8080")
 CUCKOO_API_TOKEN = os.getenv("CUCKOO_API_KEY", "").strip()
 CUCKOO_HEADERS = {"Authorization": f"token {CUCKOO_API_TOKEN}"} if CUCKOO_API_TOKEN else {}
 
