@@ -212,68 +212,29 @@ EOF
 harden_vms_for() {
     local username="$1"
     cat << 'EOF'
-echo -e "\n### Hardening des VMs : suppression des artefacts hyperviseur ###"
-VM_DIR="$HOME/.vmcloak/vms/qemu"
+echo -e "\n### Hardening des VMs : masquage hyperviseur ###"
+python3 << 'PYEOF'
+import json, os, glob
 
-[ -d "$VM_DIR" ] || { echo "ERREUR : Dossier VMs introuvable : $VM_DIR"; exit 1; }
-cd "$VM_DIR"
+vms_dir = os.path.expanduser("~/.vmcloak/vms/qemu")
+cpu_args = ["-cpu", "host,-hypervisor"]
 
-for vmdir in */; do
-    [ -d "$vmdir" ] || continue
-    vmname="${vmdir%/}"
-    echo -e "\n  -> Hardening de : $vmname"
-
-    # supprimer les contrôleurs USB
-    virt-xml "$vmname" --remove-device --controller type=usb 2>/dev/null || true
-
-    # supprimer les partages de fichiers hôte/invité
-    virt-xml "$vmname" --remove-device --filesystem 2>/dev/null || true
-
-    # supprimer le clipboard partagé
-    for channel in $(virsh dumpxml "$vmname" 2>/dev/null \
-        | grep -oP '(?<=target name=")[^"]+' \
-        | grep -v 'org.qemu.guest_agent'); do
-        virt-xml "$vmname" --remove-device --channel target.name="$channel" 2>/dev/null || true
-    done
-
-    # masquer les features CPU hyperviseur
-    tmpxml=$(mktemp)
-    virsh dumpxml "$vmname" > "$tmpxml"
-
-    python3 - "$tmpxml" << 'PYEOF'
-import sys
-import xml.etree.ElementTree as ET
-
-ET.register_namespace('', '')
-path = sys.argv[1]
-tree = ET.parse(path)
-root = tree.getroot()
-
-cpu = root.find('cpu')
-if cpu is None:
-    cpu = ET.SubElement(root, 'cpu')
-
-cpu.set('mode', 'host-passthrough')
-cpu.set('check', 'none')
-cpu.set('migratable', 'on')
-
-# Masquer l'hyperviseur au niveau CPUID
-feat = cpu.find(".//feature[@name='hypervisor']")
-if feat is None:
-    feat = ET.SubElement(cpu, 'feature')
-feat.set('policy', 'disable')
-feat.set('name', 'hypervisor')
-
-tree.write(path, encoding='unicode', xml_declaration=False)
-print("  CPU hardening OK")
+for machineinfo in glob.glob(f"{vms_dir}/*/machineinfo.json"):
+    with open(machineinfo) as f:
+        data = json.load(f)
+    args = data["machine"]["start_args"]
+    # Supprimer toute entrée -cpu existante avant d'injecter
+    while "-cpu" in args:
+        idx = args.index("-cpu")
+        args.pop(idx)   # supprime "-cpu"
+        if idx < len(args):
+            args.pop(idx)  # supprime la valeur associée
+    args.extend(cpu_args)
+    with open(machineinfo, "w") as f:
+        json.dump(data, f, indent=2)
+    print(f"  OK: {machineinfo} patché")
 PYEOF
-
-    virsh define "$tmpxml" > /dev/null
-    rm -f "$tmpxml"
-    echo "  VM $vmname hardenée avec succès."
-done
-
-echo -e "\n### Hardening terminé ###"
+echo -e "### Hardening terminé ###"
 EOF
 }
 
