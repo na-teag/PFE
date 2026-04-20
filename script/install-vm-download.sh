@@ -93,8 +93,6 @@ keyboard:
 
 package_update: true
 packages:
-  - inetsim
-  - net-tools
   - qemu-system-x86
   - qemu-utils
 
@@ -102,29 +100,13 @@ runcmd:
   # Appliquer le hostname
   - hostnamectl set-hostname download
   - sed -i 's/^127.0.0.1.*/127.0.0.1 localhost download/' /etc/hosts
-  
-  # Appliquer la configuration du clavier azerty
-  - echo 'XKBLAYOUT=fr' > /etc/default/keyboard
-  - echo 'XKBVARIANT=azerty' >> /etc/default/keyboard
-  - setupcon -k --force || true
-  - localectl set-keymap fr || true
-
-  - echo "127.0.0.1 inetsim" >> /etc/hosts
 
   - systemctl stop systemd-resolved
   - systemctl disable systemd-resolved
   - systemctl mask systemd-resolved
   - rm -f /etc/resolv.conf
-  - echo "nameserver 192.168.122.15" > /etc/resolv.conf
-  
-  # Configuration INetSim
-  - sed -i 's/^#*service_bind_address.*/service_bind_address 0.0.0.0/' /etc/inetsim/inetsim.conf
-  - sed -i "s/^#*dns_default_ip.*/dns_default_ip 192.168.122.15\nstart_dns_service 1/" /etc/inetsim/inetsim.conf
+  - echo "nameserver 8.8.8.8" > /etc/resolv.conf
 
-  - systemctl enable inetsim
-  - systemctl start inetsim
-  - systemctl restart inetsim
-  
 EOF
 
 # Remplacer le placeholder SSH_KEY par la vraie clé
@@ -144,15 +126,15 @@ ethernets:
       addresses: [8.8.8.8]
 EOF
 
+mkdir -p /tmp/cloudinit/download
+
 cat > /tmp/cloudinit/download/meta-data <<EOF
 instance-id: iid-local01
 local-hostname: download
 EOF
 
-mkdir -p /tmp/cloudinit/download
 cp "$TMP_USERDATA" /tmp/cloudinit/download/user-data
 cp "$TMP_NETCONFIG" /tmp/cloudinit/download/network-config
-
 
 xorriso -as genisoimage \
   -output /tmp/cloudinit/download/cloudinit.iso \
@@ -173,7 +155,7 @@ virt-install \
   --cpu host \
   --os-variant ubuntu22.04 \
   --disk size=10,backing_store="/var/lib/libvirt/images/$IMAGE_NAME",bus=virtio \
-  --disk path=/tmp/cloudinit/download/cloudinit.iso,device=cdrom \
+  --disk path=/tmp/cloudinit/download/cloudinit.iso,device=cdrom\
   --cloud-init user-data="$TMP_USERDATA",network-config="$TMP_NETCONFIG" \
   --network network=default,model=virtio \
   --noautoconsole \
@@ -191,9 +173,8 @@ until ssh -o StrictHostKeyChecking=no -i ~/.ssh/kvm/id_ed25519 download@$STATIC_
     echo -n "."
     sleep 5
 done
-echo "VM prête !"
 
-echo "Attente complète de cloud-init dans la VM (cela peut prendre quelques minutes..."
+echo "Attente complète de cloud-init dans la VM, cela peut prendre quelques minutes..."
 until ssh -o StrictHostKeyChecking=no -i ~/.ssh/kvm/id_ed25519 download@$STATIC_IP \
   'test -f /var/lib/cloud/instance/boot-finished' &>/dev/null; do
     echo "cloud-init en cours..."
