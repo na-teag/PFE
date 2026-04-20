@@ -55,7 +55,6 @@ if ! virsh net-info default &>/dev/null; then
     <dhcp>
       <range start='192.168.122.3' end='192.168.122.254'/>
       <host mac='52:54:00:00:00:03' name='cuckoo' ip='192.168.122.3'/>
-      <host mac='52:54:00:00:00:01' name='inetsim' ip='192.168.122.100'/>
     </dhcp>
   </ip>
 </network>
@@ -64,9 +63,6 @@ EOF
 else
   virsh net-update default add ip-dhcp-host \
     "<host mac='52:54:00:00:00:03' name='cuckoo' ip='192.168.122.3'/>" \
-    --live --config 2>/dev/null || true
-  virsh net-update default add ip-dhcp-host \
-    "<host mac='52:54:00:00:00:01' name='inetsim' ip='192.168.122.100'/>" \
     --live --config 2>/dev/null || true
 fi
 virsh net-start default &>/dev/null || true
