@@ -19,11 +19,12 @@ sudo chmod +x script/*
 # Vérifier qu'il y a suffisament de place
 #./script/check_storage.sh $VM_K3S $VM_EBPF
 
+# Installation et mise en route de Cuckoo3 et service WEB/API + INetSim
+#./script/install-vm-inetsim.sh
+#./script/install-vm-cuckoo.sh
+
 # Installation de la vm k3s (si terraform ne fonctionne pas)
 ./script/install-vm-k3s.sh $VM_K3S # Temps d'installation (hors téléchargement) : 4-5mn
-
-# Installation et mise en route de Cuckoo3 et service WEB/API
-#./script/install-vm-cuckoo.sh
 
 # lancer le service sandbox controller
 echo "Lancement du service sandbox controller..."

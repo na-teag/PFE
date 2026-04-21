@@ -54,11 +54,16 @@ if ! virsh net-info default &>/dev/null; then
   <ip address='192.168.122.1' netmask='255.255.255.0'>
     <dhcp>
       <range start='192.168.122.3' end='192.168.122.254'/>
+      <host mac='52:54:00:00:00:03' name='cuckoo' ip='192.168.122.3'/>
     </dhcp>
   </ip>
 </network>
 EOF
   virsh net-define "$XML_PATH"
+else
+  virsh net-update default add ip-dhcp-host \
+    "<host mac='52:54:00:00:00:03' name='cuckoo' ip='192.168.122.3'/>" \
+    --live --config 2>/dev/null || true
 fi
 virsh net-start default &>/dev/null || true
 virsh net-autostart default
@@ -123,11 +128,13 @@ virt-install \
   --name "$VM_NAME" \
   --memory 6144 \
   --vcpus 2 \
-  --cpu host \
+  --cpu host-passthrough,cache.mode=passthrough \
   --os-variant ubuntu22.04 \
-  --disk size=40,backing_store="$IMG",pool="$POOL" \
+  --import \
+  --disk size=25,backing_store="$IMG",pool="$POOL" \
   --disk path="$CLOUDINIT_ISO",device=cdrom \
-  --network network=default,model=virtio \
+  --network network=default,model=virtio,mac=52:54:00:00:00:03 \
+  --network network=analysis,model=virtio,mac=52:54:00:00:00:04 \
   --features smm.state=on \
   --boot uefi,loader.secure=yes \
   --machine q35 \
@@ -139,6 +146,7 @@ echo "Connexion : ssh -i $USER_KEY cuckoo@$IP_VM"
 ########################################
 # Installer automatiquement Cuckoo3 via SSH
 ########################################
+
 ssh-keygen -f "$HOME/.ssh/known_hosts" -R $IP_VM 2>/dev/null || true
 
 echo "Attente de la VM pour SSH..."
@@ -157,10 +165,10 @@ done
 echo "cloud-init terminé !"
 
 echo "Transfert du script d'installation de Cuckoo3..."
-scp -i "$USER_KEY" "$INSTALL_CUCKOO_SCRIPT" cuckoo@$IP_VM:/home/cuckoo/install_cuckoo.sh
+scp -i "$USER_KEY" "$INSTALL_CUCKOO_SCRIPT" cuckoo@$IP_VM:/home/cuckoo/install-cuckoo.sh
 
 echo "Lancement de l'installation sur la VM..."
-ssh -t -i "$USER_KEY" cuckoo@$IP_VM 'chmod +x ~/install_cuckoo.sh && sudo ~/install_cuckoo.sh'
+ssh -t -i "$USER_KEY" cuckoo@$IP_VM 'chmod +x ~/install-cuckoo.sh && sudo ~/install-cuckoo.sh'
 
 echo "Installation de Cuckoo3 terminée !"
 
@@ -170,3 +178,4 @@ chmod 600 "$(pwd)/cuckoo_api_key.txt"
 
 #Supprimer la clé de l'api Cuckoo de la VM
 ssh -i "$USER_KEY" cuckoo@$IP_VM "shred -u /home/cuckoo/cuckoo_api_key.txt"
+
