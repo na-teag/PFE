@@ -4,8 +4,8 @@
 
 ```mermaid
 flowchart TB
-    USER -->|1. Upload sample| BLOB[Azure Blob Storage]
-    BLOB -->|2. Event Grid| FUNC[Azure Function]
+    USER -->|1. Upload sample| BLOB[VM Download]
+    BLOB -->|2. Event Grid| FUNC[API curl]
 
         subgraph HOST[Linux Host]
             CUCKOO[Cuckoo3]
@@ -22,7 +22,6 @@ flowchart TB
     CUCKOO -->|6. Exec sample| WINVM
     WINVM <-->|7. Network traffic| INETSIM
     CUCKOO -->|8. Generate report| BLOB
-    HOST -->|9. Send logs| MONITOR[Azure Monitor]
 
 ```
 
