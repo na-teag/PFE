@@ -73,6 +73,9 @@ def submit_to_cuckoo(sample_path: Path) -> str:
                 headers=CUCKOO_HEADERS,
                 timeout=10,
             )
+
+        if r.status_code != 200:
+            print(f"DEBUG: Cuckoo a répondu {r.status_code} - Corps: {r.text}")    
         r.raise_for_status()
     except Exception as e:
         import traceback
@@ -82,8 +85,9 @@ def submit_to_cuckoo(sample_path: Path) -> str:
         raise HTTPException(status_code=502, detail=f"Cuckoo error: {e}")
 
     resp = r.json()
-    analysis_id = resp.get("analysis_id") or resp.get("id")
+    analysis_id = resp.get("task_id") or resp.get("analysis_id") or resp.get("id")
     if not analysis_id:
+        print(f"DEBUG: Réponse JSON suspecte: {resp}")
         raise HTTPException(status_code=502, detail=f"No analysis id in Cuckoo response: {resp}")
     return analysis_id
 
