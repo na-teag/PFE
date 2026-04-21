@@ -61,6 +61,7 @@ def submit_to_cuckoo(sample_path: Path) -> str:
         with open(sample_path, "rb") as f:
             files = {"file": (sample_path.name, f)}
             data = {
+                "node": "local",
                 "settings": json.dumps({
                     "platforms": [{"platform": "windows", "os_version": "10"}],
                     "timeout": 120,
