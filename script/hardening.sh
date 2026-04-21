@@ -1,7 +1,6 @@
 #!/bin/bash
 
-set -euxo pipefail
-# TODO remove x after debug
+set -euo pipefail
 
 # Vérifier root
 if [ "$EUID" -ne 0 ]; then
@@ -82,7 +81,10 @@ else
 fi
 
 
-
+# ajouter les modules à charger pour la VM, uniquement si le fichier n'est pas déjà rempli
+if ! grep -qv '^\s*\(#\|$\)' /etc/modules-load.d/modules.conf; then
+  lsmod | cut -d" " -f1 | tail -n +2 >> /etc/modules-load.d/modules.conf
+fi
 
 
 cat > "/etc/sysctl.d/99-PFE-kernel-hardening.conf" <<'EOF'
@@ -111,12 +113,14 @@ kernel.unprivileged_bpf_disabled =1
 # Arrête complètement le système en cas de comportement inattendu du noyau Linux
 kernel.panic_on_oops =1
 # Interdit le chargement des modules noyau (sauf ceux déjà chargés à ce point)
-kernel.modules_disabled =1
+
 
 kernel.yama.ptrace_scope = 2
 
 # NOTES : les modules à charger aux démarrage sont à mettre dans /etc/modules-load.d/modules.conf
+kernel.modules_disabled =1
 EOF
+sysctl -p /etc/sysctl.d/99-PFE-kernel-hardening.conf
 
 
 
@@ -190,6 +194,7 @@ net.ipv4.tcp_syncookies =1
 net.ipv6.conf.default.disable_ipv6 =1
 net.ipv6.conf.all.disable_ipv6 =1
 EOF
+sysctl -p /etc/sysctl.d/99-PFE-network-security.conf
 
 
 
@@ -213,8 +218,10 @@ fs.protected_symlinks =1
 # propriétaire. Ce sysctl fait partie des mécanismes de prévention contre les
 # vulnérabilités Time of Check - Time of Use , mais aussi contre la possibilité de
 # conserver des accès à des fichiers obsolètes
-fs.protected_hardinks =1
+fs.protected_hardlinks =1
 EOF
+sysctl -p /etc/sysctl.d/99-PFE-filesystem-hardening.conf
+
 
 
 
@@ -257,7 +264,8 @@ umask 077
 EOF
 
 
-echo "DefaultUMask=0027" >> "/etc/systemd/system.conf"
+echo "UMASK=027" > "/etc/default/login"
+sed -i 's/^\(session[[:space:]]\+optional[[:space:]]\+pam_umask\.so\).*/\1 umask=0027/' /etc/pam.d/common-session
 
 
 
@@ -424,18 +432,29 @@ systemctl enable fail2ban
 systemctl start fail2ban
 
 
-apt autoremove
 
 
 
 echo "postfix postfix/main_mailer_type string Local only" | debconf-set-selections
 echo "postfix postfix/mailname string localhost" | debconf-set-selections
 apt install -y aide aide-common --no-install-recommends
+apt autoremove -y
+
+while IFS= read -r line; do
+  grep -qxF "$line" /etc/aide/aide.conf || echo "$line" >> /etc/aide/aide.conf
+done << 'EOF'
+!/tmp
+!/var/tmp
+!/run/containerd
+!/run/systemd/transient
+!/var/lib/rancher/k3s/agent/containerd
+EOF
+
 rm -rf /var/lib/aide/aide.db
 aideinit -y
 mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db
-aide --config=/etc/aide/aide.conf --update
-mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db
+#aide --config=/etc/aide/aide.conf --update
+#mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db
 # TODO (IRL) générer la clé privée sur un serveur externe et signer la base dessus, récupérer la clé publique en local.
 rm -rf ~/.gnupg
 gpg --batch --pinentry-mode loopback --passphrase '' \
@@ -450,12 +469,10 @@ gpg --detach-sign /var/lib/aide/aide.db
 
 
 
-
-# TODO remettre noexec
 #Defaults    noexec,requiretty,use_pty,umask=0027
 cat > "/etc/sudoers.d/hardening" <<'EOF'
 # Hardening sudo par défaut
-Defaults    requiretty,use_pty,umask=0027
+Defaults    noexec,requiretty,use_pty,umask=0027
 Defaults    ignore_dot,env_reset
 EOF
 
