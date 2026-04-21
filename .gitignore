@@ -22,4 +22,5 @@
 *.log
 *venv/*
 *.fuse_hidden*
+*.default-network.xml
 *certs
