@@ -28,15 +28,19 @@ spec:
         app: sandbox-controller
     spec:
       hostPID: true   # pour parler à l’hyperviseur de la machine hôte
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
       containers:
         - name: sandbox-controller
-          image: dockerhubmalware/malware-sandbox-controller:v1.2.6
+          image: dockerhubmalware/malware-sandbox-controller:v1.2.9
           envFrom:
             - secretRef:
                 name: vt-credentials
           env:
             - name: HYPERVISOR_DRIVER
               value: "kvm"
+            - name: CUCKOO_SUBMIT_URL
+              value: "http://192.168.122.3:8080"
           ports:
             - containerPort: 9000
           volumeMounts:

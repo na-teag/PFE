@@ -1,4 +1,4 @@
-import os, uuid, hashlib, json
+import os, uuid, hashlib, json, zipfile, io, resource
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -27,6 +27,8 @@ REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379")
 RESULTS_PATH = Path(os.getenv("RESULTS_PATH", "/data/results"))
 API_KEY = os.getenv("API_KEY")
 MAX_SIZE = 50 * 1024 * 1024
+MAX_EXTRACTED_SIZE = 50 * 1024 * 1024  # 50MB max décompressé
+MAX_FILE_EXTRACTED = 10 * 1024 * 1024
 
 FILENAME_REGEX = re.compile(r"^[a-zA-Z0-9._-]{1,100}$")
 
@@ -37,6 +39,12 @@ try:
     os.chmod(RESULTS_PATH, 0o700)
 except Exception:
     pass  # on ignore sur Windows
+
+try:
+    # Limite mémoire à 2GB pour le processus
+    resource.setrlimit(resource.RLIMIT_AS, (2 * 1024 * 1024 * 1024, -1))
+except Exception:
+    pass  # Non supporté sur Windows
 
 redis_client = Redis.from_url(REDIS_URL, decode_responses=True)
 
@@ -108,6 +116,41 @@ def validate_job_id(job_id: str):
         uuid.UUID(job_id)
     except ValueError:
         raise HTTPException(400, "Invalid job_id format")
+    
+# Protection contre les ZIP BOMB
+def check_zip_bomb(file_bytes: bytes) -> bool:
+    """
+    Vérifie si un fichier zip est une bombe
+    Retourne True si c'est dangereux
+    """
+    try:
+        with zipfile.ZipFile(io.BytesIO(file_bytes)) as zf:
+            total_extracted = 0
+            
+            for info in zf.infolist():
+                # Vérification par fichier individuel
+                if info.file_size > MAX_FILE_EXTRACTED:
+                    return True
+                total_extracted += info.file_size
+                
+                # Vérification du ratio de compression (alerte si > 100x)
+                if info.compress_size > 0:
+                    ratio = info.file_size / info.compress_size
+                    if ratio > 100:
+                        return True
+            
+            # Vérification totale décompressée
+            if total_extracted > MAX_EXTRACTED_SIZE:
+                return True
+                
+    except zipfile.BadZipFile:
+        # Pas un zip valide, ce n'est pas une bombe
+        return False
+    except Exception:
+        # En cas d'erreur, on bloque par précaution
+        return True
+    
+    return False
 
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
@@ -174,9 +217,11 @@ async def submit(request: Request, file: UploadFile = File(...), sandbox_os: str
 
   if count > 20:
     raise HTTPException(429, "Too many submissions")
+  
   valid = {"windows", "linux"}
   if sandbox_os not in valid:
     raise HTTPException(400, f"Invalid os value: {sandbox_os}, should be in {valid}")
+  
   job_id = str(uuid.uuid4())
   
   if not file.filename or not FILENAME_REGEX.match(file.filename):
@@ -188,32 +233,36 @@ async def submit(request: Request, file: UploadFile = File(...), sandbox_os: str
   if ext not in allowed_ext:
     raise HTTPException(400, f"Extension not allowed: {ext}")
 
+  # ─── LECTURE COMPLÈTE DU FICHIER POUR VALIDATION ─────────────────
+  file_bytes = await file.read()
+  
+  if len(file_bytes) == 0:
+    raise HTTPException(400, "Empty file")
+
+  if len(file_bytes) > MAX_SIZE:
+    raise HTTPException(413, "File too large")
+  
+  # PROTECTION ZIP BOMB
+  if ext == ".zip":
+    if check_zip_bomb(file_bytes):
+      raise HTTPException(400, "Zip bomb detected - file would decompress too large")
+  
   tmp_path = RESULTS_PATH / f"tmp_{uuid.uuid4().hex}"
-
   hasher = hashlib.sha256()
-  size = 0
-
+  hasher.update(file_bytes)
+  h = hasher.hexdigest()
+  
+  final_path = RESULTS_PATH / h
+  
   try:
-    with open(tmp_path, "wb") as f:
-        while chunk := await file.read(1024 * 1024):
-            size += len(chunk)
-            if size > MAX_SIZE:
-                raise HTTPException(413, "File too large")
-
-            hasher.update(chunk)
-            f.write(chunk)
-
-    h = hasher.hexdigest()
-    final_path = RESULTS_PATH / h
-
     if final_path.exists():
-        tmp_path.unlink()
+      # Fichier déjà existant, on ne sauvegarde pas deux fois
+      pass
     else:
-        tmp_path.rename(final_path)
-
-  except Exception:
-    tmp_path.unlink(missing_ok=True)
-    raise
+      with open(final_path, "wb") as f:
+        f.write(file_bytes)
+  except Exception as e:
+    raise HTTPException(500, f"Failed to save file: {e}")
   
   safe_name = Path(file.filename).name
 
@@ -237,7 +286,6 @@ async def submit(request: Request, file: UploadFile = File(...), sandbox_os: str
     file_hash=h,
     submitted_at=meta["submitted_at"],
   )
-
 
 @app.get("/api/result/{job_id}", response_model=ResultResponse)
 def result(job_id: str, auth: bool = Depends(verify_auth)):
