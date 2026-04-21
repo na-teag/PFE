@@ -538,7 +538,7 @@ After=network.target
 User=$username
 Group=$username
 WorkingDirectory=/home/$username/cuckoo3
-ExecStart=/home/$username/cuckoo3/venv/bin/cuckoo api --host 0.0.0.0 --port 8080
+ExecStart=/home/$username/cuckoo3/venv/bin/cuckoo --cwd /home/cuckoo/.cuckoocwd api --host 0.0.0.0 --port 8080
 Environment=CUCKOO_APP=api
 Environment=CUCKOO_CWD=/home/$username/.cuckoocwd
 Environment=CUCKOO_LOGLEVEL=DEBUG
