@@ -62,23 +62,67 @@ while true; do
 done
 
 # appliquer la clé VirusTotal via ssh
-echo -e "\n\n"
-read -s -p "Entrez votre clé VirusTotal API : " VT_KEY
-echo
+#echo -e "\n\n"
+#read -s -p "Entrez votre clé VirusTotal API : " VT_KEY
+#echo
 
 # lire la clé Cuckoo API depuis un fichier local (sur ta machine)
-CUCKOO_API_KEY="$(cat "$(pwd)/cuckoo_api_key.txt")"
+#CUCKOO_API_KEY="$(cat "$(pwd)/cuckoo_api_key.txt")"
 
 #générer la clé API
+#API_KEY=$(openssl rand -base64 32)
+
+#ssh-keyscan -H 192.168.122.2 >> "$HOME/.ssh/known_hosts"
+#ssh -i ~/.ssh/kvm/id_ed25519 k3s@192.168.122.2 "kubectl create namespace malware-analysis --dry-run=client -o yaml | kubectl apply -f -"
+#ssh -i ~/.ssh/kvm/id_ed25519 k3s@192.168.122.2 "VT_KEY='$VT_KEY' CUCKOO_KEY='$CUCKOO_API_KEY' API_KEY='$API_KEY' bash -c '
+#kubectl patch secret vt-credentials -n malware-analysis --type=merge -p \"{\\\"stringData\\\":{\\\"VIRUSTOTAL_API_KEY\\\":\\\"\$VT_KEY\\\",\\\"CUCKOO_API_KEY\\\":\\\"\$CUCKOO_KEY\\\",\\\"API_KEY\\\":\\\"\$API_KEY\\\"}}\"
+#kubectl delete pod -n malware-analysis -l app=worker-static
+#kubectl delete pod -n malware-analysis -l app=sandbox-controller
+#echo ok
+#'"
+
+
+########################################
+# Configuration des Secrets et Application
+########################################
+echo "=== Configuration des Secrets et Application ArgoCD ==="
+
+# Récupération des clés nécessaires
+echo -e "\n"
+read -s -p "Entrez votre clé VirusTotal API : " VT_KEY
+echo
+# Vérification rapide pour éviter les variables vides
+if [ -z "$VT_KEY" ]; then echo "Erreur: La clé VT est vide."; exit 1; fi
+
+CUCKOO_API_KEY="$(cat "$(pwd)/cuckoo_api_key.txt")"
 API_KEY=$(openssl rand -base64 32)
 
-ssh-keyscan -H 192.168.122.2 >> "$HOME/.ssh/known_hosts"
-ssh -i ~/.ssh/kvm/id_ed25519 k3s@192.168.122.2 "VT_KEY='$VT_KEY' CUCKOO_KEY='$CUCKOO_API_KEY' API_KEY='$API_KEY' bash -c '
-kubectl patch secret vt-credentials -n malware-analysis --type=merge -p \"{\\\"stringData\\\":{\\\"VIRUSTOTAL_API_KEY\\\":\\\"\$VT_KEY\\\",\\\"CUCKOO_API_KEY\\\":\\\"\$CUCKOO_KEY\\\",\\\"API_KEY\\\":\\\"\$API_KEY\\\"}}\"
-kubectl delete pod -n malware-analysis -l app=worker-static
-kubectl delete pod -n malware-analysis -l app=sandbox-controller
-echo ok
-'"
+# Créer le namespace
+ssh -i "$SSH_KEY" "$SSH_TARGET" "kubectl create namespace malware-analysis --dry-run=client -o yaml | kubectl apply -f -"
+
+# Créer le secret vt-credentials
+# Le 'cat <<EOF' permet d'injecter tes variables locales directement dans le flux SSH
+ssh -i "$SSH_KEY" "$SSH_TARGET" "cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Secret
+metadata:
+  name: vt-credentials
+  namespace: malware-analysis
+stringData:
+  VIRUSTOTAL_API_KEY: '$VT_KEY'
+  CUCKOO_API_KEY: '$CUCKOO_API_KEY'
+  API_KEY: '$API_KEY'
+type: Opaque
+EOF"
+
+# Appliquer l'application ArgoCD
+# On lit le fichier local et on le pousse via le pipe
+cat infra/argocd/malware-analysis-app.yaml | ssh -i "$SSH_KEY" "$SSH_TARGET" "kubectl apply -f - -n argocd"
+
+# Nettoyage des pods pour forcer le redémarrage avec les nouveaux secrets
+ssh -i "$SSH_KEY" "$SSH_TARGET" "kubectl delete pod -n malware-analysis -l app=worker-static --ignore-not-found"
+ssh -i "$SSH_KEY" "$SSH_TARGET" "kubectl delete pod -n malware-analysis -l app=sandbox-controller --ignore-not-found"
+
 
 ########################################
 # Création du certificat TLS si nécessaire

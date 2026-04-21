@@ -112,6 +112,7 @@ virt-install \
   --vcpus 3 \
   --cpu host \
   --os-variant ubuntu22.04 \
+  --import \
   --disk \
     size=9,backing_store="/var/lib/libvirt/images/jammy-server-cloudimg-amd64.img",bus=virtio \
   --disk path=/var/lib/libvirt/images/cloudinit/$VM_NAME/cloudinit.iso,device=cdrom \
