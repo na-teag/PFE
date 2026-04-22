@@ -135,6 +135,7 @@ virt-install \
   --disk path="$CLOUDINIT_ISO",device=cdrom \
   --network network=default,model=virtio,mac=52:54:00:00:00:03 \
   --network network=analysis,model=virtio,mac=52:54:00:00:00:04 \
+  --controller type=usb,model=none \
   --features smm.state=on \
   --boot uefi,loader.secure=yes \
   --machine q35 \

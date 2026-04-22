@@ -103,6 +103,7 @@ virt-install \
   --cloud-init user-data="$TMP_USERDATA",network-config="$TMP_NETCONFIG" \
   --network network=default,model=virtio,mac=52:54:00:00:00:01 \
   --network network=analysis,model=virtio,mac=52:54:00:00:00:02 \
+  --controller type=usb,model=none \
   --noautoconsole
 
 echo "------------------------------------------------------"
