@@ -159,6 +159,7 @@ virt-install \
   --cloud-init user-data="$TMP_USERDATA",network-config="$TMP_NETCONFIG" \
   --network network=default,model=virtio \
   --noautoconsole \
+  --controller type=usb,model=none \
   --features smm.state=on \
   --boot uefi,loader.secure=yes
 
