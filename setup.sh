@@ -25,7 +25,7 @@ sudo chmod +x script/*
 
 # Installation de la vm k3s (si terraform ne fonctionne pas)
 ./script/install-vm-k3s.sh $VM_K3S # Temps d'installation (hors téléchargement) : 4-5mn
-
+./script/install-vm-download.sh # Temps d'installation (hors téléchargement) : 3-4 mn
 
 
 # attendre que les services soient dispo
