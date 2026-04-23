@@ -573,7 +573,7 @@ After=network.target
 User=$username
 Group=$username
 WorkingDirectory=/home/$username/cuckoo3
-ExecStartPre=/bin/rm -f /home/cuckoo/.cuckoocwd/operational/sockets/resultserver.sock
+ExecStartPre=/bin/rm -f /home/$username/.cuckoocwd/operational/sockets/*
 ExecStart=/home/$username/cuckoo3/venv/bin/cuckoo
 Environment=CUCKOO_APP=core
 Environment=CUCKOO_CWD=/home/$username/.cuckoocwd
@@ -587,6 +587,8 @@ EOF
 sudo systemctl daemon-reload
 sudo systemctl enable cuckoo.service
 sudo systemctl start cuckoo.service
+
+echo 'export PATH="$HOME/cuckoo3/venv/bin:$PATH"' >> ~/.bashrc
 
 ######################################
 ##### Création des scripts d'aide #####
