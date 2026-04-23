@@ -6,7 +6,11 @@ VM_K3S="$K3S_NAME.qcow2"
 IP_K3S="192.168.122.2"
 NAMESPACE="malware-analysis"
 SSH_KEY="$HOME/.ssh/kvm/id_ed25519"
+SSH_KEY_CUCKOO="$HOME/.ssh/kvm/id_ed25519_cuckoo"
 SSH_TARGET_K3S="$K3S_NAME@${IP_K3S}"
+SSH_TARGET_CUCKOO="cuckoo@192.168.122.3"
+SSH_TARGET_DOWNLOAD="download@192.168.122.15"
+SSH_TARGET_INSETSIM="inetsim@192.168.40.200"
 CERT_DIR="./certs"
 URL="https://$IP_K3S/"
 
@@ -37,7 +41,7 @@ while true; do
         echo "Services disponibles."
         break
     else
-        echo -e "Services non disponible (réponse HTTP: $STATUS, pods démarrés : $PODS/8).\nNouvelle tentative dans 10 secondes..."
+        echo -e "Services non disponible (réponse HTTP: $STATUS, pods démarrés : $((PODS - 1))/7).\nNouvelle tentative dans 10 secondes..."
         sleep 10
     fi
 done
@@ -157,6 +161,16 @@ echo "API KEY: $API_KEY"
 # Faire confiance au certificat localement
 sudo cp "${CERT_DIR}/tls.crt" /usr/local/share/ca-certificates/malware-analysis.crt 
 sudo update-ca-certificates
+
+echo -e "\n=== Hardening des VMs ==="
+echo -e "\n=== Hardening de k3s ==="
+ssh -i $SSH_KEY -t $SSH_TARGET_K3S "sudo bash -s" < $(pwd)/script/hardening.sh
+echo -e "\n=== Hardening de download ==="
+ssh -i $SSH_KEY -t $SSH_TARGET_DOWNLOAD "sudo bash -s" < $(pwd)/script/hardening.sh
+echo -e "\n=== Hardening de cuckoo ==="
+ssh -i $SSH_KEY_CUCKOO -t $SSH_SSH_TARGET_CUCKOO "sudo bash -s" < $(pwd)/script/hardening.sh
+echo -e "\n=== Hardening de inetsim ==="
+ssh -i $SSH_KEY -t $SSH_TARGET_INSETSIM "sudo bash -s" < $(pwd)/script/hardening.sh
 
 # afficher l'interface graphique du projet sur firefox
 if ! command -v firefox >/dev/null 2>&1; then
