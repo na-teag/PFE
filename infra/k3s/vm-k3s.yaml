@@ -37,7 +37,8 @@ runcmd:
   - k3s kubectl create namespace argocd || true
   - k3s kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
   - cd /home/k3s
+  - k3s kubectl create namespace malware-analysis --dry-run=client -o yaml | k3s kubectl apply -f -
   - k3s kubectl apply -n argocd -f https://raw.githubusercontent.com/na-teag/PFE/refs/heads/main/infra/argocd/malware-analysis-app.yaml
   - |
-    k3s kubectl patch svc argocd-server -n argocd -p '{"spec":{"type":"LoadBalancer"}}'
+    k3s kubectl patch svc argocd-server -n argocd --type=merge -p '{"spec":{"type":"NodePort"}}'
 
