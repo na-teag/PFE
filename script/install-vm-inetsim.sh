@@ -50,6 +50,9 @@ TMP_USERDATA=$(mktemp)
 cat <<EOF > "$TMP_USERDATA"
 #cloud-config
 hostname: inetsim
+keyboard:
+  layout: fr
+  variant: ""
 users:
   - name: inetsim
     sudo: ALL=(ALL) NOPASSWD:ALL

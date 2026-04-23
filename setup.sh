@@ -8,22 +8,19 @@ SSH_KEY="$HOME/.ssh/kvm/id_ed25519"
 SSH_TARGET="k3s@${IP}"
 CERT_DIR="./certs"
 URL="https://192.168.122.2/"
-#VM_EBPF="sandbox-ebpf"
 
 # Ajouter les droits d'éxecution pour tout les scripts
 sudo chmod +x infra/cuckoo3/install.sh
-sudo chmod +x infra/packer/linux/dynamic-worker/build_vm.sh
 sudo chmod +x script/*
-#sudo chmod +x services/sandbox-controller/ebpf/analysis/run_analysis.sh
 
 # Vérifier qu'il y a suffisament de place
 #./script/check_storage.sh $VM_K3S $VM_EBPF
 
 # Installation et mise en route de Cuckoo3 et service WEB/API + INetSim
-#./script/install-vm-inetsim.sh
-#./script/install-vm-cuckoo.sh
+./script/install-vm-inetsim.sh
+./script/install-vm-cuckoo.sh
 
-# Installation de la vm k3s (si terraform ne fonctionne pas)
+# Installation de la vm k3s
 ./script/install-vm-k3s.sh $VM_K3S # Temps d'installation (hors téléchargement) : 4-5mn
 ./script/install-vm-download.sh # Temps d'installation (hors téléchargement) : 3-4 mn
 

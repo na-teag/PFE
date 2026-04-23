@@ -379,6 +379,8 @@ network:
   bridges:
     br0:
       interfaces: []
+      addresses:
+        - 192.168.30.1/24
       dhcp4: no
       parameters:
         stp: false
@@ -571,6 +573,7 @@ After=network.target
 User=$username
 Group=$username
 WorkingDirectory=/home/$username/cuckoo3
+ExecStartPre=/bin/rm -f /home/cuckoo/.cuckoocwd/operational/sockets/resultserver.sock
 ExecStart=/home/$username/cuckoo3/venv/bin/cuckoo
 Environment=CUCKOO_APP=core
 Environment=CUCKOO_CWD=/home/$username/.cuckoocwd
