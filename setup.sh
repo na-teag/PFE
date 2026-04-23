@@ -4,13 +4,16 @@ set -euo pipefail
 K3S_NAME="k3s"
 VM_K3S="$K3S_NAME.qcow2"
 IP_K3S="192.168.122.2"
+IP_INETSIM="192.168.40.200"
+IP_DOWNLOAD="192.168.122.15"
+IP_CUCKOO="192.168.122.3"
 NAMESPACE="malware-analysis"
 SSH_KEY="$HOME/.ssh/kvm/id_ed25519"
 SSH_KEY_CUCKOO="$HOME/.ssh/kvm/id_ed25519_cuckoo"
 SSH_TARGET_K3S="$K3S_NAME@${IP_K3S}"
-SSH_TARGET_CUCKOO="cuckoo@192.168.122.3"
-SSH_TARGET_DOWNLOAD="download@192.168.122.15"
-SSH_TARGET_INSETSIM="inetsim@192.168.40.200"
+SSH_TARGET_CUCKOO="cuckoo@$IP_CUCKOO"
+SSH_TARGET_DOWNLOAD="download@$IP_DOWNLOAD"
+SSH_TARGET_INSETSIM="inetsim@$IP_INETSIM"
 CERT_DIR="./certs"
 URL="https://$IP_K3S/"
 
@@ -151,13 +154,6 @@ EOF
 
 ssh -t -i ~/.ssh/kvm/id_ed25519 $SSH_TARGET_K3S 'sudo bash /tmp/fix-argocd.sh && rm /tmp/fix-argocd.sh'
 
-# Afficher les informations de connexion à argocd
-echo -e "\n\n"
-ssh $SSH_TARGET_K3S -i ~/.ssh/kvm/id_ed25519 'echo "service ArgoCD : https://$(hostname -I | awk "{print \$1}"):$(kubectl get svc argocd-server -n argocd -o jsonpath="{.spec.ports[?(@.port==443)].nodePort}")"; echo "id : admin"; echo "pwd : $(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)"'
-
-# Afficher la clé API
-echo "API KEY: $API_KEY"
-
 # Faire confiance au certificat localement
 sudo cp "${CERT_DIR}/tls.crt" /usr/local/share/ca-certificates/malware-analysis.crt 
 sudo update-ca-certificates
@@ -171,6 +167,35 @@ echo -e "\n=== Hardening de cuckoo ==="
 ssh -i $SSH_KEY_CUCKOO -t $SSH_SSH_TARGET_CUCKOO "sudo bash -s" < $(pwd)/script/hardening.sh
 echo -e "\n=== Hardening de inetsim ==="
 ssh -i $SSH_KEY -t $SSH_TARGET_INSETSIM "sudo bash -s" < $(pwd)/script/hardening.sh
+
+
+
+echo -e "\n=== Attente des VMs ==="
+
+targets=("$IP_CUCKOO" "$IP_K3S" "$IP_DOWNLOAD" "$IP_INETSIM")
+while [ ${#targets[@]} -gt 0 ]; do
+    for i in "${!targets[@]}"; do
+        target=${targets[$i]}
+        if ping -c 2 -W 2 "$target" > /dev/null 2>&1; then
+            echo "[OK] $target répond."
+            unset 'targets[$i]'
+        else
+            echo "[..] $target ne répond pas encore."
+        fi
+    done
+    # Réindexer le tableau pour éviter les trous
+    targets=("${targets[@]}")
+    echo -e "\nAttente de 10 secondes avant le prochain test..."
+    sleep 10
+done
+
+
+# Afficher les informations de connexion à argocd
+echo -e "\n\n"
+ssh $SSH_TARGET_K3S -i ~/.ssh/kvm/id_ed25519 'echo "service ArgoCD : https://$(hostname -I | awk "{print \$1}"):$(kubectl get svc argocd-server -n argocd -o jsonpath="{.spec.ports[?(@.port==443)].nodePort}")"; echo "id : admin"; echo "pwd : $(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)"'
+
+# Afficher la clé API
+echo "API KEY: $API_KEY"
 
 # afficher l'interface graphique du projet sur firefox
 if ! command -v firefox >/dev/null 2>&1; then
