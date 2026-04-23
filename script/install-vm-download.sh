@@ -126,23 +126,23 @@ ethernets:
       addresses: [8.8.8.8]
 EOF
 
-mkdir -p /tmp/cloudinit/download
+sudo mkdir -p /var/lib/libvirt/images/cloudinit/download
 
-cat > /tmp/cloudinit/download/meta-data <<EOF
+sudo tee /var/lib/libvirt/images/cloudinit/download/meta-data > /dev/null <<EOF
 instance-id: iid-local01
 local-hostname: download
 EOF
 
-cp "$TMP_USERDATA" /tmp/cloudinit/download/user-data
-cp "$TMP_NETCONFIG" /tmp/cloudinit/download/network-config
+sudo cp "$TMP_USERDATA" /var/lib/libvirt/images/cloudinit/download/user-data
+sudo cp "$TMP_NETCONFIG" /var/lib/libvirt/images/cloudinit/download/network-config
 
-xorriso -as genisoimage \
-  -output /tmp/cloudinit/download/cloudinit.iso \
+sudo xorriso -as genisoimage \
+  -output /var/lib/libvirt/images/cloudinit/download/cloudinit.iso \
   -volid cidata \
   -joliet -rock \
-  /tmp/cloudinit/download/user-data \
-  /tmp/cloudinit/download/network-config \
-  /tmp/cloudinit/download/meta-data
+  /var/lib/libvirt/images/cloudinit/download/user-data \
+  /var/lib/libvirt/images/cloudinit/download/network-config \
+  /var/lib/libvirt/images/cloudinit/download/meta-data
 
 
 echo -e "\n#############################\n### Installation de la VM ###\n#############################"
@@ -155,7 +155,7 @@ virt-install \
   --cpu host \
   --os-variant ubuntu22.04 \
   --disk size=10,backing_store="/var/lib/libvirt/images/$IMAGE_NAME",bus=virtio \
-  --disk path=/tmp/cloudinit/download/cloudinit.iso,device=cdrom\
+  --disk path=/var/lib/libvirt/images/cloudinit/download/cloudinit.iso,device=cdrom\
   --cloud-init user-data="$TMP_USERDATA",network-config="$TMP_NETCONFIG" \
   --network network=default,model=virtio \
   --noautoconsole \
