@@ -18,6 +18,24 @@ users:
     ssh_authorized_keys:
       - __SSH_KEY__
 
+write_files:
+  - path: /etc/systemd/system/fix-argocd.service
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Fix argocd-repo-server after boot
+      After=k3s.service
+      Wants=k3s.service
+
+      [Service]
+      Type=oneshot
+      Environment=KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+      ExecStart=/bin/bash -c 'until /usr/local/bin/kubectl get nodes --request-timeout=5s >/dev/null 2>&1; do echo "Attente k3s..."; sleep 5; done; sleep 10; /usr/local/bin/kubectl rollout restart deployment argocd-repo-server -n argocd'
+      RemainAfterExit=yes
+
+      [Install]
+      WantedBy=multi-user.target
+
 runcmd:
   # Installer k3s (single-node)
   - curl -sfL https://get.k3s.io | sh -
@@ -41,4 +59,6 @@ runcmd:
   - k3s kubectl apply -n argocd -f https://raw.githubusercontent.com/na-teag/PFE/refs/heads/main/infra/argocd/malware-analysis-app.yaml
   - |
     k3s kubectl patch svc argocd-server -n argocd --type=merge -p '{"spec":{"type":"NodePort"}}'
+  - systemctl daemon-reload
+  - systemctl enable fix-argocd.service
 

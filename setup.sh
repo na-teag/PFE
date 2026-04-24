@@ -150,30 +150,6 @@ ssh -i "$SSH_KEY" "$SSH_TARGET_K3S" '
   echo "Traefik sur port 443"
   '
 
-# On crée un service pour forcer le bon redéploiement d'argocd à chaque redémarrage de la vm
-cat << 'EOF' | ssh -i ~/.ssh/kvm/id_ed25519 $SSH_TARGET_K3S 'cat > /tmp/fix-argocd.sh'
-cat > /etc/systemd/system/fix-argocd.service << 'UNIT'
-[Unit]
-Description=Fix argocd-repo-server after boot
-After=k3s.service
-Wants=k3s.service
-
-[Service]
-Type=oneshot
-Environment=KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-ExecStart=/bin/bash -c 'until /usr/local/bin/kubectl get nodes --request-timeout=5s >/dev/null 2>&1; do echo "Attente k3s..."; sleep 5; done; sleep 10; /usr/local/bin/kubectl rollout restart deployment argocd-repo-server -n argocd'
-RemainAfterExit=yes
-
-[Install]
-WantedBy=multi-user.target
-UNIT
-
-systemctl daemon-reload
-systemctl enable fix-argocd.service
-echo "Service créé et activé."
-EOF
-
-ssh -t -i ~/.ssh/kvm/id_ed25519 $SSH_TARGET_K3S 'sudo bash /tmp/fix-argocd.sh && rm /tmp/fix-argocd.sh'
 
 # Faire confiance au certificat localement
 sudo cp "${CERT_DIR}/tls.crt" /usr/local/share/ca-certificates/malware-analysis.crt
