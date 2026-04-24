@@ -100,6 +100,8 @@ virt-install \
   --network network=default,model=virtio,mac=52:54:00:00:00:01 \
   --network network=analysis,model=virtio,mac=52:54:00:00:00:02 \
   --controller type=usb,model=none \
+  --features smm.state=on \
+  --boot uefi,loader.secure=yes \
   --noautoconsole
 
 echo "------------------------------------------------------"
