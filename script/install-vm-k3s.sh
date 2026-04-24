@@ -5,6 +5,9 @@ XML_PATH=".default-network.xml"
 VM_NAME="k3s"
 VOL_NAME="${1:-k3s.qcow2}"
 POOL="default"
+POOL_PATH="$2"
+CLOUDINIT_PATH="$POOL_PATH/cloudinit"
+IMAGE_PATH=$3
 
 sudo apt install -y \
   qemu-kvm \
@@ -39,7 +42,7 @@ if ! virsh net-info default &>/dev/null; then
   <mac address='52:54:00:58:e6:ee'/>
   <ip address='192.168.122.1' netmask='255.255.255.0'>
     <dhcp>
-      <range start='192.168.122.3' end='192.168.122.254'/>
+      <range start='192.168.122.10' end='192.168.122.254'/>
     </dhcp>
   </ip>
 </network>
@@ -74,34 +77,27 @@ if [ ! -f ~/.ssh/kvm/id_ed25519 ]; then
 fi
 ssh-keygen -f "$HOME/.ssh/known_hosts" -R 192.168.122.2 2>/dev/null || true
 
-# Temps d'installation (hors téléchargement) : 4-5mn
-if [ ! -f "/var/lib/libvirt/images/jammy-server-cloudimg-amd64.img" ]; then
-    echo -e "\n##########################################\n### Téléchargement de l'image de la VM ###\n##########################################"
-    curl -o jammy-server-cloudimg-amd64.img https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img
-    sudo mv jammy-server-cloudimg-amd64.img /var/lib/libvirt/images/
-fi
 
-
-sudo mkdir -p /var/lib/libvirt/images/cloudinit/$VM_NAME
+sudo mkdir -p $CLOUDINIT_PATH/$VM_NAME
 
 # appliquer la clé ssh au fichier de configuration user-data
-sed "s|__SSH_KEY__|$(cat ~/.ssh/kvm/id_ed25519.pub)|" "$(pwd)/infra/$VM_NAME/vm-k3s.yaml" | sudo tee "/var/lib/libvirt/images/cloudinit/$VM_NAME/user-data" > /dev/null
+sed "s|__SSH_KEY__|$(cat ~/.ssh/kvm/id_ed25519.pub)|" "$(pwd)/infra/$VM_NAME/vm-k3s.yaml" | sudo tee "$CLOUDINIT_PATH/$VM_NAME/user-data" > /dev/null
 
 # ajouter les autres fichiers de config
-sudo tee /var/lib/libvirt/images/cloudinit/$VM_NAME/meta-data > /dev/null <<EOF
+sudo tee $CLOUDINIT_PATH/$VM_NAME/meta-data > /dev/null <<EOF
 instance-id: iid-local01
 local-hostname: $VM_NAME
 EOF
-sudo cp "$(pwd)/infra/$VM_NAME/network-config.yaml" /var/lib/libvirt/images/cloudinit/$VM_NAME/network-config
+sudo cp "$(pwd)/infra/$VM_NAME/network-config.yaml" $CLOUDINIT_PATH/$VM_NAME/network-config
 
 echo -e "\n####################################\n### Création d'un ISO cloud-init ###\n####################################"
 sudo xorriso -as genisoimage \
-  -output /var/lib/libvirt/images/cloudinit/$VM_NAME/cloudinit.iso \
+  -output $CLOUDINIT_PATH/$VM_NAME/cloudinit.iso \
   -volid cidata \
   -joliet -rock \
-  /var/lib/libvirt/images/cloudinit/$VM_NAME/user-data \
-  /var/lib/libvirt/images/cloudinit/$VM_NAME/meta-data \
-  /var/lib/libvirt/images/cloudinit/$VM_NAME/network-config
+  $CLOUDINIT_PATH/$VM_NAME/user-data \
+  $CLOUDINIT_PATH/$VM_NAME/meta-data \
+  $CLOUDINIT_PATH/$VM_NAME/network-config
 
 
 echo -e "\n#############################\n### installation de la VM ###\n#############################"
@@ -114,8 +110,8 @@ virt-install \
   --os-variant ubuntu22.04 \
   --import \
   --disk \
-    size=9,backing_store="/var/lib/libvirt/images/jammy-server-cloudimg-amd64.img",bus=virtio \
-  --disk path=/var/lib/libvirt/images/cloudinit/$VM_NAME/cloudinit.iso,device=cdrom \
+    size=9,backing_store="$IMAGE_PATH",bus=virtio \
+  --disk path=$CLOUDINIT_PATH/$VM_NAME/cloudinit.iso,device=cdrom \
   --controller type=usb,model=none \
   --features smm.state=on \
   --boot uefi,loader.secure=yes \

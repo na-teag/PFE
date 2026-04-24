@@ -2,35 +2,56 @@
 set -euo pipefail
 
 K3S_NAME="k3s"
+NAMESPACE="malware-analysis"
+
 VM_K3S="$K3S_NAME.qcow2"
+VM_INETSIM="inetsim.qcow2"
+VM_DOWNLOAD="download.qcow2"
+VM_CUCKOO="cuckoo.qcow2"
+
 IP_K3S="192.168.122.2"
 IP_INETSIM="192.168.40.200"
 IP_DOWNLOAD="192.168.122.15"
 IP_CUCKOO="192.168.122.3"
-NAMESPACE="malware-analysis"
+IP_GATEWAY="192.168.122.1"
+
 SSH_KEY="$HOME/.ssh/kvm/id_ed25519"
 SSH_KEY_CUCKOO="$HOME/.ssh/kvm/id_ed25519_cuckoo"
+
 SSH_TARGET_K3S="$K3S_NAME@${IP_K3S}"
 SSH_TARGET_CUCKOO="cuckoo@$IP_CUCKOO"
 SSH_TARGET_DOWNLOAD="download@$IP_DOWNLOAD"
 SSH_TARGET_INSETSIM="inetsim@$IP_INETSIM"
+
 CERT_DIR="./certs"
 URL="https://$IP_K3S/"
+IMAGE_VERSION="jammy"
+IMAGE_NAME="$IMAGE_VERSION-server-cloudimg-amd64.img"
+POOL_NAME="default"
+POOL_PATH="/var/lib/libvirt/images"
+IMAGE_PATH="$POOL_PATH/$IMAGE_NAME"
 
 # Ajouter les droits d'éxecution pour tout les scripts
 sudo chmod +x infra/cuckoo3/install.sh
 sudo chmod +x script/*
 
 # Vérifier qu'il y a suffisament de place
-#./script/check_storage.sh $VM_K3S $VM_EBPF
+./script/check_storage.sh $VM_K3S $VM_DOWNLOAD $VM_INETSIM $VM_CUCKOO $IMAGE_NAME $POOL_PATH
 
-# Installation et mise en route de Cuckoo3 et service WEB/API + INetSim
-./script/install-vm-inetsim.sh
-./script/install-vm-cuckoo.sh
+# Temps d'installation (hors téléchargement) : 4-5mn
+if [ ! -f "$IMAGE_PATH" ]; then
+    echo -e "\n##########################################\n### Téléchargement de l'image de la VM ###\n##########################################"
+    curl -o $IMAGE_NAME https://cloud-images.ubuntu.com/$IMAGE_VERSION/current/$IMAGE_NAME
+    sudo mv $IMAGE_NAME $POOL_PATH
+fi
 
 # Installation de la vm k3s
-./script/install-vm-k3s.sh $VM_K3S # Temps d'installation (hors téléchargement) : 4-5mn
-./script/install-vm-download.sh # Temps d'installation (hors téléchargement) : 3-4 mn
+./script/install-vm-k3s.sh $VM_K3S $POOL_PATH $IMAGE_PATH # Temps d'installation (hors téléchargement) : 4-5mn
+./script/install-vm-download.sh $IP_DOWNLOAD $IP_GATEWAY $IMAGE_PATH $POOL_PATH $IP_K3S # Temps d'installation (hors téléchargement) : 3-4 mn
+
+# Installation et mise en route de Cuckoo3 et service WEB/API + INetSim
+./script/install-vm-inetsim.sh $IMAGE_NAME $POOL_PATH $IP_INETSIM
+./script/install-vm-cuckoo.sh $VM_CUCKOO $POOL_NAME $IP_CUCKOO $IMAGE_PATH
 
 
 # attendre que les services soient dispo
@@ -39,12 +60,12 @@ echo "Merci de patienter jusqu'au démarrage complet des services sur la VM..."
 echo
 while true; do
     STATUS=$(curl -sk -o /dev/null -w "%{http_code}" "$URL" || echo "000")
-    PODS=$(ssh -i "$SSH_KEY" "$SSH_TARGET_K3S" "kubectl get pods -n malware-analysis | wc -l")
-    if [[ "$STATUS" == "200" &&  "$PODS" == "8" ]]; then
+    PODS=$(ssh -i "$SSH_KEY" "$SSH_TARGET_K3S" "kubectl get pods -n malware-analysis --no-headers | grep -c "Running"")
+    if [[ "$STATUS" == "200" &&  "$PODS" == "7" ]]; then
         echo "Services disponibles."
         break
     else
-        echo -e "Services non disponible (réponse HTTP: $STATUS, pods démarrés : $((PODS - 1))/7).\nNouvelle tentative dans 10 secondes..."
+        echo -e "Services non disponible (réponse HTTP: $STATUS, pods démarrés : $PODS/7).\nNouvelle tentative dans 10 secondes..."
         sleep 10
     fi
 done
@@ -155,7 +176,7 @@ EOF
 ssh -t -i ~/.ssh/kvm/id_ed25519 $SSH_TARGET_K3S 'sudo bash /tmp/fix-argocd.sh && rm /tmp/fix-argocd.sh'
 
 # Faire confiance au certificat localement
-sudo cp "${CERT_DIR}/tls.crt" /usr/local/share/ca-certificates/malware-analysis.crt 
+sudo cp "${CERT_DIR}/tls.crt" /usr/local/share/ca-certificates/malware-analysis.crt
 sudo update-ca-certificates
 
 echo -e "\n=== Hardening des VMs ==="
@@ -176,7 +197,7 @@ targets=("$IP_CUCKOO" "$IP_K3S" "$IP_DOWNLOAD" "$IP_INETSIM")
 while [ ${#targets[@]} -gt 0 ]; do
     for i in "${!targets[@]}"; do
         target=${targets[$i]}
-        if ping -c 2 -W 2 "$target" > /dev/null 2>&1; then
+        if ping -c 1 -W 1 "$target" > /dev/null 2>&1; then
             echo "[OK] $target répond."
             unset 'targets[$i]'
         else

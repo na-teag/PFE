@@ -4,10 +4,13 @@ set -euo pipefail
 # --- Configuration ---
 VM_NAME="download"
 POOL="default"
-IMAGE_NAME="jammy-server-cloudimg-amd64.img"
-IMAGE_URL="https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
-STATIC_IP="192.168.122.15"
+IP_DOWNLOAD="$1"
+IP_GATEWAY="$2"
+IMAGE_PATH=$3
+POOL_PATH="$4"
+CLOUDINIT_PATH="$POOL_PATH/cloudinit"
 XML_PATH=".default-network.xml"
+IP_K3S="$5"
 
 
 if ! groups | grep -q "libvirt"; then
@@ -29,7 +32,7 @@ if ! virsh net-info default &>/dev/null; then
   <mac address='52:54:00:58:e6:ee'/>
   <ip address='192.168.122.1' netmask='255.255.255.0'>
     <dhcp>
-      <range start='192.168.122.3' end='192.168.122.254'/>
+      <range start='192.168.122.10' end='192.168.122.254'/>
     </dhcp>
   </ip>
 </network>
@@ -40,7 +43,7 @@ virsh net-start default &>/dev/null || true
 virsh net-autostart default
 
 # Ajouter l'IP à l'hôte sur le bridge pour accès
-sudo ip addr add 192.168.122.1/24 dev virbr0 2>/dev/null || true
+sudo ip addr add $IP_GATEWAY/24 dev virbr0 2>/dev/null || true
 
 echo -e "\n###############################################\n### Vérification de la VM existante ###\n###############################################"
 
@@ -51,17 +54,6 @@ if virsh dominfo "$VM_NAME" >/dev/null 2>&1; then
     exit 1
 fi
 
-echo -e "\n###############################################\n### Téléchargement de l'image de base ###\n###############################################"
-
-# Téléchargement de l'image
-if [ ! -f "/var/lib/libvirt/images/$IMAGE_NAME" ]; then
-    echo "Téléchargement de Ubuntu Jammy (22.04)..."
-    curl -o "$IMAGE_NAME" "$IMAGE_URL"
-    sudo mv "$IMAGE_NAME" /var/lib/libvirt/images/
-else
-    echo "L'image $IMAGE_NAME est déjà présente."
-fi
-
 echo -e "\n###############################################\n### Génération de la clé SSH ###\n###############################################"
 
 # Générer une clé ssh
@@ -69,7 +61,7 @@ mkdir -p ~/.ssh/kvm/
 if [ ! -f ~/.ssh/kvm/id_ed25519 ]; then
     ssh-keygen -t ed25519 -f ~/.ssh/kvm/id_ed25519 -N "" -C ""
 fi
-ssh-keygen -f "$HOME/.ssh/known_hosts" -R "$STATIC_IP" 2>/dev/null || true
+ssh-keygen -f "$HOME/.ssh/known_hosts" -R "$IP_DOWNLOAD" 2>/dev/null || true
 
 echo -e "\n#############################\n### Préparation de cloud-init ###\n#############################"
 
@@ -77,9 +69,9 @@ echo -e "\n#############################\n### Préparation de cloud-init ###\n##
 TMP_USERDATA="$(mktemp)"
 cat > "$TMP_USERDATA" <<'EOF'
 #cloud-config
-hostname: download
+hostname: $VM_NAME
 users:
-  - name: download
+  - name: $VM_NAME
     shell: /bin/bash
     passwd: "$6$8HnNkXiciaai5RDJ$6sEe5zHc.uMcs3S62tamFUWDPY/Foey/krrTxPqRsLf6.WgE9IY/bs0fd2wEiw39z4qWzcgTetNVBr3VRiq8n."
     sudo: ALL=(ALL) NOPASSWD:ALL
@@ -98,8 +90,8 @@ packages:
 
 runcmd:
   # Appliquer le hostname
-  - hostnamectl set-hostname download
-  - sed -i 's/^127.0.0.1.*/127.0.0.1 localhost download/' /etc/hosts
+  - hostnamectl set-hostname $VM_NAME
+  - sed -i 's/^127.0.0.1.*/127.0.0.1 localhost $VM_NAME/' /etc/hosts
 
   - systemctl stop systemd-resolved
   - systemctl disable systemd-resolved
@@ -120,29 +112,29 @@ ethernets:
   enp1s0:
     dhcp4: false
     addresses:
-      - $STATIC_IP/24
-    gateway4: 192.168.122.1
+      - $IP_DOWNLOAD/24
+    gateway4: $IP_GATEWAY
     nameservers:
       addresses: [8.8.8.8]
 EOF
 
-sudo mkdir -p /var/lib/libvirt/images/cloudinit/download
+sudo mkdir -p $CLOUDINIT_PATH/$VM_NAME
 
-sudo tee /var/lib/libvirt/images/cloudinit/download/meta-data > /dev/null <<EOF
+sudo tee $CLOUDINIT_PATH/$VM_NAME/meta-data > /dev/null <<EOF
 instance-id: iid-local01
-local-hostname: download
+local-hostname: $VM_NAME
 EOF
 
-sudo cp "$TMP_USERDATA" /var/lib/libvirt/images/cloudinit/download/user-data
-sudo cp "$TMP_NETCONFIG" /var/lib/libvirt/images/cloudinit/download/network-config
+sudo cp "$TMP_USERDATA" $CLOUDINIT_PATH/$VM_NAME/user-data
+sudo cp "$TMP_NETCONFIG" $CLOUDINIT_PATH/$VM_NAME/network-config
 
 sudo xorriso -as genisoimage \
-  -output /var/lib/libvirt/images/cloudinit/download/cloudinit.iso \
+  -output $CLOUDINIT_PATH/$VM_NAME/cloudinit.iso \
   -volid cidata \
   -joliet -rock \
-  /var/lib/libvirt/images/cloudinit/download/user-data \
-  /var/lib/libvirt/images/cloudinit/download/network-config \
-  /var/lib/libvirt/images/cloudinit/download/meta-data
+  $CLOUDINIT_PATH/$VM_NAME/user-data \
+  $CLOUDINIT_PATH/$VM_NAME/network-config \
+  $CLOUDINIT_PATH/$VM_NAME/meta-data
 
 
 echo -e "\n#############################\n### Installation de la VM ###\n#############################"
@@ -154,10 +146,8 @@ virt-install \
   --vcpus 2 \
   --cpu host \
   --os-variant ubuntu22.04 \
-  --disk size=10,backing_store="/var/lib/libvirt/images/$IMAGE_NAME",bus=virtio \
-  --disk path=/var/lib/libvirt/images/cloudinit/download/cloudinit.iso,device=cdrom\
-  --cloud-init user-data="$TMP_USERDATA",network-config="$TMP_NETCONFIG" \
-  --network network=default,model=virtio \
+  --disk size=10,backing_store="$IMAGE_PATH",bus=virtio \
+  --disk path=$CLOUDINIT_PATH/$VM_NAME/cloudinit.iso,device=cdrom\
   --noautoconsole \
   --controller type=usb,model=none \
   --features smm.state=on \
@@ -170,19 +160,19 @@ sleep 5
 virsh start "$VM_NAME"
 
 echo "Attente de la VM pour SSH..."
-until ssh -o StrictHostKeyChecking=no -i ~/.ssh/kvm/id_ed25519 download@$STATIC_IP 'echo SSH OK' &>/dev/null; do
+until ssh -o StrictHostKeyChecking=no -i ~/.ssh/kvm/id_ed25519 $VM_NAME@$IP_DOWNLOAD 'echo SSH OK' &>/dev/null; do
     echo -n "."
     sleep 5
 done
 
 echo "Attente complète de cloud-init dans la VM, cela peut prendre quelques minutes..."
-until ssh -o StrictHostKeyChecking=no -i ~/.ssh/kvm/id_ed25519 download@$STATIC_IP \
+until ssh -o StrictHostKeyChecking=no -i ~/.ssh/kvm/id_ed25519 $VM_NAME@$IP_DOWNLOAD \
   'test -f /var/lib/cloud/instance/boot-finished' &>/dev/null; do
     echo "cloud-init en cours..."
     sleep 5
 done
 echo "cloud-init terminé !"
 echo "Pour accéder à la VM :"
-echo "ssh -o StrictHostKeyChecking=no -i ~/.ssh/kvm/id_ed25519 download@$STATIC_IP"
-echo "pour copier un fichier dans la VM : scp -o StrictHostKeyChecking=no -i ~/.ssh/kvm/id_ed25519 cheminFichier  download@192.168.122.15:/home/download"
-echo "pour envoyer un fichier à analyser : curl -k -X POST https://192.168.122.2/api/submit -F "file=@sample.exe" -F "sandbox_os=windows""
+echo "ssh -o StrictHostKeyChecking=no -i ~/.ssh/kvm/id_ed25519 $VM_NAME@$IP_DOWNLOAD"
+echo "pour copier un fichier dans la VM : scp -o StrictHostKeyChecking=no -i ~/.ssh/kvm/id_ed25519 cheminFichier  $VM_NAME@$IP_DOWNLOAD:/home/download"
+echo "pour envoyer un fichier à analyser : curl -k -X POST https://$IP_K3S/api/submit -F "file=@sample.exe" -F "sandbox_os=windows""
