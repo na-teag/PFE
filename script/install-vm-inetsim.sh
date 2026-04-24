@@ -5,6 +5,7 @@ set -euo pipefail
 VM_NAME="inetsim"
 IMAGE_NAME="$1"
 LIBVIRT_DIR="$2"
+CLOUDINIT_PATH="$LIBVIRT_DIR/cloudinit"
 IP_INETSIM="$3"
 SSH_KEY_PATH="$HOME/.ssh/kvm/id_ed25519.pub"
 
@@ -39,8 +40,7 @@ sudo virsh destroy "$VM_NAME" 2>/dev/null || true
 sudo virsh undefine "$VM_NAME" --remove-all-storage 2>/dev/null || true
 
 echo "### [2/3] Generating Autonomous Cloud-init ###"
-TMP_USERDATA=$(mktemp)
-cat <<EOF > "$TMP_USERDATA"
+sudo tee $CLOUDINIT_PATH/$VM_NAME/user-data > /dev/null <<EOF
 #cloud-config
 hostname: $VM_NAME
 keyboard:
@@ -75,8 +75,7 @@ runcmd:
   - systemctl restart inetsim
 EOF
 
-TMP_NETCONFIG=$(mktemp)
-cat <<EOF > "$TMP_NETCONFIG"
+sudo tee $CLOUDINIT_PATH/$VM_NAME/network-config > /dev/null <<EOF
 version: 2
 ethernets:
   enp1s0:
@@ -87,6 +86,21 @@ ethernets:
       - $IP_INETSIM/24
 EOF
 
+
+sudo tee $CLOUDINIT_PATH/$VM_NAME/meta-data > /dev/null <<EOF
+instance-id: iid-local01
+local-hostname: $VM_NAME
+EOF
+
+
+sudo xorriso -as genisoimage \
+  -output $CLOUDINIT_PATH/$VM_NAME/cloudinit.iso \
+  -volid cidata \
+  -joliet -rock \
+  $CLOUDINIT_PATH/$VM_NAME/user-data \
+  $CLOUDINIT_PATH/$VM_NAME/meta-data \
+  $CLOUDINIT_PATH/$VM_NAME/network-config
+
 echo "### [3/3] Deploying VM ###"
 virt-install \
   --connect qemu:///system \
@@ -96,6 +110,7 @@ virt-install \
   --cpu host \
   --os-variant ubuntu22.04 \
   --disk size=10,backing_store="$LIBVIRT_DIR/$IMAGE_NAME",bus=virtio \
+  --disk path=$CLOUDINIT_PATH/$VM_NAME/cloudinit.iso,device=cdrom \
   --cloud-init user-data="$TMP_USERDATA",network-config="$TMP_NETCONFIG" \
   --network network=default,model=virtio,mac=52:54:00:00:00:01 \
   --network network=analysis,model=virtio,mac=52:54:00:00:00:02 \
