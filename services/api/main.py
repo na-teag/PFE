@@ -1,4 +1,4 @@
-import os, uuid, hashlib, json, zipfile, io, resource
+import os, uuid, hashlib, json, zipfile, io, resource, tempfile, shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -7,10 +7,9 @@ from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Response, He
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from redis import Redis
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
 import io
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
@@ -48,11 +47,21 @@ except Exception:
 
 redis_client = Redis.from_url(REDIS_URL, decode_responses=True)
 
-app = FastAPI(title="Malware Analysis API", version="1.0.0")
+app = FastAPI(title="Malware Analysis API", version="1.0.0", docs_url=None, redoc_url=None, openapi_url=None)
 BASE_DIR = Path(__file__).parent
 STATIC_DIR = BASE_DIR / "static"
 
-app.mount("/static", StaticFiles(directory=STATIC_DIR, html=True), name="static")
+# On bloque l'accès au dossier /static et au fichier index.html
+@app.get("/static/index.html")
+async def block_static_index():
+    return Response(status_code=404)
+
+@app.get("/static")
+@app.get("/static/")
+async def block_static_root():
+    return Response(status_code=404)
+
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 HEADER_BLUE = colors.HexColor("#2F5597")
@@ -60,6 +69,9 @@ SECTION_BLUE = colors.HexColor("#E9EFF7")
 TABLE_HEADER_GREY = colors.HexColor("#D9D9D9")
 BORDER_GREY = colors.HexColor("#A6A6A6")
 TEXT_GREY = colors.HexColor("#404040")
+
+MAX_INVALID_ATTEMPTS_LOGIN = 5
+MAX_INVALID_ATTEMPTS_SUBMIT = 4
 
 class SubmissionResponse(BaseModel):
   job_id: str
@@ -116,41 +128,6 @@ def validate_job_id(job_id: str):
         uuid.UUID(job_id)
     except ValueError:
         raise HTTPException(400, "Invalid job_id format")
-    
-# Protection contre les ZIP BOMB
-def check_zip_bomb(file_bytes: bytes) -> bool:
-    """
-    Vérifie si un fichier zip est une bombe
-    Retourne True si c'est dangereux
-    """
-    try:
-        with zipfile.ZipFile(io.BytesIO(file_bytes)) as zf:
-            total_extracted = 0
-            
-            for info in zf.infolist():
-                # Vérification par fichier individuel
-                if info.file_size > MAX_FILE_EXTRACTED:
-                    return True
-                total_extracted += info.file_size
-                
-                # Vérification du ratio de compression (alerte si > 100x)
-                if info.compress_size > 0:
-                    ratio = info.file_size / info.compress_size
-                    if ratio > 100:
-                        return True
-            
-            # Vérification totale décompressée
-            if total_extracted > MAX_EXTRACTED_SIZE:
-                return True
-                
-    except zipfile.BadZipFile:
-        # Pas un zip valide, ce n'est pas une bombe
-        return False
-    except Exception:
-        # En cas d'erreur, on bloque par précaution
-        return True
-    
-    return False
 
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
@@ -162,8 +139,8 @@ async def security_headers(request: Request, call_next):
     response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline'; "
-        "style-src 'self' 'unsafe-inline'; "
+        "script-src 'self'; "
+        "style-src 'self'; "
         "img-src 'self' data:; "
         "connect-src 'self'; "
         "form-action 'self'; "
@@ -189,7 +166,7 @@ def login(data: LoginRequest, response: Response, request: Request):
     attempts = redis_client.incr(key)
     if attempts == 1:
         redis_client.expire(key, 300)  # fenêtre de 5 minutes
-    if attempts > 10:
+    if attempts > MAX_INVALID_ATTEMPTS_LOGIN:
         raise HTTPException(429, "Too many attempts. Please try again in 5 minutes")
     verify_api_key(data.api_key)
     redis_client.delete(key)  # reset si succès
@@ -208,84 +185,116 @@ def logout(response: Response, session: Optional[str] = Cookie(None),
 
 @app.post("/api/submit", response_model=SubmissionResponse)
 async def submit(request: Request, file: UploadFile = File(...), sandbox_os: str = Form(...), auth: bool = Depends(verify_auth)):
-  ip = request.client.host
-  key = f"rate:submit:{ip}"
-  count = redis_client.incr(key)
+    ip = request.client.host
+    key = f"rate:submit:{ip}"
+    count = redis_client.incr(key)
 
-  if count == 1:
-    redis_client.expire(key, 60)
+    if count == 1:
+        redis_client.expire(key, 60)
 
-  if count > 20:
-    raise HTTPException(429, "Too many submissions")
-  
-  valid = {"windows", "linux"}
-  if sandbox_os not in valid:
-    raise HTTPException(400, f"Invalid os value: {sandbox_os}, should be in {valid}")
-  
-  job_id = str(uuid.uuid4())
-  
-  if not file.filename or not FILENAME_REGEX.match(file.filename):
-    raise HTTPException(400, "Invalid filename")
+    if count > MAX_INVALID_ATTEMPTS_SUBMIT:
+        raise HTTPException(429, "Too many submissions")
+    
+    valid = {"windows", "linux"}
+    if sandbox_os not in valid:
+        raise HTTPException(400, f"Invalid os value: {sandbox_os}, should be in {valid}")
+    
+    if not file.filename or not FILENAME_REGEX.match(file.filename):
+        raise HTTPException(400, "Invalid filename")
 
-  allowed_ext = {".exe",".dll",".pdf",".doc",".docx",".zip",".ps1",".sh",".bat",".js",".py",".elf"}
-  ext = Path(file.filename).suffix.lower()
+    allowed_ext = {".exe",".dll",".pdf",".doc",".docx",".zip",".ps1",".sh",".bat",".js",".py",".elf"}
+    ext = Path(file.filename).suffix.lower()
 
-  if ext not in allowed_ext:
-    raise HTTPException(400, f"Extension not allowed: {ext}")
+    if ext not in allowed_ext:
+        raise HTTPException(400, f"Extension not allowed: {ext}")
 
-  # ─── LECTURE COMPLÈTE DU FICHIER POUR VALIDATION ─────────────────
-  file_bytes = await file.read()
-  
-  if len(file_bytes) == 0:
-    raise HTTPException(400, "Empty file")
+    job_id = str(uuid.uuid4())
+    tmp_path = None
 
-  if len(file_bytes) > MAX_SIZE:
-    raise HTTPException(413, "File too large")
-  
-  # PROTECTION ZIP BOMB
-  if ext == ".zip":
-    if check_zip_bomb(file_bytes):
-      raise HTTPException(400, "Zip bomb detected - file would decompress too large")
-  
-  tmp_path = RESULTS_PATH / f"tmp_{uuid.uuid4().hex}"
-  hasher = hashlib.sha256()
-  hasher.update(file_bytes)
-  h = hasher.hexdigest()
-  
-  final_path = RESULTS_PATH / h
-  
-  try:
-    if final_path.exists():
-      # Fichier déjà existant, on ne sauvegarde pas deux fois
-      pass
-    else:
-      with open(final_path, "wb") as f:
-        f.write(file_bytes)
-  except Exception as e:
-    raise HTTPException(500, f"Failed to save file: {e}")
-  
-  safe_name = Path(file.filename).name
+    CHUNK_SIZE = 1024 * 1024
+    total_size = 0
+    hasher = hashlib.sha256()
 
-  meta = {
-    "job_id": job_id,
-    "file_hash": h,
-    "file_name": safe_name,
-    "file_path": str(final_path),
-    "os": sandbox_os,
-    "submitted_at": format_ts(datetime.now(ZoneInfo("Europe/Paris")).isoformat()),
-    "status_static": "queued",
-    "status_dynamic": "queued",
-  }
-  redis_client.set(f"job:{job_id}", json.dumps(meta), ex=7 * 24 * 3600)
-  redis_client.lpush("analysis_queue_static", json.dumps(meta))
-  redis_client.lpush("analysis_queue_dynamic", json.dumps(meta))
+    try:
+        # Write stream to temp file (never load in RAM)
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            tmp_path = tmp.name
 
-  return SubmissionResponse(
-    job_id=job_id,
-    status="queued",
-    file_hash=h,
-    submitted_at=meta["submitted_at"],
-  )
+            while chunk := await file.read(CHUNK_SIZE):
+                total_size += len(chunk)
+
+                if total_size > MAX_SIZE:
+                    raise HTTPException(413, "File too large")
+
+                hasher.update(chunk)
+                tmp.write(chunk)
+
+        if total_size == 0:
+            raise HTTPException(400, "Empty file")
+
+        file_hash = hasher.hexdigest()
+        final_path = RESULTS_PATH / file_hash
+
+        # ZIP bomb check without loading full file in RAM
+        if ext == ".zip":
+            with zipfile.ZipFile(tmp_path) as zf:
+                total_extracted = 0
+
+                for info in zf.infolist():
+                    if info.file_size > MAX_FILE_EXTRACTED:
+                        raise HTTPException(400, "Zip bomb detected")
+
+                    if info.compress_size > 0:
+                        ratio = info.file_size / info.compress_size
+                        if ratio > 100:
+                            raise HTTPException(400, "Zip bomb detected")
+
+                    total_extracted += info.file_size
+                    if total_extracted > MAX_EXTRACTED_SIZE:
+                        raise HTTPException(400, "Zip bomb detected")
+
+        if not final_path.exists():
+            shutil.move(tmp_path, final_path)
+        else:
+            os.unlink(tmp_path)
+
+        safe_name = Path(file.filename).name
+
+        meta = {
+            "job_id": job_id,
+            "file_hash": file_hash,
+            "file_name": safe_name,
+            "file_path": str(final_path),
+            "os": sandbox_os,
+            "submitted_at": format_ts(datetime.now(ZoneInfo("Europe/Paris")).isoformat()),
+            "status_static": "queued",
+            "status_dynamic": "queued",
+        }
+
+        redis_client.set(f"job:{job_id}", json.dumps(meta), ex=7 * 24 * 3600)
+        redis_client.lpush("analysis_queue_static", json.dumps(meta))
+        redis_client.lpush("analysis_queue_dynamic", json.dumps(meta))
+
+        return SubmissionResponse(
+            job_id=job_id,
+            status="queued",
+            file_hash=file_hash,
+            submitted_at=meta["submitted_at"],
+        )
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        raise HTTPException(500, f"Upload failed: {str(e)}")
+
+    finally:
+        # always cleanup temp file
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
 
 @app.get("/api/result/{job_id}", response_model=ResultResponse)
 def result(job_id: str, auth: bool = Depends(verify_auth)):
@@ -1007,8 +1016,6 @@ def download_report_pdf(job_id: str, auth: bool = Depends(verify_auth)):
     )
 
 @app.get("/", response_class=HTMLResponse)
-@app.get("/ui", response_class=HTMLResponse)
-@app.get("/ui/", response_class=HTMLResponse)
 def serve_ui():
     index_path = STATIC_DIR / "index.html"
     if not index_path.exists():
