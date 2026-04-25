@@ -147,8 +147,6 @@ Par défaut, les services sont exposés via la VM k3s connectée au réseau libv
 - Interface web API : https://192.168.122.2/ 
 A noter qu'une clé API est requise pour accéder à l’interface web de l'API. Elle est générée à la fin du script d’installation.
 
-- Documentation Swagger : https://192.168.122.2/docs
-
 L’interface web permet de soumettre des fichiers, de suivre les analyses et de consulter les rapports directement depuis le navigateur.
 La VM k3s utilise l'adresse IP statique 192.168.122.2 configurée via cloud-init. 
 La VM cuckoo utilise l'adresse IP statique 192.168.122.3 également configurée via cloud-init. 

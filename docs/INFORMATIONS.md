@@ -262,7 +262,6 @@ curl -k -X DELETE https://192.168.122.2/api/jobs/<job_id> -H "x-api-key: <API_KE
 
 Pour toutes les commandes précédentes, il est également possible de voir les résultats directement sur l'interface web de l'API depuis cette url : https://192.168.122.2/.
 A noter également qu'il ne faut pas oublier la clé API dans chacune des commandes précendentes sinon l'accès sera refusé.
-Pour voir la documentation Swagger, il faut la consulter à cette url : https://192.168.122.2/docs.
 
 
 ### Vérification et gestion de Redis
