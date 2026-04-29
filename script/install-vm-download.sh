@@ -11,6 +11,7 @@ POOL_PATH="$4"
 CLOUDINIT_PATH="$POOL_PATH/cloudinit"
 XML_PATH=".default-network.xml"
 IP_K3S="$5"
+SSH_KEY_PATH="$HOME/.ssh/kvm/id_ed25519.pub"
 
 
 if ! groups | grep -q "libvirt"; then
@@ -18,7 +19,7 @@ if ! groups | grep -q "libvirt"; then
   newgrp libvirt
 fi
 
-echo -e "\n###############################################\n### Vérification du réseau default ###\n###############################################"
+echo -e "\n######################################\n### Vérification du réseau default ###\n######################################"
 
 
 # Vérifier que le réseau default existe bien, le créer si non
@@ -31,9 +32,9 @@ if ! virsh net-info default &>/dev/null; then
   <bridge name='virbr0' stp='on' delay='0'/>
   <mac address='52:54:00:58:e6:ee'/>
   <ip address='192.168.122.1' netmask='255.255.255.0'>
-    <dhcp>
-      <range start='192.168.122.10' end='192.168.122.254'/>
-    </dhcp>
+	<dhcp>
+	  <range start='192.168.122.10' end='192.168.122.254'/>
+	</dhcp>
   </ip>
 </network>
 EOF
@@ -45,39 +46,46 @@ virsh net-autostart default
 # Ajouter l'IP à l'hôte sur le bridge pour accès
 sudo ip addr add $IP_GATEWAY/24 dev virbr0 2>/dev/null || true
 
-echo -e "\n###############################################\n### Vérification de la VM existante ###\n###############################################"
+echo -e "\n#######################################\n### Vérification de la VM existante ###\n#######################################"
 
 # Vérifier si une VM du même nom existe
 if virsh dominfo "$VM_NAME" >/dev/null 2>&1; then
-    echo "Erreur : la VM '$VM_NAME' existe déjà." 1>&2
-    echo "Pour supprimer la VM '$VM_NAME' tapez : virsh destroy $VM_NAME && virsh undefine $VM_NAME"
-    exit 1
+	echo "Erreur : la VM '$VM_NAME' existe déjà." 1>&2
+	echo "Pour supprimer la VM '$VM_NAME' tapez : virsh destroy $VM_NAME && virsh undefine $VM_NAME"
+	exit 1
 fi
 
-echo -e "\n###############################################\n### Génération de la clé SSH ###\n###############################################"
+# Vérifier si un volume du même nom existe
+if virsh vol-info --pool "$POOL" "$VM_NAME".qcow2 >/dev/null 2>&1; then
+    virsh vol-delete $VM_NAME.qcow2 --pool $POOL
+fi
+
 
 # Générer une clé ssh
-mkdir -p ~/.ssh/kvm/
 if [ ! -f ~/.ssh/kvm/id_ed25519 ]; then
-    ssh-keygen -t ed25519 -f ~/.ssh/kvm/id_ed25519 -N "" -C ""
+	mkdir -p ~/.ssh/kvm/
+	echo -e "\n################################\n### Génération de la clé SSH ###\n################################"
+	ssh-keygen -t ed25519 -f ~/.ssh/kvm/id_ed25519 -N "" -C ""
 fi
 ssh-keygen -f "$HOME/.ssh/known_hosts" -R "$IP_DOWNLOAD" 2>/dev/null || true
 
-echo -e "\n#############################\n### Préparation de cloud-init ###\n#############################"
+echo -e "\n#################################\n### Préparation de cloud-init ###\n#################################"
+
+sudo mkdir -p $CLOUDINIT_PATH/$VM_NAME
 
 # Créer une config user-data personnalisée pour download
-TMP_USERDATA="$(mktemp)"
-cat > "$TMP_USERDATA" <<'EOF'
+PASSWORD='$6$8HnNkXiciaai5RDJ$6sEe5zHc.uMcs3S62tamFUWDPY/Foey/krrTxPqRsLf6.WgE9IY/bs0fd2wEiw39z4qWzcgTetNVBr3VRiq8n.'
+sudo tee $CLOUDINIT_PATH/$VM_NAME/user-data > /dev/null <<EOF
 #cloud-config
 hostname: $VM_NAME
 users:
   - name: $VM_NAME
     shell: /bin/bash
-    passwd: "$6$8HnNkXiciaai5RDJ$6sEe5zHc.uMcs3S62tamFUWDPY/Foey/krrTxPqRsLf6.WgE9IY/bs0fd2wEiw39z4qWzcgTetNVBr3VRiq8n."
+    passwd: "$PASSWORD"
     sudo: ALL=(ALL) NOPASSWD:ALL
     lock_passwd: false
     ssh_authorized_keys:
-      - __SSH_KEY__
+      - $(cat "$SSH_KEY_PATH")
 
 keyboard:
   layout: fr
@@ -101,12 +109,8 @@ runcmd:
 
 EOF
 
-# Remplacer le placeholder SSH_KEY par la vraie clé
-sed -i "s|__SSH_KEY__|$(cat ~/.ssh/kvm/id_ed25519.pub)|" "$TMP_USERDATA"
-
 # Créer une config réseau pour download
-TMP_NETCONFIG="$(mktemp)"
-cat > "$TMP_NETCONFIG" <<EOF
+sudo tee $CLOUDINIT_PATH/$VM_NAME/network-config > /dev/null <<EOF
 version: 2
 ethernets:
   enp1s0:
@@ -118,15 +122,11 @@ ethernets:
       addresses: [8.8.8.8]
 EOF
 
-sudo mkdir -p $CLOUDINIT_PATH/$VM_NAME
 
 sudo tee $CLOUDINIT_PATH/$VM_NAME/meta-data > /dev/null <<EOF
 instance-id: iid-local01
 local-hostname: $VM_NAME
 EOF
-
-sudo cp "$TMP_USERDATA" $CLOUDINIT_PATH/$VM_NAME/user-data
-sudo cp "$TMP_NETCONFIG" $CLOUDINIT_PATH/$VM_NAME/network-config
 
 sudo xorriso -as genisoimage \
   -output $CLOUDINIT_PATH/$VM_NAME/cloudinit.iso \
@@ -146,6 +146,7 @@ virt-install \
   --vcpus 2 \
   --cpu host \
   --os-variant ubuntu22.04 \
+  --import \
   --disk size=10,backing_store="$IMAGE_PATH",bus=virtio \
   --disk path=$CLOUDINIT_PATH/$VM_NAME/cloudinit.iso,device=cdrom\
   --noautoconsole \
@@ -155,21 +156,17 @@ virt-install \
 
 echo "VM $VM_NAME installée avec succès."
 
-echo "Démarrage de la VM..."
-sleep 5
-virsh start "$VM_NAME"
-
 echo "Attente de la VM pour SSH..."
 until ssh -o StrictHostKeyChecking=no -i ~/.ssh/kvm/id_ed25519 $VM_NAME@$IP_DOWNLOAD 'echo SSH OK' &>/dev/null; do
-    echo -n "."
-    sleep 5
+	echo -n "."
+	sleep 5
 done
 
 echo "Attente complète de cloud-init dans la VM, cela peut prendre quelques minutes..."
 until ssh -o StrictHostKeyChecking=no -i ~/.ssh/kvm/id_ed25519 $VM_NAME@$IP_DOWNLOAD \
   'test -f /var/lib/cloud/instance/boot-finished' &>/dev/null; do
-    echo "cloud-init en cours..."
-    sleep 5
+	echo "cloud-init en cours..."
+	sleep 5
 done
 echo "cloud-init terminé !"
 echo "Pour accéder à la VM :"

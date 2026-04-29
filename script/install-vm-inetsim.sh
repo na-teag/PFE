@@ -9,6 +9,8 @@ CLOUDINIT_PATH="$LIBVIRT_DIR/cloudinit"
 IP_INETSIM="$3"
 SSH_KEY_PATH="$HOME/.ssh/kvm/id_ed25519.pub"
 
+ssh-keygen -f "$HOME/.ssh/known_hosts" -R $IP_INETSIM 2>/dev/null || true
+
 # --- Host Infrastructure Check ---
 echo "### [0/4] Setting up 'analysis' network ###"
 
@@ -40,6 +42,7 @@ sudo virsh destroy "$VM_NAME" 2>/dev/null || true
 sudo virsh undefine "$VM_NAME" --remove-all-storage 2>/dev/null || true
 
 echo "### [2/3] Generating Autonomous Cloud-init ###"
+sudo mkdir -p $CLOUDINIT_PATH/$VM_NAME
 sudo tee $CLOUDINIT_PATH/$VM_NAME/user-data > /dev/null <<EOF
 #cloud-config
 hostname: $VM_NAME
@@ -109,9 +112,9 @@ virt-install \
   --vcpus 2 \
   --cpu host \
   --os-variant ubuntu22.04 \
+  --import \
   --disk size=10,backing_store="$LIBVIRT_DIR/$IMAGE_NAME",bus=virtio \
   --disk path=$CLOUDINIT_PATH/$VM_NAME/cloudinit.iso,device=cdrom \
-  --cloud-init user-data="$TMP_USERDATA",network-config="$TMP_NETCONFIG" \
   --network network=default,model=virtio,mac=52:54:00:00:00:01 \
   --network network=analysis,model=virtio,mac=52:54:00:00:00:02 \
   --controller type=usb,model=none \
@@ -124,5 +127,3 @@ echo "Deployment started!"
 echo "Please wait 3 minutes for cloud-init to finish."
 echo "Then check with: ssh -i ${SSH_KEY_PATH%.*} $VM_NAME@$IP_INETSIM"
 echo "------------------------------------------------------"
-
-rm "$TMP_USERDATA" "$TMP_NETCONFIG"

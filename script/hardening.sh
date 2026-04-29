@@ -478,5 +478,3 @@ EOF
 
 
 echo -e "\nTerminé."
-
-reboot

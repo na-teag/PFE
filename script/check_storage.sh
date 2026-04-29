@@ -64,5 +64,5 @@ if (( FREE_GB < REQ_GB )); then
             ;;
     esac
 else
-    echo -e "\n[OK] Espace suffisant (${FREE_GB}G disponibles pour ${REQ_GB}G requis)."
+    echo -e "\n[OK] Espace suffisant (${FREE_GB}G disponibles pour ${REQ_GB}G requis).\n\n\n\n\n"
 fi
