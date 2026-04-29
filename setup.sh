@@ -2,12 +2,15 @@
 set -euo pipefail
 
 K3S_NAME="k3s"
+INETSIM_NAME="inetsim"
+DOWNLOAD_NAME="download"
+CUCKOO_NAME="cuckoo"
 NAMESPACE="malware-analysis"
 
 VM_K3S="$K3S_NAME.qcow2"
-VM_INETSIM="inetsim.qcow2"
-VM_DOWNLOAD="download.qcow2"
-VM_CUCKOO="cuckoo.qcow2"
+VM_INETSIM="$INETSIM_NAME.qcow2"
+VM_DOWNLOAD="$DOWNLOAD_NAME.qcow2"
+VM_CUCKOO="$CUCKOO_NAME.qcow2"
 
 IP_K3S="192.168.122.2"
 IP_INETSIM="192.168.40.200"
@@ -19,9 +22,9 @@ SSH_KEY="$HOME/.ssh/kvm/id_ed25519"
 SSH_KEY_CUCKOO="$HOME/.ssh/kvm/id_ed25519_cuckoo"
 
 SSH_TARGET_K3S="$K3S_NAME@${IP_K3S}"
-SSH_TARGET_CUCKOO="cuckoo@$IP_CUCKOO"
-SSH_TARGET_DOWNLOAD="download@$IP_DOWNLOAD"
-SSH_TARGET_INSETSIM="inetsim@$IP_INETSIM"
+SSH_TARGET_CUCKOO="$CUCKOO_NAME@$IP_CUCKOO"
+SSH_TARGET_DOWNLOAD="$DOWNLOAD_NAME@$IP_DOWNLOAD"
+SSH_TARGET_INETSIM="$INETSIM_NAME@$IP_INETSIM"
 
 CERT_DIR="./certs"
 URL="https://$IP_K3S/"
@@ -34,6 +37,8 @@ IMAGE_PATH="$POOL_PATH/$IMAGE_NAME"
 # Ajouter les droits d'éxecution pour tout les scripts
 sudo chmod +x infra/cuckoo3/install.sh
 sudo chmod +x script/*
+
+sudo rm -rf $POOL_PATH/cloudinit
 
 # Vérifier qu'il y a suffisament de place
 ./script/check_storage.sh $VM_K3S $VM_DOWNLOAD $VM_INETSIM $VM_CUCKOO $IMAGE_NAME $POOL_PATH
@@ -58,9 +63,10 @@ fi
 echo -e "\n\n"
 echo "Merci de patienter jusqu'au démarrage complet des services sur la VM..."
 echo
+ssh-keyscan -H $IP_K3S >> "$HOME/.ssh/known_hosts"
 while true; do
     STATUS=$(curl -sk -o /dev/null -w "%{http_code}" "$URL" || echo "000")
-    PODS=$(ssh -i "$SSH_KEY" "$SSH_TARGET_K3S" "kubectl get pods -n malware-analysis --no-headers | grep -c "Running"")
+    PODS=$(ssh -i "$SSH_KEY" "$SSH_TARGET_K3S" "kubectl get pods -n "$NAMESPACE" --no-headers | grep -c "Running"")
     if [[ "$STATUS" == "200" &&  "$PODS" == "7" ]]; then
         echo "Services disponibles."
         break
@@ -84,16 +90,17 @@ if [ -z "$VT_KEY" ]; then echo "Erreur: La clé VT est vide."; exit 1; fi
 
 CUCKOO_API_KEY="$(cat "$(pwd)/cuckoo_api_key.txt")"
 API_KEY=$(openssl rand -base64 32)
+# log de la clé avant la fin du script, pour éviter de devoir tout recommencer en cas d'erreur
+echo "API_KEY=$API_KEY"
 
 
 # Créer le secret vt-credentials
-ssh-keyscan -H $IP_K3S >> "$HOME/.ssh/known_hosts"
 ssh -i "$SSH_KEY" "$SSH_TARGET_K3S" "cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: Secret
 metadata:
   name: vt-credentials
-  namespace: malware-analysis
+  namespace: '$NAMESPACE'
 stringData:
   VIRUSTOTAL_API_KEY: '$VT_KEY'
   CUCKOO_API_KEY: '$CUCKOO_API_KEY'
@@ -103,8 +110,8 @@ EOF"
 
 
 # Nettoyage des pods pour forcer le redémarrage avec les nouveaux secrets
-ssh -i "$SSH_KEY" "$SSH_TARGET_K3S" "kubectl delete pod -n malware-analysis -l app=worker-static"
-ssh -i "$SSH_KEY" "$SSH_TARGET_K3S" "kubectl delete pod -n malware-analysis -l app=sandbox-controller"
+ssh -i "$SSH_KEY" "$SSH_TARGET_K3S" "kubectl delete pod -n "$NAMESPACE" -l app=worker-static"
+ssh -i "$SSH_KEY" "$SSH_TARGET_K3S" "kubectl delete pod -n "$NAMESPACE" -l app=sandbox-controller"
 
 
 ########################################
@@ -150,41 +157,53 @@ ssh -i "$SSH_KEY" "$SSH_TARGET_K3S" '
   echo "Traefik sur port 443"
   '
 
+wait_for_VMs() {
+	targets=("$IP_CUCKOO" "$IP_K3S" "$IP_DOWNLOAD" "$IP_INETSIM")
+    while [ ${#targets[@]} -gt 0 ]; do
+        for i in "${!targets[@]}"; do
+            target=${targets[$i]}
+            if ping -c 1 -W 1 "$target" > /dev/null 2>&1; then
+                echo "[OK] $target répond."
+                unset 'targets[$i]'
+            else
+                echo "[..] $target ne répond pas encore."
+            fi
+        done
+        # Réindexer le tableau pour éviter les trous
+        targets=("${targets[@]}")
+        echo -e "\nAttente de 10 secondes avant le prochain test..."
+        sleep 10
+    done
+}
+echo -e "\n=== Attente des VMs ==="
+wait_for_VMs
 
 # Faire confiance au certificat localement
 sudo cp "${CERT_DIR}/tls.crt" /usr/local/share/ca-certificates/malware-analysis.crt
 sudo update-ca-certificates
 
-echo -e "\n=== Hardening des VMs ==="
+echo -e "\n=== Hardening des VMs ===\n"
 echo -e "\n=== Hardening de k3s ==="
-ssh -i $SSH_KEY -t $SSH_TARGET_K3S "sudo bash -s" < $(pwd)/script/hardening.sh
+scp -i $SSH_KEY "$(pwd)/script/hardening.sh" $SSH_TARGET_K3S:~/hardening.sh
+ssh -i $SSH_KEY -tt $SSH_TARGET_K3S "chmod +x hardening.sh && sudo ./hardening.sh"
+virsh reboot $K3S_NAME
 echo -e "\n=== Hardening de download ==="
-ssh -i $SSH_KEY -t $SSH_TARGET_DOWNLOAD "sudo bash -s" < $(pwd)/script/hardening.sh
+scp -i $SSH_KEY "$(pwd)/script/hardening.sh" $SSH_TARGET_DOWNLOAD:~/hardening.sh
+ssh -i $SSH_KEY -tt $SSH_TARGET_DOWNLOAD "chmod +x hardening.sh && sudo ./hardening.sh"
+virsh reboot $DOWNLOAD_NAME
 echo -e "\n=== Hardening de cuckoo ==="
-ssh -i $SSH_KEY_CUCKOO -t $SSH_SSH_TARGET_CUCKOO "sudo bash -s" < $(pwd)/script/hardening.sh
+scp -i $SSH_KEY_CUCKOO "$(pwd)/script/hardening.sh" $SSH_TARGET_CUCKOO:~/hardening.sh
+ssh -i $SSH_KEY_CUCKOO -tt $SSH_TARGET_CUCKOO "chmod +x hardening.sh && sudo ./hardening.sh"
+virsh reboot $CUCKOO_NAME
 echo -e "\n=== Hardening de inetsim ==="
-ssh -i $SSH_KEY -t $SSH_TARGET_INSETSIM "sudo bash -s" < $(pwd)/script/hardening.sh
+scp -i $SSH_KEY "$(pwd)/script/hardening.sh" $SSH_TARGET_INETSIM:~/hardening.sh
+ssh -i $SSH_KEY -tt $SSH_TARGET_INETSIM "chmod +x hardening.sh && sudo ./hardening.sh"
+virsh reboot $INETSIM_NAME
 
 
 
 echo -e "\n=== Attente des VMs ==="
-
-targets=("$IP_CUCKOO" "$IP_K3S" "$IP_DOWNLOAD" "$IP_INETSIM")
-while [ ${#targets[@]} -gt 0 ]; do
-    for i in "${!targets[@]}"; do
-        target=${targets[$i]}
-        if ping -c 1 -W 1 "$target" > /dev/null 2>&1; then
-            echo "[OK] $target répond."
-            unset 'targets[$i]'
-        else
-            echo "[..] $target ne répond pas encore."
-        fi
-    done
-    # Réindexer le tableau pour éviter les trous
-    targets=("${targets[@]}")
-    echo -e "\nAttente de 10 secondes avant le prochain test..."
-    sleep 10
-done
+wait_for_VMs
 
 
 # Afficher les informations de connexion à argocd
