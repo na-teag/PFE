@@ -1,19 +1,24 @@
-XML_PATH=".default-network.xml"
+#!/bin/bash
+set -euo pipefail
+
+IP_CUCKOO="$1"
+FUTUR_NETWORK_HOST_ONLY="$2"
+XML_PATH="$3"
 XML_NAT_PATH=".default-nat-network.xml"
 
 # vérifier que le réseau default existe bien, le créer si non
 if ! virsh net-info default &>/dev/null; then
   echo -e "\n########################################\n### Installation du réseau 'default' ###\n########################################"
-  cat > "$XML_PATH" <<'EOF'
+  cat > "$XML_PATH" <<EOF
 <network>
-  <name>default</name>
+  <name>$FUTUR_NETWORK_HOST_ONLY</name>
   <forward mode='nat'/>
   <bridge name='virbr0' stp='on' delay='0'/>
   <mac address='52:54:00:58:e6:ee'/>
   <ip address='192.168.122.1' netmask='255.255.255.0'>
     <dhcp>
       <range start='192.168.122.10' end='192.168.122.254'/>
-      <host mac='52:54:00:00:00:03' name='cuckoo' ip='192.168.122.3'/>
+      <host mac='52:54:00:00:00:03' name='cuckoo' ip='$IP_CUCKOO'/>
     </dhcp>
   </ip>
 </network>

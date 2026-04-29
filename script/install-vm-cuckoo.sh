@@ -80,6 +80,7 @@ sudo xorriso -as genisoimage \
 ########################################
 # Création de la VM avec UEFI + Secure Boot
 ########################################
+# TODO associer explicitement les réseaux avec la bonne interface
 virt-install \
   --name "$VM_NAME" \
   --memory 6144 \
