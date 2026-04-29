@@ -21,52 +21,15 @@ USERDATA_TEMPLATE="$(pwd)/infra/cuckoo3/vm-cuckoo.yaml"
 CLOUDINIT_DIR="/var/lib/libvirt/images/cloudinit/$VM_NAME"
 CLOUDINIT_ISO="$CLOUDINIT_DIR/cloudinit.iso"
 
-########################################
-# Dépendances
-########################################
-sudo apt update
-sudo apt install -y \
-  qemu-kvm \
-  libvirt-daemon-system \
-  libvirt-clients \
-  virtinst \
-  cloud-image-utils \
-  openssh-client
 
-sudo systemctl enable --now libvirtd
-
-if ! groups | grep -q "libvirt"; then
-  sudo usermod -aG libvirt $USER
-  newgrp libvirt
-fi
 
 ########################################
 # Vérifier ou créer le réseau 'default'
 ########################################
 if ! virsh net-info default &>/dev/null; then
-  XML_PATH="$HOME/.default-network.xml"
-  cat > "$XML_PATH" <<EOF
-<network>
-  <name>default</name>
-  <forward mode='nat'/>
-  <bridge name='virbr0' stp='on' delay='0'/>
-  <mac address='52:54:00:58:e6:ee'/>
-  <ip address='192.168.122.1' netmask='255.255.255.0'>
-    <dhcp>
-      <range start='192.168.122.3' end='192.168.122.254'/>
-      <host mac='52:54:00:00:00:03' name='cuckoo' ip='192.168.122.3'/>
-    </dhcp>
-  </ip>
-</network>
-EOF
-  virsh net-define "$XML_PATH"
-else
-  virsh net-update default add ip-dhcp-host \
-    "<host mac='52:54:00:00:00:03' name='cuckoo' ip='192.168.122.3'/>" \
-    --live --config 2>/dev/null || true
+  echo "Erreur, le réseau default n'existe pas"
+  exit 1
 fi
-virsh net-start default &>/dev/null || true
-virsh net-autostart default
 
 ########################################
 # Supprimer VM/volume existants

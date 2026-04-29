@@ -37,10 +37,25 @@ IMAGE_PATH="$POOL_PATH/$IMAGE_NAME"
 # Ajouter les droits d'éxecution pour tout les scripts
 sudo chmod +x infra/cuckoo3/install.sh
 sudo chmod +x script/*
-
 sudo rm -rf $POOL_PATH/cloudinit
 
-# Vérifier qu'il y a suffisament de place
+sudo apt update
+sudo apt install -y \
+  qemu-kvm \
+  libvirt-daemon-system \
+  libvirt-clients \
+  virtinst \
+  virt-manager \
+  virt-manager \
+  openssh-client
+sudo systemctl enable --now libvirtd
+
+if ! groups | grep -q "libvirt"; then
+  sudo usermod -aG libvirt $USER
+  newgrp libvirt # actualiser
+fi
+
+# Vérifier qu'il y a suffisamment de place
 ./script/check_storage.sh $VM_K3S $VM_DOWNLOAD $VM_INETSIM $VM_CUCKOO $IMAGE_NAME $POOL_PATH
 
 # Temps d'installation (hors téléchargement) : 4-5mn
@@ -50,7 +65,10 @@ if [ ! -f "$IMAGE_PATH" ]; then
     sudo mv $IMAGE_NAME $POOL_PATH
 fi
 
-# Installation de la vm k3s
+# Mise en place des réseaux
+./script/setup-networks.sh
+
+# Installation de la vm k3s et download
 ./script/install-vm-k3s.sh $VM_K3S $POOL_PATH $IMAGE_PATH $IP_K3S # Temps d'installation (hors téléchargement) : 4-5mn
 ./script/install-vm-download.sh $IP_DOWNLOAD $IP_GATEWAY $IMAGE_PATH $POOL_PATH $IP_K3S # Temps d'installation (hors téléchargement) : 3-4 mn
 
@@ -214,6 +232,10 @@ ssh-keygen -f "$HOME/.ssh/known_hosts" -R $IP_INETSIM 2>/dev/null || true
 ssh-keyscan -H $IP_INETSIM >> "$HOME/.ssh/known_hosts"
 ssh-keygen -f "$HOME/.ssh/known_hosts" -R $IP_DOWNLOAD 2>/dev/null || true
 ssh-keyscan -H $IP_DOWNLOAD >> "$HOME/.ssh/known_hosts"
+
+
+# passage en host-only
+
 
 
 # Afficher les informations de connexion à argocd

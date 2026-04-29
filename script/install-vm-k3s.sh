@@ -10,51 +10,6 @@ CLOUDINIT_PATH="$POOL_PATH/cloudinit"
 IMAGE_PATH=$3
 IP_K3S="$4"
 
-sudo apt install -y \
-  qemu-kvm \
-  libvirt-daemon-system \
-  libvirt-clients \
-  virtinst \
-  virt-manager \
-  openssh-client
-sudo systemctl enable --now libvirtd
-
-if ! groups | grep -q "libvirt"; then
-  sudo usermod -aG libvirt $USER
-  newgrp libvirt # actualiser
-fi
-
-
-
-# Vérifier que virbr0 existe
-if ! ip -d link show virbr0 2>/dev/null | grep -q "bridge"; then
-  echo -e "\n\nerreur: le bridge virbr0 n'existe pas" 1>&2
-  exit 1
-fi
-
-# vérifier que le réseau default existe bien, le créer si non
-if ! virsh net-info default &>/dev/null; then
-  echo -e "\n########################################\n### Installation du réseau 'default' ###\n########################################"
-  cat > "$XML_PATH" <<'EOF'
-<network>
-  <name>default</name>
-  <forward mode='nat'/>
-  <bridge name='virbr0' stp='on' delay='0'/>
-  <mac address='52:54:00:58:e6:ee'/>
-  <ip address='192.168.122.1' netmask='255.255.255.0'>
-    <dhcp>
-      <range start='192.168.122.10' end='192.168.122.254'/>
-    </dhcp>
-  </ip>
-</network>
-EOF
-  virsh net-define "$XML_PATH"
-fi
-# démarrer le réseau
-virsh net-start default &>/dev/null || true
-virsh net-autostart default
-
-
 
 # Vérifier si une VM du même nom existe
 if virsh dominfo "$VM_NAME" >/dev/null 2>&1; then

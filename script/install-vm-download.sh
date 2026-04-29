@@ -14,34 +14,15 @@ IP_K3S="$5"
 SSH_KEY_PATH="$HOME/.ssh/kvm/id_ed25519.pub"
 
 
-if ! groups | grep -q "libvirt"; then
-  sudo usermod -aG libvirt $USER
-  newgrp libvirt
-fi
 
 echo -e "\n######################################\n### Vérification du réseau default ###\n######################################"
 
 
-# Vérifier que le réseau default existe bien, le créer si non
+# Vérifier que le réseau default existe bien
 if ! virsh net-info default &>/dev/null; then
-  XML_PATH=".default-network.xml"
-  cat > "$XML_PATH" <<EOF
-<network>
-  <name>default</name>
-  <forward mode='nat'/>
-  <bridge name='virbr0' stp='on' delay='0'/>
-  <mac address='52:54:00:58:e6:ee'/>
-  <ip address='192.168.122.1' netmask='255.255.255.0'>
-	<dhcp>
-	  <range start='192.168.122.10' end='192.168.122.254'/>
-	</dhcp>
-  </ip>
-</network>
-EOF
-  virsh net-define "$XML_PATH"
+	echo "Erreur, le réseau default n'existe pas"
+	exit 1
 fi
-virsh net-start default &>/dev/null || true
-virsh net-autostart default
 
 # Ajouter l'IP à l'hôte sur le bridge pour accès
 sudo ip addr add $IP_GATEWAY/24 dev virbr0 2>/dev/null || true

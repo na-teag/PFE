@@ -12,23 +12,6 @@ SSH_KEY_PATH="$HOME/.ssh/kvm/id_ed25519.pub"
 ssh-keygen -f "$HOME/.ssh/known_hosts" -R $IP_INETSIM 2>/dev/null || true
 
 # --- Host Infrastructure Check ---
-echo "### [0/4] Setting up 'analysis' network ###"
-
-# Détruire et recréer proprement à chaque fois pour éviter les états incohérents
-sudo virsh net-destroy analysis 2>/dev/null || true
-sudo virsh net-undefine analysis 2>/dev/null || true
-
-cat <<NETEOF > /tmp/analysis-net.xml
-<network>
-  <name>analysis</name>
-  <bridge name="virbr1" stp="on" delay="0"/>
-  <ip address="192.168.40.1" netmask="255.255.255.0"/>
-</network>
-NETEOF
-
-sudo virsh net-define /tmp/analysis-net.xml
-sudo virsh net-start analysis
-sudo virsh net-autostart analysis
 
 # Vérification que virbr1 est bien monté
 if ! ip link show virbr1 &>/dev/null; then
