@@ -8,6 +8,7 @@ POOL="default"
 POOL_PATH="$2"
 CLOUDINIT_PATH="$POOL_PATH/cloudinit"
 IMAGE_PATH=$3
+IP_K3S="$4"
 
 sudo apt install -y \
   qemu-kvm \
@@ -72,7 +73,7 @@ if [ ! -f ~/.ssh/kvm/id_ed25519 ]; then
     echo -e "\n###############################################\n### création d'une clé SSH dans ~/.ssh/kvm/ ###\n###############################################"
     ssh-keygen -t ed25519 -f ~/.ssh/kvm/id_ed25519 -N "" -C ""
 fi
-ssh-keygen -f "$HOME/.ssh/known_hosts" -R 192.168.122.2 2>/dev/null || true
+ssh-keygen -f "$HOME/.ssh/known_hosts" -R $IP_K3S 2>/dev/null || true
 
 
 sudo mkdir -p $CLOUDINIT_PATH/$VM_NAME

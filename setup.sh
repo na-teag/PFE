@@ -51,7 +51,7 @@ if [ ! -f "$IMAGE_PATH" ]; then
 fi
 
 # Installation de la vm k3s
-./script/install-vm-k3s.sh $VM_K3S $POOL_PATH $IMAGE_PATH # Temps d'installation (hors téléchargement) : 4-5mn
+./script/install-vm-k3s.sh $VM_K3S $POOL_PATH $IMAGE_PATH $IP_K3S # Temps d'installation (hors téléchargement) : 4-5mn
 ./script/install-vm-download.sh $IP_DOWNLOAD $IP_GATEWAY $IMAGE_PATH $POOL_PATH $IP_K3S # Temps d'installation (hors téléchargement) : 3-4 mn
 
 # Installation et mise en route de Cuckoo3 et service WEB/API + INetSim
@@ -204,6 +204,16 @@ virsh reboot $INETSIM_NAME
 
 echo -e "\n=== Attente des VMs ==="
 wait_for_VMs
+
+# enregistrer les VMs en tant que known_host après le `dpkg-reconfigure openssh-server` du script de hardening
+ssh-keygen -f "$HOME/.ssh/known_hosts" -R $IP_K3S 2>/dev/null || true
+ssh-keyscan -H $IP_K3S >> "$HOME/.ssh/known_hosts"
+ssh-keygen -f "$HOME/.ssh/known_hosts" -R $IP_CUCKOO 2>/dev/null || true
+ssh-keyscan -H $IP_CUCKOO >> "$HOME/.ssh/known_hosts"
+ssh-keygen -f "$HOME/.ssh/known_hosts" -R $IP_INETSIM 2>/dev/null || true
+ssh-keyscan -H $IP_INETSIM >> "$HOME/.ssh/known_hosts"
+ssh-keygen -f "$HOME/.ssh/known_hosts" -R $IP_DOWNLOAD 2>/dev/null || true
+ssh-keyscan -H $IP_DOWNLOAD >> "$HOME/.ssh/known_hosts"
 
 
 # Afficher les informations de connexion à argocd
