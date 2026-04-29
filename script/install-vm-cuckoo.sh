@@ -6,9 +6,9 @@ set -euo pipefail
 ########################################
 VM_NAME="cuckoo"
 VOL_NAME="${1:-cuckoo.qcow2}"
-POOL="default"
-IP_VM="192.168.122.3"
-IMG="/var/lib/libvirt/images/jammy-server-cloudimg-amd64.img"
+POOL="$2"
+IP_VM="$3"
+IMG="$4"
 
 USER_SSH_DIR="$HOME/.ssh/kvm"
 USER_KEY="$USER_SSH_DIR/id_ed25519_cuckoo"
@@ -89,13 +89,6 @@ mkdir -p "$USER_SSH_DIR"
 rm -f "$USER_KEY" "$USER_KEY_PUB"
 ssh-keygen -t ed25519 -f "$USER_KEY" -N "" -C ""
 
-########################################
-# Télécharger image Ubuntu si nécessaire
-########################################
-if [ ! -f "$IMG" ]; then
-  curl -o "$HOME/jammy.img" https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img
-  sudo mv "$HOME/jammy.img" "$IMG"
-fi
 
 ########################################
 # Créer ISO cloud-init

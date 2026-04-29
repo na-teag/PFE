@@ -3,11 +3,13 @@ set -euo pipefail
 
 # --- Configuration ---
 VM_NAME="inetsim"
-IMAGE_NAME="jammy-server-cloudimg-amd64.img"
-IMAGE_URL="https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
-LIBVIRT_DIR="/var/lib/libvirt/images"
-STATIC_IP="192.168.40.200"
+IMAGE_NAME="$1"
+LIBVIRT_DIR="$2"
+CLOUDINIT_PATH="$LIBVIRT_DIR/cloudinit"
+IP_INETSIM="$3"
 SSH_KEY_PATH="$HOME/.ssh/kvm/id_ed25519.pub"
+
+ssh-keygen -f "$HOME/.ssh/known_hosts" -R $IP_INETSIM 2>/dev/null || true
 
 # --- Host Infrastructure Check ---
 echo "### [0/4] Setting up 'analysis' network ###"
@@ -35,26 +37,20 @@ if ! ip link show virbr1 &>/dev/null; then
 fi
 echo "Network 'analysis' ready (virbr1 @ 192.168.40.1/24)"
 
-echo "### [1/4] Preparing Base Image ###"
-if [ ! -f "$LIBVIRT_DIR/$IMAGE_NAME" ]; then
-    sudo wget -O "$LIBVIRT_DIR/$IMAGE_NAME" "$IMAGE_URL"
-    sudo chmod 644 "$LIBVIRT_DIR/$IMAGE_NAME"
-fi
-
-echo "### [2/4] Cleaning Old Instances ###"
+echo "### [1/3] Cleaning Old Instances ###"
 sudo virsh destroy "$VM_NAME" 2>/dev/null || true
 sudo virsh undefine "$VM_NAME" --remove-all-storage 2>/dev/null || true
 
-echo "### [3/4] Generating Autonomous Cloud-init ###"
-TMP_USERDATA=$(mktemp)
-cat <<EOF > "$TMP_USERDATA"
+echo "### [2/3] Generating Autonomous Cloud-init ###"
+sudo mkdir -p $CLOUDINIT_PATH/$VM_NAME
+sudo tee $CLOUDINIT_PATH/$VM_NAME/user-data > /dev/null <<EOF
 #cloud-config
-hostname: inetsim
+hostname: $VM_NAME
 keyboard:
   layout: fr
   variant: ""
 users:
-  - name: inetsim
+  - name: $VM_NAME
     sudo: ALL=(ALL) NOPASSWD:ALL
     ssh_authorized_keys:
       - $(cat "$SSH_KEY_PATH")
@@ -75,15 +71,14 @@ runcmd:
 
   # Configurer INetSim
   - sed -i 's/^#*service_bind_address.*/service_bind_address 0.0.0.0/' /etc/inetsim/inetsim.conf
-  - sed -i 's/^#*dns_default_ip.*/dns_default_ip $STATIC_IP/' /etc/inetsim/inetsim.conf
+  - sed -i 's/^#*dns_default_ip.*/dns_default_ip $IP_INETSIM/' /etc/inetsim/inetsim.conf
 
   # Démarrer INetSim
   - systemctl enable inetsim
   - systemctl restart inetsim
 EOF
 
-TMP_NETCONFIG=$(mktemp)
-cat <<EOF > "$TMP_NETCONFIG"
+sudo tee $CLOUDINIT_PATH/$VM_NAME/network-config > /dev/null <<EOF
 version: 2
 ethernets:
   enp1s0:
@@ -91,10 +86,25 @@ ethernets:
   enp2s0:
     dhcp4: no
     addresses:
-      - $STATIC_IP/24
+      - $IP_INETSIM/24
 EOF
 
-echo "### [4/4] Deploying VM ###"
+
+sudo tee $CLOUDINIT_PATH/$VM_NAME/meta-data > /dev/null <<EOF
+instance-id: iid-local01
+local-hostname: $VM_NAME
+EOF
+
+
+sudo xorriso -as genisoimage \
+  -output $CLOUDINIT_PATH/$VM_NAME/cloudinit.iso \
+  -volid cidata \
+  -joliet -rock \
+  $CLOUDINIT_PATH/$VM_NAME/user-data \
+  $CLOUDINIT_PATH/$VM_NAME/meta-data \
+  $CLOUDINIT_PATH/$VM_NAME/network-config
+
+echo "### [3/3] Deploying VM ###"
 virt-install \
   --connect qemu:///system \
   --name "$VM_NAME" \
@@ -102,17 +112,18 @@ virt-install \
   --vcpus 2 \
   --cpu host \
   --os-variant ubuntu22.04 \
+  --import \
   --disk size=10,backing_store="$LIBVIRT_DIR/$IMAGE_NAME",bus=virtio \
-  --cloud-init user-data="$TMP_USERDATA",network-config="$TMP_NETCONFIG" \
+  --disk path=$CLOUDINIT_PATH/$VM_NAME/cloudinit.iso,device=cdrom \
   --network network=default,model=virtio,mac=52:54:00:00:00:01 \
   --network network=analysis,model=virtio,mac=52:54:00:00:00:02 \
   --controller type=usb,model=none \
+  --features smm.state=on \
+  --boot uefi,loader.secure=yes \
   --noautoconsole
 
 echo "------------------------------------------------------"
 echo "Deployment started!"
 echo "Please wait 3 minutes for cloud-init to finish."
-echo "Then check with: ssh -i ${SSH_KEY_PATH%.*} inetsim@$STATIC_IP"
+echo "Then check with: ssh -i ${SSH_KEY_PATH%.*} $VM_NAME@$IP_INETSIM"
 echo "------------------------------------------------------"
-
-rm "$TMP_USERDATA" "$TMP_NETCONFIG"
