@@ -57,16 +57,13 @@ virsh net-autostart default
 
 # Vérifier si une VM du même nom existe
 if virsh dominfo "$VM_NAME" >/dev/null 2>&1; then
-    echo -e "\n\nErreur : la VM '$VM_NAME' existe déjà." 1>&2
-    echo "Pour supprimer la VM '$VM_NAME' tapez : virsh destroy $VM_NAME && virsh undefine $VM_NAME"
-    exit 1
+    virsh destroy $VM_NAME >/dev/null 2>&1 || true
+    virsh undefine $VM_NAME >/dev/null 2>&1 || true
 fi
 
 # Vérifier si un volume du même nom existe
 if virsh vol-info --pool "$POOL" "$VOL_NAME" >/dev/null 2>&1; then
-    echo -e "\n\nErreur : le volume '$VOL_NAME' existe déjà dans le pool '$POOL'." 1>&2
-    echo "Pour supprimer le volume '$VOL_NAME' tapez : virsh vol-delete $VM_NAME.qcow2 --pool $POOL"
-    exit 1
+    virsh vol-delete $VM_NAME.qcow2 --pool $POOL >/dev/null
 fi
 
 # Générer une clé ssh
