@@ -97,19 +97,17 @@ version: 2
 ethernets:
   eth0:
     match:
-      macaddress: 52:54:00:00:00:30
+      macaddress: "52:54:00:00:00:30"
     set-name: eth0
-    dhcp4: false
+    dhcp4: no
     addresses:
       - $IP_DOWNLOAD/24
 
   eth1:
     match:
-      macaddress: 52:54:00:00:00:40
+      macaddress: "52:54:00:00:00:40"
     set-name: eth1
-    dhcp4: false
-    addresses:
-      - 192.168.123.3/24
+    dhcp4: yes
     gateway4: 192.168.123.1
 EOF
 
