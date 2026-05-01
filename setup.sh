@@ -251,6 +251,8 @@ ssh -i "$SSH_KEY" -tt "$SSH_TARGET_K3S" 'chmod +x ~/iptables.sh && ~/iptables.sh
 rm -f $TMP_FILE
 ssh -i "$SSH_KEY" -tt "$SSH_TARGET_DOWNLOAD" 'sudo nft -f /etc/nftables.conf && sudo nft add rule inet filter forward iif eth0 oif eth1 drop && sudo nft add rule inet filter forward iif eth1 oif eth0 drop'
 
+ssh-keygen -f "$HOME/.ssh/known_hosts" -R $IP_INETSIM 2>/dev/null || true
+ssh-keyscan -H $IP_INETSIM >> "$HOME/.ssh/known_hosts"
 
 echo -e "\n=== Hardening des VMs ===\n"
 echo -e "\n=== Hardening de k3s ==="
