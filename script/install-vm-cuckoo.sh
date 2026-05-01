@@ -106,6 +106,7 @@ echo "Connexion : ssh -i $USER_KEY $TARGET"
 ########################################
 # Installer automatiquement Cuckoo3 via SSH
 ########################################
+# TODO faire l'attente cloud-init après l'installation des autres VMs pour ne pas attendre pour rien
 
 ssh-keygen -f "$HOME/.ssh/known_hosts" -R $IP_VM 2>/dev/null || true
 
