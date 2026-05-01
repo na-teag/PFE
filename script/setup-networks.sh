@@ -2,8 +2,10 @@
 set -euo pipefail
 
 IP_CUCKOO="$1"
-FUTUR_NETWORK_HOST_ONLY="$2"
-XML_PATH="$3"
+IP_NAT_K3S="$2"
+IP_NAT_DOWNLOAD="$3"
+FUTUR_NETWORK_HOST_ONLY="$4"
+XML_PATH="$5"
 XML_NAT_PATH=".default-nat-network.xml"
 
 # vérifier que le réseau default existe bien, le créer si non
@@ -74,7 +76,7 @@ fi
 # vérifier que le réseau default-nat existe bien, le créer si non
 if ! virsh net-info default-nat &>/dev/null; then
   echo -e "\n########################################\n### Installation du réseau 'default-nat' ###\n########################################"
-  cat > "$XML_NAT_PATH" <<'EOF'
+  cat > "$XML_NAT_PATH" <<EOF
 <network>
   <name>default-nat</name>
   <forward mode='nat'/>
@@ -83,6 +85,8 @@ if ! virsh net-info default-nat &>/dev/null; then
   <ip address='192.168.123.1' netmask='255.255.255.0'>
     <dhcp>
       <range start='192.168.123.10' end='192.168.123.254'/>
+      <host mac='52:54:00:00:00:20' name='k3s' ip='$IP_NAT_K3S'/>
+      <host mac='52:54:00:00:00:40' name='download' ip='$IP_NAT_DOWNLOAD'/>
     </dhcp>
   </ip>
 </network>
