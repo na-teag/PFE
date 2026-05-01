@@ -222,6 +222,36 @@ wait_for_VMs
 sudo cp "${CERT_DIR}/tls.crt" /usr/local/share/ca-certificates/malware-analysis.crt
 sudo update-ca-certificates
 
+
+
+# appliquer les règles d'isolation des réseaux sur les VMs nécessitant internet
+echo -e "\n=== Isoler les réseaux sur les VMs $K3S_NAME et $DOWNLOAD_NAME ==="
+TMP_FILE=$(mktemp)
+cat > $TMP_FILE << 'EOF'
+set -euo pipefail
+
+sudo iptables -C FORWARD -i eth0 -o eth1 -j DROP 2>/dev/null || \
+sudo iptables -A FORWARD -i eth0 -o eth1 -j DROP
+
+sudo iptables -C FORWARD -i eth1 -o eth0 -j DROP 2>/dev/null || \
+sudo iptables -A FORWARD -i eth1 -o eth0 -j DROP
+
+sudo ip6tables -C FORWARD -i eth0 -o eth1 -j DROP 2>/dev/null || \
+sudo ip6tables -A FORWARD -i eth0 -o eth1 -j DROP
+
+sudo ip6tables -C FORWARD -i eth1 -o eth0 -j DROP 2>/dev/null || \
+sudo ip6tables -A FORWARD -i eth1 -o eth0 -j DROP
+
+sudo iptables-save | sudo tee /etc/iptables/rules.v4 >/dev/null
+sudo ip6tables-save | sudo tee /etc/iptables/rules.v6 >/dev/null
+EOF
+
+scp -i "$SSH_KEY" "$TMP_FILE" "${SSH_TARGET_K3S}:~/iptables.sh"
+ssh -i "$SSH_KEY" -tt "$SSH_TARGET_K3S" 'chmod +x ~/iptables.sh && ~/iptables.sh'
+rm -f $TMP_FILE
+ssh -i "$SSH_KEY" -tt "$SSH_TARGET_DOWNLOAD" 'sudo nft -f /etc/nftables.conf && sudo nft add rule inet filter forward iif eth0 oif eth1 drop && sudo nft add rule inet filter forward iif eth1 oif eth0 drop'
+
+
 echo -e "\n=== Hardening des VMs ===\n"
 echo -e "\n=== Hardening de k3s ==="
 scp -i $SSH_KEY "$(pwd)/script/hardening.sh" $SSH_TARGET_K3S:~/hardening.sh
@@ -304,35 +334,6 @@ ssh-keyscan -H $IP_INETSIM >> "$HOME/.ssh/known_hosts"
 ssh-keygen -f "$HOME/.ssh/known_hosts" -R $IP_DOWNLOAD 2>/dev/null || true
 ssh-keyscan -H $IP_DOWNLOAD >> "$HOME/.ssh/known_hosts"
 
-
-
-# appliquer les règles d'isolation des réseaux sur les VMs nécessitant internet
-echo -e "\n=== Isoler les réseaux sur les VMs $K3S_NAME et $DOWNLOAD_NAME ==="
-TMP_FILE=$(mktemp)
-cat > $TMP_FILE << 'EOF'
-set -euo pipefail
-
-sudo iptables -C FORWARD -i eth0 -o eth1 -j DROP 2>/dev/null || \
-sudo iptables -A FORWARD -i eth0 -o eth1 -j DROP
-
-sudo iptables -C FORWARD -i eth1 -o eth0 -j DROP 2>/dev/null || \
-sudo iptables -A FORWARD -i eth1 -o eth0 -j DROP
-
-sudo ip6tables -C FORWARD -i eth0 -o eth1 -j DROP 2>/dev/null || \
-sudo ip6tables -A FORWARD -i eth0 -o eth1 -j DROP
-
-sudo ip6tables -C FORWARD -i eth1 -o eth0 -j DROP 2>/dev/null || \
-sudo ip6tables -A FORWARD -i eth1 -o eth0 -j DROP
-
-sudo iptables-save | sudo tee /etc/iptables/rules.v4
-sudo ip6tables-save | sudo tee /etc/iptables/rules.v6
-EOF
-
-scp -i "$SSH_KEY" "$TMP_FILE" "${SSH_TARGET_DOWNLOAD}:~/iptables.sh"
-ssh -i "$SSH_KEY" -tt "$SSH_TARGET_DOWNLOAD" 'chmod +x ~/iptables.sh && ~/iptables.sh'
-scp -i "$SSH_KEY" "$TMP_FILE" "${SSH_TARGET_K3S}:~/iptables.sh"
-ssh -i "$SSH_KEY" -tt "$SSH_TARGET_K3S" 'chmod +x ~/iptables.sh && ~/iptables.sh'
-rm -f $TMP_FILE
 
 
 # Afficher les informations de connexion à argocd
