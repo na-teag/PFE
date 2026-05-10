@@ -6,6 +6,7 @@ packages:
   - curl
   - sudo
   - git
+  - iptables-persistent
 keyboard:
   layout: fr
   variant: ""

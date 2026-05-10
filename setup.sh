@@ -13,8 +13,10 @@ VM_DOWNLOAD="$DOWNLOAD_NAME.qcow2"
 VM_CUCKOO="$CUCKOO_NAME.qcow2"
 
 IP_K3S="192.168.122.2"
+IP_NAT_K3S="192.168.123.2"
 IP_INETSIM="192.168.40.200"
 IP_DOWNLOAD="192.168.122.15"
+IP_NAT_DOWNLOAD="192.168.123.3"
 IP_CUCKOO="192.168.122.3"
 IP_GATEWAY="192.168.122.1"
 
@@ -34,10 +36,12 @@ POOL_NAME="default"
 POOL_PATH="/var/lib/libvirt/images"
 IMAGE_PATH="$POOL_PATH/$IMAGE_NAME"
 
+NETWORK_HOST_ONLY="default"
+XML_PATH=".$NETWORK_HOST_ONLY-network.xml"
+
 # Ajouter les droits d'éxecution pour tout les scripts
 sudo chmod +x infra/cuckoo3/install.sh
 sudo chmod +x script/*
-sudo rm -rf $POOL_PATH/cloudinit
 
 sudo apt update
 sudo apt install -y \
@@ -47,7 +51,8 @@ sudo apt install -y \
   virtinst \
   virt-manager \
   virt-manager \
-  openssh-client
+  openssh-client \
+  netcat
 sudo systemctl enable --now libvirtd
 
 if ! groups | grep -q "libvirt"; then
@@ -66,7 +71,7 @@ if [ ! -f "$IMAGE_PATH" ]; then
 fi
 
 # Mise en place des réseaux
-./script/setup-networks.sh
+./script/setup-networks.sh $IP_CUCKOO $IP_NAT_K3S $IP_NAT_DOWNLOAD $NETWORK_HOST_ONLY $XML_PATH
 
 # Installation de la vm k3s et download
 ./script/install-vm-k3s.sh $VM_K3S $POOL_PATH $IMAGE_PATH $IP_K3S # Temps d'installation (hors téléchargement) : 4-5mn
@@ -74,17 +79,34 @@ fi
 
 # Installation et mise en route de Cuckoo3 et service WEB/API + INetSim
 ./script/install-vm-inetsim.sh $IMAGE_NAME $POOL_PATH $IP_INETSIM
-./script/install-vm-cuckoo.sh $VM_CUCKOO $POOL_NAME $IP_CUCKOO $IMAGE_PATH
+./script/install-vm-cuckoo.sh $VM_CUCKOO $POOL_NAME $IP_CUCKOO $IMAGE_PATH $POOL_PATH
 
 
-# attendre que les services soient dispo
+# attendre que les services k3s soient dispo
 echo -e "\n\n"
-echo "Merci de patienter jusqu'au démarrage complet des services sur la VM..."
+echo "Merci de patienter jusqu'au démarrage complet des services sur la VM $K3S_NAME..."
+echo -e "\nAttente de la VM"
+while ! nc -z "$IP_K3S" 22 >/dev/null 2>&1; do
+  sleep 2
+  echo -n "."
+done
 echo
 ssh-keyscan -H $IP_K3S >> "$HOME/.ssh/known_hosts"
+
+while true; do
+    STATUS=$(ssh -i ~/.ssh/kvm/id_ed25519 k3s@192.168.122.2 "cloud-init status | cut -d\" \" -f2")
+    if [[ "$STATUS" == "done" ]]; then
+        echo "Cloud-init terminé"
+        break
+    else
+        echo "Cloud-init non terminé ($STATUS), attente..."
+        sleep 10
+    fi
+done
 while true; do
     STATUS=$(curl -sk -o /dev/null -w "%{http_code}" "$URL" || echo "000")
-    PODS=$(ssh -i "$SSH_KEY" "$SSH_TARGET_K3S" "kubectl get pods -n "$NAMESPACE" --no-headers | grep -c "Running"")
+    PODS=$(ssh -i "$SSH_KEY" "$SSH_TARGET_K3S" "kubectl get pods -n $NAMESPACE --no-headers 2>/dev/null | grep -c Running 2>/dev/null || true")
+    PODS=${PODS:-0}
     if [[ "$STATUS" == "200" &&  "$PODS" == "7" ]]; then
         echo "Services disponibles."
         break
@@ -98,7 +120,7 @@ done
 ########################################
 # Configuration des Secrets et Application
 ########################################
-echo "=== Configuration des Secrets et Application ArgoCD ==="
+echo -e "\n=== Configuration des Secrets et Application ArgoCD ==="
 
 # Récupération des clés nécessaires
 echo -e "\n"
@@ -136,7 +158,7 @@ ssh -i "$SSH_KEY" "$SSH_TARGET_K3S" "kubectl delete pod -n "$NAMESPACE" -l app=s
 # Création du certificat TLS si nécessaire
 ########################################
 mkdir -p "$CERT_DIR"
-echo "=== Génération du certificat TLS ==="
+echo -e "\n=== Génération du certificat TLS ==="
 if [[ ! -f "$CERT_DIR/tls.crt" || ! -f "$CERT_DIR/tls.key" ]]; then
     openssl req -x509 -nodes \
     -newkey rsa:4096 \
@@ -148,7 +170,7 @@ if [[ ! -f "$CERT_DIR/tls.crt" || ! -f "$CERT_DIR/tls.key" ]]; then
 fi
 
 # 2. Pousser le Secret TLS sur K3s
-echo "=== Déploiement du Secret TLS ==="
+echo -r "\n=== Déploiement du Secret TLS ==="
 scp -i "$SSH_KEY" "${CERT_DIR}/tls.crt" "${CERT_DIR}/tls.key" "${SSH_TARGET_K3S}:/tmp/"
 ssh -i "$SSH_KEY" "$SSH_TARGET_K3S" "
   kubectl create secret tls api-tls \
@@ -160,7 +182,7 @@ ssh -i "$SSH_KEY" "$SSH_TARGET_K3S" "
 "
 
 
-echo "=== Configuration de Traefik sur le port 443 ==="
+echo -r "\n=== Configuration de Traefik sur le port 443 ==="
 ssh -i "$SSH_KEY" "$SSH_TARGET_K3S" '
   TRAEFIK_SVC=$(kubectl get svc -n kube-system -l app.kubernetes.io/name=traefik -o name | head -1)
   kubectl patch "$TRAEFIK_SVC" -n kube-system --type=merge -p '"'"'{
@@ -180,7 +202,7 @@ wait_for_VMs() {
     while [ ${#targets[@]} -gt 0 ]; do
         for i in "${!targets[@]}"; do
             target=${targets[$i]}
-            if ping -c 1 -W 1 "$target" > /dev/null 2>&1; then
+            if nc -z "$target" 22 >/dev/null 2>&1 ; then
                 echo "[OK] $target répond."
                 unset 'targets[$i]'
             else
@@ -200,28 +222,109 @@ wait_for_VMs
 sudo cp "${CERT_DIR}/tls.crt" /usr/local/share/ca-certificates/malware-analysis.crt
 sudo update-ca-certificates
 
+
+
+# appliquer les règles d'isolation des réseaux sur les VMs nécessitant internet
+echo -e "\n=== Isoler les réseaux sur les VMs $K3S_NAME et $DOWNLOAD_NAME ==="
+TMP_FILE=$(mktemp)
+cat > $TMP_FILE << 'EOF'
+set -euo pipefail
+
+sudo iptables -C FORWARD -i eth0 -o eth1 -j DROP 2>/dev/null || \
+sudo iptables -A FORWARD -i eth0 -o eth1 -j DROP
+
+sudo iptables -C FORWARD -i eth1 -o eth0 -j DROP 2>/dev/null || \
+sudo iptables -A FORWARD -i eth1 -o eth0 -j DROP
+
+sudo ip6tables -C FORWARD -i eth0 -o eth1 -j DROP 2>/dev/null || \
+sudo ip6tables -A FORWARD -i eth0 -o eth1 -j DROP
+
+sudo ip6tables -C FORWARD -i eth1 -o eth0 -j DROP 2>/dev/null || \
+sudo ip6tables -A FORWARD -i eth1 -o eth0 -j DROP
+
+sudo iptables-save | sudo tee /etc/iptables/rules.v4 >/dev/null
+sudo ip6tables-save | sudo tee /etc/iptables/rules.v6 >/dev/null
+EOF
+
+scp -i "$SSH_KEY" "$TMP_FILE" "${SSH_TARGET_K3S}:~/iptables.sh"
+ssh -i "$SSH_KEY" -tt "$SSH_TARGET_K3S" 'chmod +x ~/iptables.sh && ~/iptables.sh'
+rm -f $TMP_FILE
+ssh -i "$SSH_KEY" -tt "$SSH_TARGET_DOWNLOAD" 'sudo nft -f /etc/nftables.conf && sudo nft add rule inet filter forward iif eth0 oif eth1 drop && sudo nft add rule inet filter forward iif eth1 oif eth0 drop'
+
+ssh-keygen -f "$HOME/.ssh/known_hosts" -R $IP_INETSIM 2>/dev/null || true
+ssh-keyscan -H $IP_INETSIM >> "$HOME/.ssh/known_hosts"
+
 echo -e "\n=== Hardening des VMs ===\n"
 echo -e "\n=== Hardening de k3s ==="
 scp -i $SSH_KEY "$(pwd)/script/hardening.sh" $SSH_TARGET_K3S:~/hardening.sh
 ssh -i $SSH_KEY -tt $SSH_TARGET_K3S "chmod +x hardening.sh && sudo ./hardening.sh"
-virsh reboot $K3S_NAME
+virsh shutdown $K3S_NAME
 echo -e "\n=== Hardening de download ==="
 scp -i $SSH_KEY "$(pwd)/script/hardening.sh" $SSH_TARGET_DOWNLOAD:~/hardening.sh
 ssh -i $SSH_KEY -tt $SSH_TARGET_DOWNLOAD "chmod +x hardening.sh && sudo ./hardening.sh"
-virsh reboot $DOWNLOAD_NAME
+virsh shutdown $DOWNLOAD_NAME
 echo -e "\n=== Hardening de cuckoo ==="
 scp -i $SSH_KEY_CUCKOO "$(pwd)/script/hardening.sh" $SSH_TARGET_CUCKOO:~/hardening.sh
 ssh -i $SSH_KEY_CUCKOO -tt $SSH_TARGET_CUCKOO "chmod +x hardening.sh && sudo ./hardening.sh"
-virsh reboot $CUCKOO_NAME
+virsh shutdown $CUCKOO_NAME
 echo -e "\n=== Hardening de inetsim ==="
 scp -i $SSH_KEY "$(pwd)/script/hardening.sh" $SSH_TARGET_INETSIM:~/hardening.sh
 ssh -i $SSH_KEY -tt $SSH_TARGET_INETSIM "chmod +x hardening.sh && sudo ./hardening.sh"
-virsh reboot $INETSIM_NAME
+virsh shutdown $INETSIM_NAME
+
+VMS=("$K3S_NAME" "$DOWNLOAD_NAME" "$CUCKOO_NAME" "$INETSIM_NAME")
+echo "Attente de l'extinction des VMs..."
+while true; do
+    ALL_OFF=true
+    for VM in "${VMS[@]}"; do
+        STATE=$(virsh domstate "$VM" 2>/dev/null)
+        if [[ "$STATE" != "shut off" ]]; then
+            ALL_OFF=false
+            break
+        fi
+    done
+    if $ALL_OFF; then
+        break
+    fi
+    sleep 2
+    echo -n "."
+done
 
 
+
+# passage en host-only
+echo -e "\n\n\n=== Passage du réseau $NETWORK_HOST_ONLY en host-only ==="
+virsh net-destroy $NETWORK_HOST_ONLY
+virsh net-undefine $NETWORK_HOST_ONLY
+
+sudo systemctl restart libvirtd
+cat > $XML_PATH <<EOF
+<network>
+  <name>$NETWORK_HOST_ONLY</name>
+  <bridge name='virbr0' stp='on' delay='0'/>
+  <mac address='52:54:00:58:e6:ee'/>
+  <ip address='192.168.122.1' netmask='255.255.255.0'>
+    <dhcp>
+      <range start='192.168.122.10' end='192.168.122.254'/>
+      <host mac='52:54:00:00:00:03' name='cuckoo' ip='$IP_CUCKOO'/>
+    </dhcp>
+  </ip>
+</network>
+EOF
+virsh net-define $XML_PATH
+virsh net-start $NETWORK_HOST_ONLY
+virsh net-autostart $NETWORK_HOST_ONLY
+
+# redémarrage des VMs
+echo -e "\n=== Redémarrage des VMs ==="
+virsh start $K3S_NAME
+virsh start $CUCKOO_NAME
+virsh start $DOWNLOAD_NAME
+virsh start $INETSIM_NAME
 
 echo -e "\n=== Attente des VMs ==="
 wait_for_VMs
+
 
 # enregistrer les VMs en tant que known_host après le `dpkg-reconfigure openssh-server` du script de hardening
 ssh-keygen -f "$HOME/.ssh/known_hosts" -R $IP_K3S 2>/dev/null || true
@@ -232,9 +335,6 @@ ssh-keygen -f "$HOME/.ssh/known_hosts" -R $IP_INETSIM 2>/dev/null || true
 ssh-keyscan -H $IP_INETSIM >> "$HOME/.ssh/known_hosts"
 ssh-keygen -f "$HOME/.ssh/known_hosts" -R $IP_DOWNLOAD 2>/dev/null || true
 ssh-keyscan -H $IP_DOWNLOAD >> "$HOME/.ssh/known_hosts"
-
-
-# passage en host-only
 
 
 

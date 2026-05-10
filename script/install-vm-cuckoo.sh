@@ -9,6 +9,9 @@ VOL_NAME="${1:-cuckoo.qcow2}"
 POOL="$2"
 IP_VM="$3"
 IMG="$4"
+POOL_PATH="$5"
+USERNAME="cuckoo"
+TARGET="$USERNAME@$IP_VM"
 
 USER_SSH_DIR="$HOME/.ssh/kvm"
 USER_KEY="$USER_SSH_DIR/id_ed25519_cuckoo"
@@ -98,31 +101,35 @@ virt-install \
   --noautoconsole
 
 echo "VM '$VM_NAME' créée : $IP_VM"
-echo "Connexion : ssh -i $USER_KEY cuckoo@$IP_VM"
+echo "Connexion : ssh -i $USER_KEY $TARGET"
 
 ########################################
 # Installer automatiquement Cuckoo3 via SSH
 ########################################
+# TODO faire l'attente cloud-init après l'installation des autres VMs pour ne pas attendre pour rien
 
 ssh-keygen -f "$HOME/.ssh/known_hosts" -R $IP_VM 2>/dev/null || true
 
 echo "Attente de la VM pour SSH..."
-until ssh -o StrictHostKeyChecking=no -i "$USER_KEY" cuckoo@$IP_VM 'echo SSH OK' &>/dev/null; do
+until ssh -o StrictHostKeyChecking=no -i "$USER_KEY" $TARGET 'echo SSH OK' &>/dev/null; do
     echo -n "."
     sleep 5
 done
 echo "VM prête !"
 
+echo "Transfert du script d'installation de Cuckoo3..."
+scp -i "$USER_KEY" "$INSTALL_CUCKOO_SCRIPT" $TARGET:/home/cuckoo/install-cuckoo.sh
+if [ -f "$POOL_PATH/win10x64.iso" ]; then
+    scp -i "$USER_KEY" -o StrictHostKeyChecking=no "$POOL_PATH/win10x64.iso" "$TARGET:/home/cuckoo/win10x64.iso"
+fi
+
 echo "Attente complète de cloud-init dans la VM (cela peut prendre entre 3 et 10 min)..."
-until ssh -o StrictHostKeyChecking=no -i "$USER_KEY" cuckoo@$IP_VM \
+until ssh -o StrictHostKeyChecking=no -i "$USER_KEY" $TARGET \
   'test -f /var/lib/cloud/instance/boot-finished' &>/dev/null; do
     echo "cloud-init en cours..."
     sleep 5
 done
 echo "cloud-init terminé !"
-
-echo "Transfert du script d'installation de Cuckoo3..."
-scp -i "$USER_KEY" "$INSTALL_CUCKOO_SCRIPT" cuckoo@$IP_VM:/home/cuckoo/install-cuckoo.sh
 
 echo "Lancement de l'installation sur la VM..."
 ssh -t -i "$USER_KEY" cuckoo@$IP_VM 'chmod +x ~/install-cuckoo.sh && sudo ~/install-cuckoo.sh'

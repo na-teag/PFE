@@ -19,7 +19,7 @@ declare -A VMS=(
 IMG_DIR="$6"
 
 REQ_GB=0
-echo "--- Vérification de l'espace disque ---"
+echo -e "\n\n\n--- Vérification de l'espace disque ---"
 
 if [[ ! -d "$IMG_DIR" ]]; then
     echo "Dossier inexistant: $IMG_DIR"

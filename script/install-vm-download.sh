@@ -76,6 +76,7 @@ package_update: true
 packages:
   - qemu-system-x86
   - qemu-utils
+  - iptables-persistent
 
 runcmd:
   # Appliquer le hostname
@@ -94,13 +95,20 @@ EOF
 sudo tee $CLOUDINIT_PATH/$VM_NAME/network-config > /dev/null <<EOF
 version: 2
 ethernets:
-  enp1s0:
-    dhcp4: false
+  eth0:
+    match:
+      macaddress: "52:54:00:00:00:30"
+    set-name: eth0
+    dhcp4: no
     addresses:
       - $IP_DOWNLOAD/24
-    gateway4: $IP_GATEWAY
-    nameservers:
-      addresses: [8.8.8.8]
+
+  eth1:
+    match:
+      macaddress: "52:54:00:00:00:40"
+    set-name: eth1
+    dhcp4: yes
+    gateway4: 192.168.123.1
 EOF
 
 
@@ -130,6 +138,8 @@ virt-install \
   --import \
   --disk size=10,backing_store="$IMAGE_PATH",bus=virtio \
   --disk path=$CLOUDINIT_PATH/$VM_NAME/cloudinit.iso,device=cdrom\
+  --network network=default,model=virtio,mac=52:54:00:00:00:30 \
+  --network network=default-nat,model=virtio,mac=52:54:00:00:00:40 \
   --noautoconsole \
   --controller type=usb,model=none \
   --features smm.state=on \

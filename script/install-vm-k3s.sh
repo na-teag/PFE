@@ -1,7 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-XML_PATH=".default-network.xml"
 VM_NAME="k3s"
 VOL_NAME="${1:-k3s.qcow2}"
 POOL="default"
@@ -65,6 +64,8 @@ virt-install \
   --disk \
     size=9,backing_store="$IMAGE_PATH",bus=virtio \
   --disk path=$CLOUDINIT_PATH/$VM_NAME/cloudinit.iso,device=cdrom \
+  --network network=default,model=virtio,mac=52:54:00:00:00:10 \
+  --network network=default-nat,model=virtio,mac=52:54:00:00:00:20 \
   --controller type=usb,model=none \
   --features smm.state=on \
   --boot uefi,loader.secure=yes \

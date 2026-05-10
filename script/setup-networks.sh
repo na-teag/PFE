@@ -1,25 +1,35 @@
-XML_PATH=".default-network.xml"
+#!/bin/bash
+set -euo pipefail
+
+IP_CUCKOO="$1"
+IP_NAT_K3S="$2"
+IP_NAT_DOWNLOAD="$3"
+FUTUR_NETWORK_HOST_ONLY="$4"
+XML_PATH="$5"
 XML_NAT_PATH=".default-nat-network.xml"
 
-# vérifier que le réseau default existe bien, le créer si non
-if ! virsh net-info default &>/dev/null; then
-  echo -e "\n########################################\n### Installation du réseau 'default' ###\n########################################"
-  cat > "$XML_PATH" <<'EOF'
+# recréer le réseau
+if virsh net-info $FUTUR_NETWORK_HOST_ONLY &>/dev/null; then
+	sudo virsh net-destroy $FUTUR_NETWORK_HOST_ONLY 2>/dev/null || true
+    sudo virsh net-undefine $FUTUR_NETWORK_HOST_ONLY 2>/dev/null || true
+fi
+echo -e "\n########################################\n### Installation du réseau 'default' ###\n########################################"
+cat > "$XML_PATH" <<EOF
 <network>
-  <name>default</name>
+  <name>$FUTUR_NETWORK_HOST_ONLY</name>
   <forward mode='nat'/>
   <bridge name='virbr0' stp='on' delay='0'/>
   <mac address='52:54:00:58:e6:ee'/>
   <ip address='192.168.122.1' netmask='255.255.255.0'>
     <dhcp>
       <range start='192.168.122.10' end='192.168.122.254'/>
-      <host mac='52:54:00:00:00:03' name='cuckoo' ip='192.168.122.3'/>
+      <host mac='52:54:00:00:00:03' name='cuckoo' ip='$IP_CUCKOO'/>
     </dhcp>
   </ip>
 </network>
 EOF
-  virsh net-define "$XML_PATH"
-fi
+virsh net-define "$XML_PATH"
+
 # démarrer le réseau default
 virsh net-start default &>/dev/null || true
 virsh net-autostart default
@@ -69,7 +79,7 @@ fi
 # vérifier que le réseau default-nat existe bien, le créer si non
 if ! virsh net-info default-nat &>/dev/null; then
   echo -e "\n########################################\n### Installation du réseau 'default-nat' ###\n########################################"
-  cat > "$XML_NAT_PATH" <<'EOF'
+  cat > "$XML_NAT_PATH" <<EOF
 <network>
   <name>default-nat</name>
   <forward mode='nat'/>
@@ -78,6 +88,8 @@ if ! virsh net-info default-nat &>/dev/null; then
   <ip address='192.168.123.1' netmask='255.255.255.0'>
     <dhcp>
       <range start='192.168.123.10' end='192.168.123.254'/>
+      <host mac='52:54:00:00:00:20' name='k3s' ip='$IP_NAT_K3S'/>
+      <host mac='52:54:00:00:00:40' name='download' ip='$IP_NAT_DOWNLOAD'/>
     </dhcp>
   </ip>
 </network>
