@@ -31,13 +31,13 @@ Installer Packer :
 sudo snap install packer --classic
 ```
 
-## Commandes utiles Terraform et Kubernetes
-Utiliser terraform sans `sudo` : ```bash sudo usermod -aG libvirt $USER``` puis redémarrer
+## Commandes utiles Kubernetes
+Ajouter l'utilisateur au groupe libvirt : ```bash sudo usermod -aG libvirt $USER``` puis redémarrer
 
 Appliquer la configuration avec kubectl : ```bash kubectl apply -k k3s/```
 
 
-### Contrôle des VMs
+## Contrôle des VMs
 
 
 Démarrer une VM : ```bash virsh start k3s```
@@ -60,6 +60,32 @@ Faire un snapshot : ```bash virsh snapshot-create-as k3s snapshot1 "snapshot ava
 Restaurer un snapshot : ```bash virsh snapshot-revert k3s snapshot1```
 
 Supprimer un snapshot : ```bash virsh snapshot-delete k3s snapshot1```
+
+
+### Accéder aux VMs
+
+k3s : `ssh -i ~/.ssh/kvm/id_ed25519 k3s@192.168.122.2` <br>
+cuckoo : `ssh -i ~/.ssh/kvm/id_ed25519_cuckoo cuckoo@192.168.122.3` <br>
+download : `ssh -i ~/.ssh/kvm/id_ed25519 download@192.168.122.15` <br>
+inetsim : `ssh -i ~/.ssh/kvm/id_ed25519 inetsim@192.168.40.200` <br>
+
+
+### Désinstaller tout
+
+```bash
+virsh destroy k3s
+virsh undefine k3s
+virsh destroy cuckoo
+virsh undefine cuckoo
+virsh destroy download
+virsh undefine download
+virsh destroy inetsim
+virsh undefine inetsim
+virsh vol-delete k3s.qcow2 --pool default
+virsh vol-delete inetsim.qcow2 --pool default
+virsh vol-delete download.qcow2 --pool default
+virsh vol-delete cuckoo.qcow2 --pool default
+```
 
 ### Cloud-init
 
@@ -149,43 +175,20 @@ echo ok
 '"
 ```
 
-### Désinstaller tout
-
-```bash
-command=$(ps -aux | grep uvicorn | grep services/sandbox-controller/ebpf)
-[[ -n "$command" ]] && kill -9 $(echo "$command" | awk '{print $2}')
-virsh destroy k3s
-virsh destroy sandbox-ebpf
-virsh undefine k3s
-virsh undefine sandbox-ebpf
-virsh vol-delete k3s.qcow2 --pool default
-virsh vol-delete sandbox-ebpf.qcow2 --pool default
-```
-Pour désinstaller Cuckoo, faites les commandes ci-dessous :
 
 ## Cuckoo3
 
-### Supprimer les fichiers Cuckoo3 :
-
-```bash
-sudo systemctl stop cuckoo-api.service
-sudo systemctl stop cuckoo-web.service
-sudo systemctl stop cuckoo.service
-sudo umount /mnt/win10x64
-sudo rm -rf /home/cuckoo/
-sudo gpasswd -d www-data cuckoo
-sudo deluser cuckoo
-sudo delgroup cuckoo
-sudo rm -rf /opt/cuckoo3/
-```
-
 ### Service web
 
-https://localhost:9090
+Faire un tunel ssh pour pouvoir accéder au port localhost 9090 de la vm cukoo : 
+```bash
+ssh -i ~/.ssh/kvm/id_ed25519 -L 9090:127.0.0.1:9090 cuckoo@192.168.122.3
+```
+Ensuite, rendez-vous sur https://localhost:9090
 
 ### Service API
 
-https://localhost:8080
+https://192.168.122.3:8080
 
 
 ## Tests et validations des services
@@ -260,15 +263,15 @@ Supprimer complètement le job
 curl -k -X DELETE https://192.168.122.2/api/jobs/<job_id> -H "x-api-key: <API_KEY>"
 ```
 
-Pour toutes les commandes précédentes, il est également possible de voir les résultats directement sur l'interface web de l'API depuis cette url : https://192.168.122.2/.
-A noter également qu'il ne faut pas oublier la clé API dans chacune des commandes précendentes sinon l'accès sera refusé.
+À noter également qu'il ne faut pas oublier la clé API dans chacune des commandes précendentes sinon l'accès sera refusé. <br> <br>
+Pour toutes les commandes précédentes, il est aussi possible de voir les résultats directement sur l'interface web de l'API depuis cette url : https://192.168.122.2/.
 
 
 ### Vérification et gestion de Redis
 
 Redis est utilisé comme file de jobs et stockage temporaire des résultats d’analyse.
 
-Vérifier Redis en live (adapter le nom du pod)
+Vérifier Redis en live (adapter le nom du pod, voir la commande "Voir les pods" plus haut)
 ```bash
 kubectl -n malware-analysis exec -it redis-xxx -- redis-cli
 

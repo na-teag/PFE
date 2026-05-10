@@ -1,5 +1,3 @@
-*.terraform/
-*.terraform.lock*
 *.tfstate
 *.tfstate.backup
 *.env

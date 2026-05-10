@@ -1,101 +1,128 @@
-## Diagramme structurel
+## Network Diagram
 
-```mermaid
-flowchart LR
-    
-subgraph HOST
-    subgraph R3[réseau 192.168.30.0/24]
-        subgraph Cuckoo3
-            VM1[sandbox windows 10]
-            VM2[sandbox windows 10]
-            VM3[sandbox windows 10]
-        end
-    end
+<img alt="network_diagram" src="docs/networks-VMs.png" />
 
-    subgraph R2[réseau 192.168.122.0/24]
-        VM4[sandbox linux]
-        subgraph VM5[VM k3s]
-            subgraph C[cluster malware-analysis]
-                P1[api]
-                P2[worker static]
-                P3[worker dynamic]
-                P4[sandbox controller Windows]
-            end
-        end
-    end
-    script[sandbox controller Linux]
-
-    click Cuckoo3 "https://github.com/cert-ee/cuckoo3" "Cuckoo3" _blank
-end
-```
 <hr>
 
 ## Workflow
 
 ```mermaid
+flowchart TB
+    USER -->|1. Upload sample| BLOB[Linux VM Download]
+    BLOB -->|2. Event Grid| FUNC[API curl]
+
+    subgraph LINVIM[Linux VM k3s]
+        QUARANTINE[Quarantine]
+    end
+
+    subgraph LINVM2[Linux VM Cuckoo]
+        CUCKOO[Cuckoo3]
+        WINVM[Windows Guest VM]
+    end
+
+    subgraph LINVM3[Linux VM]
+        INETSIM[INetSim]
+    end
+        
+    FUNC -->|3. Provision and start task| QUARANTINE
+    QUARANTINE -->|4. Send sample| CUCKOO
+    CUCKOO -->|5. Exec sample| WINVM
+    WINVM <-->|6. Network traffic| INETSIM
+    CUCKOO -->|7. Generate report| LINVIM
+
+```
+
+<hr>
+
+## Workflow k3s
+
+```mermaid
 flowchart TD    
     USER-->|curl -k -X POST https://192.168.122.2/api/submit -F ''file=@sample.exe'' -F ''sandbox_os=windows''|API
-    subgraph worker1[worker static]
-        tests[tests YARA]
+    
+    subgraph k3s
+        
+        subgraph worker1[worker static]
+            tests[tests YARA]
+        end
+        API -->|run| worker1
+        worker1 -->|send result| redis
+        worker1 <-->|get result| VT[VirusTotal]
+        API -->|run| worker2[worker dynamic]
+        API -->|create job| redis
+        worker2 --> controller_windows[sandbox controller]
+        worker2 <-->|get result| controller_windows
+        API <-->|get job result| redis
+        worker2 -->|send result| redis
+
     end
-    API -->|run| worker1
-    worker1 -->|send result| redis
-    worker1 <-->|get result| VT[VirusTotal]
-    API -->|run| worker2[worker dynamic]
-    API -->|create job| redis
-    worker2 --> controller_windows[sandbox controller windows]
+    USER <-->|curl -k https://192.168.122.2/api/result/< JOB_ID >| API
     controller_windows --> cuckoo[API Cuckoo3]
-    controller_linux -->|start| sandboxebpf[sandbox linux]
-    controller_linux <-->|get result| sandboxebpf
-    cuckoo -->|start| sandbox[sandbox windows 10]
-    cuckoo <-->|get result| sandbox
     controller_windows <-->|get result| cuckoo
-    worker2 <-->|get result| controller_windows
-    worker2 <-->|get result| controller_linux
-    worker2 --> controller_linux[sandbox controller linux]
-    USER <-->|curl -k https://192.168.122.2/api/result/JOB_ID| API
-    API <-->|get job result| redis
-    worker2 -->|send result| redis
+    
     click VT "https://virustotal.com" "VirusTotal" _blank
     click redis "https://redis.io/" "redis" _blank
     click cuckoo "https://github.com/cert-ee/cuckoo3" "API Cuckoo3" _blank
-   
+
 ```
-<br>
 <hr>
 
-## Installation worflow
+## Sequence Diagram
 
 ```mermaid
-flowchart TD
-    USER --> setup.sh
-    setup.sh --> install-vm-k3s.sh
-    setup.sh --> build_vm.sh
-    setup.sh --> install_cuckoo.sh
-    install_cuckoo.sh --> Cuckoo3
-    subgraph network[network default]
-            subgraph k3s[VM k3s]
-                subgraph services
-                    API
-                    worker1[worker static]
-                    worker2[worker dynamic]
-                    worker3[worker sandbox]
-                end
-                Argocd[Argo CD] --> services
-                clould-init
-            end
-            EBPF[VM EBPF]
-    end
-    install-vm-k3s.sh --> clould-init
-    clould-init --> Argocd
-    install-vm-k3s.sh --> network
-    install-vm-k3s.sh --> k3s
-    build_vm.sh --> EBPF
-    
-    
-    click Cuckoo3 "https://github.com/cert-ee/cuckoo3" "Cuckoo3" _blank
-    click Terraform "https://.terraform.io/" "Terraform" _blank
-    click Argocd "https://argo-cd.readthedocs.io" "Argo CD" _blank
-```
+%%{init: {'theme': 'light'}}%%
+sequenceDiagram
+    actor User
+    participant API
+    participant Redis
+    participant Static Worker
+    participant Sandbox Controller
+    participant KVM/Cuckoo
 
+    
+    rect rgb(240, 240, 245)
+        Note over User,KVM/Cuckoo: Phase 1 — Soumission
+        User->>API: POST /analyze (fichier)
+        API->>Redis: LPUSH job_queue_static + job_queue_sandbox
+        API-->>User: 202 Accepted + job_id
+    end
+
+    
+    rect rgb(235, 248, 242)
+        Note over User,KVM/Cuckoo: Phase 2 — Analyse statique (async)
+        Static Worker->>Redis: BRPOP job_queue_static
+        Static Worker->>Static Worker: Scan YARA + VirusTotal
+        alt success
+            Static Worker->>Redis: SET result:static:{id}
+        else échec scan
+            Static Worker->>Redis: SET result:static:{id} error
+        end
+    end
+
+    rect rgb(242, 238, 252)
+        Note over User,KVM/Cuckoo: Phase 3 — Analyse dynamique (async, parallèle)
+        Sandbox Controller->>Redis: BRPOP job_queue_sandbox
+        Sandbox Controller->>KVM/Cuckoo: Provisionner VM (Win/Linux)
+        KVM/Cuckoo->>KVM/Cuckoo: Exécution du malware
+        KVM/Cuckoo-->>Sandbox Controller: Logs
+        Sandbox Controller->>Redis: SET result:dynamic:{id}
+        Sandbox Controller->>KVM/Cuckoo: Destruction/Snapshot Revert VM
+    end
+
+    
+    rect rgb(255, 248, 220)
+        Note over User,KVM/Cuckoo: Phase 4 — Rapport final
+        User->>API: GET /report/{id}
+        API->>Redis: MGET result:static:{id} + result:dynamic:{id}
+        Redis-->>API: Données brutes JSON
+        API-->>User: Rapport agrégé (JSON/PDF)
+    end
+
+
+```
+<hr>
+
+## Threat modeling diagram
+
+<img width="799" height="796" alt="image" src="docs/threat-modeling-diagram.png" />
 
