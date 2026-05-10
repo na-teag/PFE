@@ -25,6 +25,7 @@ cd PFE
 Le script setup.sh :
 
 - installe les dépendances nécessaires
+- déploie les réseaux
 - déploie une VM avec k3s et installe les services dessus
 - déploie une VM de téléchargement
 - déploie une VM avec INetSim
@@ -32,6 +33,7 @@ Le script setup.sh :
 - initialise les secrets (VirusTotal, Cuckoo API et la clé API) sur la VM k3s
 - créé un certificat TLS
 - applique le script de hardening sur les VMs
+- modifie le réseau principal (122) en host-only
 - ouvre automatiquement l’interface web
 
 Pré-requis :
