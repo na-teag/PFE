@@ -170,7 +170,7 @@ if [[ ! -f "$CERT_DIR/tls.crt" || ! -f "$CERT_DIR/tls.key" ]]; then
 fi
 
 # 2. Pousser le Secret TLS sur K3s
-echo -r "\n=== Déploiement du Secret TLS ==="
+echo -e "\n=== Déploiement du Secret TLS ==="
 scp -i "$SSH_KEY" "${CERT_DIR}/tls.crt" "${CERT_DIR}/tls.key" "${SSH_TARGET_K3S}:/tmp/"
 ssh -i "$SSH_KEY" "$SSH_TARGET_K3S" "
   kubectl create secret tls api-tls \
@@ -182,7 +182,7 @@ ssh -i "$SSH_KEY" "$SSH_TARGET_K3S" "
 "
 
 
-echo -r "\n=== Configuration de Traefik sur le port 443 ==="
+echo -e "\n=== Configuration de Traefik sur le port 443 ==="
 ssh -i "$SSH_KEY" "$SSH_TARGET_K3S" '
   TRAEFIK_SVC=$(kubectl get svc -n kube-system -l app.kubernetes.io/name=traefik -o name | head -1)
   kubectl patch "$TRAEFIK_SVC" -n kube-system --type=merge -p '"'"'{
