@@ -1,6 +1,6 @@
 ## Network Diagram
 
-<img alt="network_diagram" src="docs/networks-VMs.png" />
+<img alt="network_diagram" src="networks-VMs.png" />
 
 <hr>
 
@@ -124,5 +124,5 @@ sequenceDiagram
 
 ## Threat modeling diagram
 
-<img width="799" height="796" alt="image" src="docs/threat-modeling-diagram.png" />
+<img width="799" height="796" alt="image" src="threat-modeling-diagram.png" />
 
